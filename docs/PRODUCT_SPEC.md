@@ -1,6 +1,6 @@
 # Momentum — Product Specification
 
-> Owner: product vision. Status: Phase 0 (foundation). Updated per phase.
+> Owner: product vision. Status: v1 implemented (Phases 1–11 landed; Phase 12 device/build verification open).
 
 ## 1. Concept
 

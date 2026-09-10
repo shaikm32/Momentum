@@ -80,3 +80,35 @@
 - **Chosen:** Proven-stable trio above (AGP 8.7.x ↔ Gradle 8.9 ↔ JDK 17 verified).
 - **Consequences:** First open in Android Studio provisions JDK 17 + SDK 35 +
   `gradle-wrapper.jar`; then run `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest`.
+
+## ADR-11 — Hand-written recurrence codec, no serialization library
+- **Decision:** `RecurrenceCodec` encodes/decodes the type-tagged rule with
+  hand-written builders/parsers instead of adding kotlinx-serialization.
+- **Context:** Payloads are tiny (`days`, `interval`, `dayOfMonth`); a library
+  adds size/build cost for one small job.
+- **Options:** kotlinx-serialization vs `org.json` (Android-only, untestable on
+  JVM) vs hand-written codec.
+- **Chosen:** Hand-written — pure Kotlin, JVM-unit-testable, lenient by design
+  (unknown future tags → Daily, malformed payloads → rule defaults).
+- **Consequences:** Adding a recurrence type must extend the codec + tests.
+
+## ADR-12 — Single reminder per activity in v1 UI
+- **Decision:** The editor exposes one local reminder (time `HH:mm`); the
+  `reminders` table already supports N rows per activity.
+- **Context:** Spec asks for multiple reminders "where useful"; one covers the
+  reminder use case simply while the scheduling architecture proves itself.
+- **Options:** Full multi-reminder editor now vs single now, schema ready for N.
+- **Chosen:** Single now — smaller UI, same scheduler/receiver/worker path.
+- **Consequences:** Multi-reminder UI is additive later; no schema change needed.
+
+## ADR-13 — Bounded completion windows for streak computation
+- **Decision:** Today/Insights/Calendar read completions over trailing windows
+  (730 days for Today streaks, 60 days for Insights, visible grid for Calendar)
+  instead of unbounded full-history queries.
+- **Context:** Streaks need history back to `startDate`, but unbounded queries
+  into Compose state violate the performance budget.
+- **Options:** Full-history observe vs bounded windows.
+- **Chosen:** Bounded windows — streaks beyond 730 days display 730+; documented
+  limitation, revisit only with measured need (paged history query).
+- **Consequences:** `scheduledInRange` callers must pass explicit windows;
+  never `SELECT *` unbounded into UI state.

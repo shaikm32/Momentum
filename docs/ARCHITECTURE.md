@@ -1,6 +1,6 @@
 # Momentum — Architecture
 
-> Status: Phase 0. Single `app` module, Clean Architecture + MVVM.
+> Status: v1 implemented. Single `app` module, Clean Architecture + MVVM.
 
 ## 1. Module strategy
 

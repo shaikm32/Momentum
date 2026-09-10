@@ -1,6 +1,6 @@
 # Momentum — Design System
 
-> Status: Phase 0 direction. Components built in Phase 1.
+> Status: v1 built — 8-theme registry + core components with light/dark previews.
 
 ## 1. Personality
 

@@ -1,6 +1,6 @@
 # Momentum — Data Model (Room, v1 draft)
 
-> Status: Phase 0 design. Implemented in Phase 2. Schema exports → `app/schemas/`.
+> Status: v1 schema (Room version 1) implemented. Schema exports → `app/schemas/`.
 
 ## Conventions
 
