@@ -42,6 +42,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // AGP 8+ no longer generates BuildConfig by default; Settings shows the version.
+        buildConfig = true
     }
     packaging {
         resources {

@@ -42,8 +42,11 @@ class ActivitiesViewModel(private val container: AppContainer) : ViewModel() {
     val state = combine(
         container.activityRepository.observeAll(),
         container.categoryRepository.observeAll(),
-        query, tab, categoryId, sort,
-    ) { activities, categories, q, t, cat, s ->
+        combine(query, tab) { q, t -> q to t },
+        categoryId,
+        sort,
+    ) { activities, categories, queryAndTab, cat, s ->
+        val (q, t) = queryAndTab
         val names = categories.associate { it.id to it.name }
         ActivitiesUiState(
             query = q, tab = t, categoryId = cat, sort = s,

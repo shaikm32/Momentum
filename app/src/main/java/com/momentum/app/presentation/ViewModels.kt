@@ -16,7 +16,8 @@ fun rememberContainer(): AppContainer {
 }
 
 @Suppress("UNCHECKED_CAST")
-private class MomentumFactory<T : ViewModel>(private val create: () -> T) : ViewModelProvider.Factory {
+@PublishedApi
+internal class MomentumFactory<T : ViewModel>(private val create: () -> T) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T = create() as T
 }
 

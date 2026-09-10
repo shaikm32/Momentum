@@ -72,7 +72,7 @@ object RecurrenceEngine {
     }
 
     /**
-     * Scheduled occurrences of [activity] inside [rangeStart..rangeEnd],
+     * Scheduled occurrences of [activity] inside rangeStart..rangeEnd,
      * with start/end window applied. ARCHIVED/PAUSED ⇒ empty.
      */
     fun scheduledInRange(activity: Activity, rangeStart: LocalDate, rangeEnd: LocalDate): List<LocalDate> {

@@ -76,7 +76,7 @@ data class ActivityDetailStats(
     val completed: Set<LocalDate>,
 )
 
-/** Computes detail-screen stats for one activity over [rangeStart..today]. */
+/** Computes detail-screen stats for one activity over rangeStart..today. */
 class ComputeActivityStatsUseCase {
     operator fun invoke(
         activity: Activity,
