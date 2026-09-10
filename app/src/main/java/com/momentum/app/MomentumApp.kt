@@ -1,11 +1,10 @@
 package com.momentum.app
 
 import android.app.Application
+import com.momentum.app.notification.ensureReminderChannel
 
 /**
- * Phase 0 application class.
- *
- * Manual dependency wiring lives here for now (AppContainer).
+ * Application class. Manual dependency wiring lives here (AppContainer).
  * Do NOT introduce Hilt/Koin without an ADR entry in docs/DECISIONS.md.
  */
 class MomentumApp : Application() {
@@ -16,5 +15,6 @@ class MomentumApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(applicationContext)
+        ensureReminderChannel(this)
     }
 }

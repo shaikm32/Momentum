@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Momentum</string>
+    <string name="reminder_channel_name">Reminders</string>
+    <string name="reminder_channel_desc">Gentle nudges for your scheduled activities.</string>
+    <string name="reminder_tap_to_open">Tap to view your activity.</string>
+    <string name="action_mark_done">Mark done</string>
 </resources>

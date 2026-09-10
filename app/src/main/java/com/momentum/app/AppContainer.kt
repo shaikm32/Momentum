@@ -1,15 +1,80 @@
 package com.momentum.app
 
 import android.content.Context
+import androidx.room.Room
+import com.momentum.app.data.datastore.DataStoreSettingsRepository
+import com.momentum.app.data.local.MomentumDatabase
+import com.momentum.app.data.repository.DefaultCategories
+import com.momentum.app.data.repository.RoomActivityRepository
+import com.momentum.app.data.repository.RoomCategoryRepository
+import com.momentum.app.data.repository.RoomCompletionRepository
+import com.momentum.app.data.repository.RoomReminderRepository
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.CategoryRepository
+import com.momentum.app.domain.repository.CompletionRepository
+import com.momentum.app.domain.repository.ReminderRepository
+import com.momentum.app.domain.repository.SettingsRepository
+import com.momentum.app.domain.usecase.ComputeActivityStatsUseCase
+import com.momentum.app.domain.usecase.GetTodayScheduleUseCase
+import com.momentum.app.domain.usecase.ToggleCompletionUseCase
+import com.momentum.app.notification.ReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
- * Manual service locator for Phase 0.
- *
- * Room / DataStore / repositories will be wired here in Phase 2.
- * Keep this boring and explicit — no reflection, no DI framework.
+ * Manual service locator (ADR-09). Explicit, zero dependencies, no reflection.
+ * Room / DataStore / repositories / use cases are wired here.
  */
 class AppContainer(private val context: Context) {
-    // Phase 2: val database: MomentumDatabase by lazy { ... }
-    // Phase 2: val activityRepository: ActivityRepository by lazy { ... }
-    // Phase 10: val themeRepository: ThemeRepository by lazy { ... }
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    val database: MomentumDatabase by lazy {
+        Room.databaseBuilder(context, MomentumDatabase::class.java, "momentum.db")
+            // Pre-1.0: destructive fallback is a conscious choice (see DATA_MODEL.md);
+            // post-1.0 every schema change ships a real Migration.
+            .fallbackToDestructiveMigration()
+            .build()
+    }
+
+    val activityRepository: ActivityRepository by lazy {
+        RoomActivityRepository(database.activityDao())
+    }
+
+    val completionRepository: CompletionRepository by lazy {
+        RoomCompletionRepository(database.completionDao())
+    }
+
+    val categoryRepository: CategoryRepository by lazy {
+        RoomCategoryRepository(database.categoryDao())
+    }
+
+    val reminderRepository: ReminderRepository by lazy {
+        RoomReminderRepository(database.reminderDao())
+    }
+
+    val settingsRepository: SettingsRepository by lazy {
+        DataStoreSettingsRepository(context)
+    }
+
+    val getTodaySchedule: GetTodayScheduleUseCase by lazy { GetTodayScheduleUseCase() }
+    val computeActivityStats: ComputeActivityStatsUseCase by lazy { ComputeActivityStatsUseCase() }
+    val toggleCompletion: ToggleCompletionUseCase by lazy { ToggleCompletionUseCase(completionRepository) }
+
+    val reminderScheduler: ReminderScheduler by lazy {
+        ReminderScheduler.create(context)
+    }
+
+    init {
+        // Seed default categories once (idempotent: only when the table is empty).
+        appScope.launch {
+            runCatching {
+                if (categoryRepository.all().isEmpty()) {
+                    DefaultCategories.forEach { categoryRepository.upsert(it) }
+                }
+            }
+        }
+    }
 }

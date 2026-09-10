@@ -7,6 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.momentum.app.domain.model.DarkModeSetting
 
 val LocalMomentumColors = staticCompositionLocalOf { AuroraDark }
 
@@ -16,16 +17,24 @@ object MomentumThemeColors {
 }
 
 /**
- * Phase 0 theme entry point. Wraps Material3 so the full design system
- * (Phase 1) has a single seam to extend. No hardcoded colors in screens —
- * read from [LocalMomentumColors].
+ * Theme entry point. Screens read semantic tokens from [LocalMomentumColors] —
+ * never hardcode colors. Theme selection persists via DataStore (Phase 10);
+ * [themeId] + [darkMode] come from [com.momentum.app.domain.model.AppSettings].
  */
 @Composable
 fun MomentumTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeId: String = "aurora",
+    darkMode: DarkModeSetting = DarkModeSetting.SYSTEM,
+    systemDark: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val momentum = if (darkTheme) AuroraDark else AuroraLight
+    val definition = themeById(themeId)
+    val darkTheme = when (darkMode) {
+        DarkModeSetting.SYSTEM -> systemDark
+        DarkModeSetting.LIGHT -> false
+        DarkModeSetting.DARK -> true
+    }
+    val momentum = if (darkTheme) definition.dark else definition.light
     val material = if (darkTheme) {
         darkColorScheme(
             primary = momentum.primary,
