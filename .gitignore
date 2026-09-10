@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+app/build/
+local.properties
+# NOTE: app/schemas/*.json (Room schema exports) ARE committed intentionally.
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Kotlin
+*.class
+
+# Keystores — NEVER commit signing keys or secrets.
+*.jks
+*.keystore
+*.p8
+google-services.json
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Node (docs tooling, if any)
+node_modules/
