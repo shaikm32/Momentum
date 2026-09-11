@@ -7,8 +7,8 @@ import java.time.LocalDateTime
 
 /**
  * Local-only reminder scheduling (ADR-07): exact fire via AlarmManager,
- * resilient resync via WorkManager ([RescheduleWorker]), reboot recovery via
- * [BootReceiver]. No FCM — fully offline.
+ * resilient resync via WorkManager ([RescheduleWorker]), reboot/timezone
+ * recovery via [SystemEventReceiver]. No FCM — fully offline.
  *
  * P0#2/P0#3: fire times come from [ReminderPlanner] (recurrence-aware), and
  * every (re)schedule is cancel-then-set through [syncActivityAlarms] against

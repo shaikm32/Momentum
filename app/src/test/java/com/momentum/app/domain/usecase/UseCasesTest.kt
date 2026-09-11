@@ -53,11 +53,51 @@ class GetTodayScheduleUseCaseTest {
             ),
         )
         val friday = LocalDate.of(2026, 1, 9)
-        val done = mapOf(7L to setOf(monday, LocalDate.of(2026, 1, 7), friday))
+        val done = mapOf(
+            7L to mapOf(
+                monday to 1.0,
+                LocalDate.of(2026, 1, 7) to 1.0,
+                friday to 1.0,
+            ),
+        )
         val items = useCase(friday, listOf(mwf), done)
         assertEquals(1, items.size)
         assertTrue(items[0].completed)
         assertEquals(3, items[0].currentStreak)
+    }
+
+    @Test
+    fun `completion value flows through instead of hardcoded 1_0`() {
+        val water = Activity(
+            id = 9,
+            title = "Water",
+            startDate = monday,
+            targetPerOccurrence = 8.0,
+            unit = "glasses",
+        )
+        val items = useCase(
+            monday,
+            listOf(water),
+            mapOf(9L to mapOf(monday to 5.0)),
+        )
+        assertEquals(1, items.size)
+        assertTrue(items[0].completed)
+        assertEquals(5.0, items[0].completionValue, 0.0)
+    }
+
+    @Test
+    fun `missing completion reports zero value and not completed`() {
+        val water = Activity(
+            id = 9,
+            title = "Water",
+            startDate = monday,
+            targetPerOccurrence = 8.0,
+            unit = "glasses",
+        )
+        val items = useCase(monday, listOf(water), emptyMap())
+        assertEquals(1, items.size)
+        assertFalse(items[0].completed)
+        assertEquals(0.0, items[0].completionValue, 0.0)
     }
 }
 

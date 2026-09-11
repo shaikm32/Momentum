@@ -122,8 +122,7 @@ fun ActivityCard(
 }
 
 /** Human schedule line for cards/details ("Daily", "Mon · Wed · Fri", "Every 3 days", …). */
-fun recurrenceLabel(recurrence: Recurrence): String = when (recurrence) {
-    is Recurrence.Once -> "One-time"
+fun recurrenceLabel(recurrence: Recurrence): String = when (recurrence) {    is Recurrence.Once -> "One-time"
     is Recurrence.Daily -> "Daily"
     is Recurrence.Weekdays -> "Weekdays"
     is Recurrence.SelectedWeekdays -> recurrence.days.sorted()
@@ -132,6 +131,20 @@ fun recurrenceLabel(recurrence: Recurrence): String = when (recurrence) {
     is Recurrence.Weekly -> "Weekly"
     is Recurrence.EveryNWeeks -> if (recurrence.n == 1) "Weekly" else "Every ${recurrence.n} weeks"
     is Recurrence.Monthly -> "Monthly"
+}
+
+/** Compact amount without a trailing ".0" ("8" not "8.0", "2.5" stays). */
+fun formatAmount(value: Double): String =
+    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
+
+/**
+ * P2#2: "5/8 glasses" suffix for activities with an explicit target, else null.
+ * Data exposure only — plain activities (target 1 × no unit) show nothing extra.
+ */
+fun targetProgressLabel(activity: Activity, value: Double): String? {
+    if (activity.targetPerOccurrence == 1.0 && activity.unit.isBlank()) return null
+    val unit = if (activity.unit.isBlank()) "" else " ${activity.unit}"
+    return "${formatAmount(value)}/${formatAmount(activity.targetPerOccurrence)}$unit"
 }
 
 @Preview(name = "ActivityCard light")

@@ -71,7 +71,9 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
     fun toggle(activityId: Long) {
         val today = LocalDate.now()
         viewModelScope.launch {
-            runCatching { container.toggleCompletion(activityId, today) }
+            // P2#2: a "done" tap records the full target (8/8), not 1.0.
+            val target = container.activityRepository.getById(activityId)?.targetPerOccurrence ?: 1.0
+            runCatching { container.toggleCompletion(activityId, today, target) }
                 .onFailure { effects.send(TodayEffect.ShowMessage("Couldn't save — try again.")) }
         }
     }
@@ -84,7 +86,7 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
     ): TodayUiState {
         return try {
             val byActivity = completions.groupBy { it.activityId }
-                .mapValues { (_, recs) -> recs.map { it.occurrenceDate.toLocalDate() }.toSet() }
+                .mapValues { (_, recs) -> recs.associate { it.occurrenceDate.toLocalDate() to it.value } }
             val items = container.getTodaySchedule(today, activities, byActivity)
             val done = items.count { it.completed }
             val progress = if (items.isEmpty()) 0f else done.toFloat() / items.size

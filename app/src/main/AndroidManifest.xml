@@ -31,11 +31,15 @@
         <receiver
             android:name=".notification.CompleteActionReceiver"
             android:exported="false" />
+        <!-- Recovery: reboot (alarms don't survive) + timezone/clock changes
+             (wall-clock alarms shift meaning). All trigger the central resync. -->
         <receiver
-            android:name=".notification.BootReceiver"
+            android:name=".notification.SystemEventReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
             </intent-filter>
         </receiver>
     </application>

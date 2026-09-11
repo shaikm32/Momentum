@@ -136,17 +136,39 @@ class CompleteActionReceiver : BroadcastReceiver() {
     }
 }
 
-/** After reboot: re-arm every enabled reminder (alarms don't survive restarts). */
-class BootReceiver : BroadcastReceiver() {
+/**
+ * P2#3: system-event entry point for reminder recovery. Handles reboot
+ * (alarms don't survive restarts) and timezone/manual-clock changes
+ * (RTC_WAKEUP wall-clock alarms shift meaning when local time changes).
+ * Every path enqueues the central [RescheduleWorker] — no scheduling logic is
+ * duplicated here. The worker re-arms per activity through the idempotent,
+ * recurrence-aware [ReminderScheduler.scheduleForActivity], so recovery can
+ * never duplicate alarms and paused/archived/deleted activities stay silent.
+ *
+ * Device verification still required (see final report): change the device
+ * timezone with an armed reminder and confirm it still fires at the correct
+ * local wall-clock time, exactly once.
+ */
+class SystemEventReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        WorkManager.getInstance(context).enqueue(
-            OneTimeWorkRequestBuilder<RescheduleWorker>()
-                .setInitialDelay(30, TimeUnit.SECONDS)
-                .build(),
-        )
+        if (!shouldResyncOnSystemBroadcast(intent.action)) return
+        val builder = OneTimeWorkRequestBuilder<RescheduleWorker>()
+        // Boot needs settling time; clock changes should re-arm promptly.
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            builder.setInitialDelay(30, TimeUnit.SECONDS)
+        }
+        WorkManager.getInstance(context).enqueue(builder.build())
     }
 }
+
+/**
+ * Pure dispatch predicate (unit-tested): only these system broadcasts invalidate
+ * armed wall-clock alarms. DATE_CHANGED (midnight rollover) is excluded — it
+ * does not move already-armed RTC instants.
+ */
+fun shouldResyncOnSystemBroadcast(action: String?): Boolean = action == Intent.ACTION_BOOT_COMPLETED ||
+    action == Intent.ACTION_TIMEZONE_CHANGED ||
+    action == Intent.ACTION_TIME_CHANGED
 
 /** Re-reads all enabled reminders from Room and re-arms them. Idempotent. */
 class RescheduleWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {

@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.ActivityCard
 import com.momentum.app.presentation.components.recurrenceLabel
+import com.momentum.app.presentation.components.targetProgressLabel
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import java.time.LocalDate
@@ -104,9 +105,10 @@ fun CalendarScreen(
         }
         item {
             Row(modifier = Modifier.fillMaxWidth()) {
-                listOf("M", "T", "W", "T", "F", "S", "S").forEach { d ->
+                // Same single-letter glyphs as before; order follows WeekStart.
+                state.weekDays.forEach { day ->
                     Text(
-                        d, modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                        day.name.take(1), modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
                         color = c.textSecondary, style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -140,7 +142,12 @@ fun CalendarScreen(
                 activity = item.activity,
                 completed = item.completed,
                 streak = item.currentStreak,
-                scheduleLabel = recurrenceLabel(item.activity.recurrence),
+                scheduleLabel = buildString {
+                    append(recurrenceLabel(item.activity.recurrence))
+                    // P2#2: show stored progress ("5/8 glasses", "0/8 glasses").
+                    val shown = if (item.completed) item.completionValue else 0.0
+                    targetProgressLabel(item.activity, shown)?.let { append(" · $it") }
+                },
                 onToggle = { onToggle(item.activity.id) },
                 onOpen = { onOpen(item.activity.id) },
             )

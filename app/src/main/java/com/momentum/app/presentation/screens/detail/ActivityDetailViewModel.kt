@@ -65,7 +65,9 @@ class ActivityDetailViewModel(
 
     fun toggleToday() {
         viewModelScope.launch {
-            runCatching { container.toggleCompletion(activityId, LocalDate.now()) }
+            // P2#2: a "done" tap records the full target (8/8), not 1.0.
+            val target = container.activityRepository.getById(activityId)?.targetPerOccurrence ?: 1.0
+            runCatching { container.toggleCompletion(activityId, LocalDate.now(), target) }
                 .onFailure { effects.send(DetailEffect.ShowMessage("Couldn't save — try again.")) }
         }
     }

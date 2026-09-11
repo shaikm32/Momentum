@@ -27,26 +27,32 @@ data class TodayItem(
 /**
  * Builds today's schedule from active activities whose rule matches [date].
  * Pure orchestration over repository snapshots — the date math stays in the engine.
+ *
+ * P2#2: completions carry their stored values (date -> value), so a 5/8
+ * partial completion flows through as 5.0 instead of being flattened to 1.0.
+ * Presence in the map still defines [TodayItem.completed] (and therefore
+ * streak/analytics membership) — any logged progress counts; the value only
+ * describes *how much*.
  */
 class GetTodayScheduleUseCase {
     operator fun invoke(
         date: LocalDate,
         activities: List<Activity>,
-        completionsByActivity: Map<Long, Set<LocalDate>>,
+        completionsByActivity: Map<Long, Map<LocalDate, Double>>,
     ): List<TodayItem> {
         val iso = date.toIso()
         return activities
             .filter { it.status == ActivityStatus.ACTIVE && RecurrenceEngine.isScheduled(it, date) }
             .map { activity ->
-                val completedSet = completionsByActivity[activity.id].orEmpty()
+                val completedValues = completionsByActivity[activity.id].orEmpty()
                 val scheduledToDate = RecurrenceEngine.scheduledInRange(
                     activity, activity.startDate, date,
                 )
                 TodayItem(
                     activity = activity,
-                    completed = date in completedSet,
-                    completionValue = 1.0,
-                    currentStreak = StreakEngine.currentStreak(scheduledToDate, completedSet),
+                    completed = date in completedValues,
+                    completionValue = completedValues[date] ?: 0.0,
+                    currentStreak = StreakEngine.currentStreak(scheduledToDate, completedValues.keys),
                 )
             }
             .sortedWith(compareByDescending<TodayItem> { it.activity.priority }.thenBy { it.activity.title })

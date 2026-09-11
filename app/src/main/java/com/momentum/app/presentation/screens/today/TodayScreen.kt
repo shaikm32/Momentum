@@ -37,6 +37,7 @@ import com.momentum.app.presentation.components.ActivityCard
 import com.momentum.app.presentation.components.EmptyState
 import com.momentum.app.presentation.components.ProgressOrb
 import com.momentum.app.presentation.components.recurrenceLabel
+import com.momentum.app.presentation.components.targetProgressLabel
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.MomentumThemeColors
@@ -173,6 +174,9 @@ fun TodayScreen(
                     streak = item.currentStreak,
                     scheduleLabel = buildString {
                         append(recurrenceLabel(item.activity.recurrence))
+                        // P2#2: show stored progress ("5/8 glasses", "0/8 glasses").
+                        val shown = if (item.completed) item.completionValue else 0.0
+                        targetProgressLabel(item.activity, shown)?.let { append(" · $it") }
                         if (item.currentStreak > 1) append(" · ${item.currentStreak} in a row")
                     },
                     onToggle = { onToggle(item.activity.id) },

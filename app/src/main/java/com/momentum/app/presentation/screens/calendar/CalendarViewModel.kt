@@ -6,9 +6,11 @@ import com.momentum.app.AppContainer
 import com.momentum.app.domain.engine.RecurrenceEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
+import com.momentum.app.domain.model.WeekStart
 import com.momentum.app.domain.usecase.TodayItem
 import com.momentum.app.domain.usecase.toIso
 import com.momentum.app.domain.usecase.toLocalDate
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,7 +39,32 @@ data class CalendarUiState(
     val cells: List<DayCell> = emptyList(),
     val selectedDate: LocalDate = LocalDate.now(),
     val selectedItems: List<TodayItem> = emptyList(),
+    val weekStart: WeekStart = WeekStart.MONDAY,
+    /** The 7 weekdays in display order, starting at [weekStart]. */
+    val weekDays: List<DayOfWeek> = orderedWeekDays(WeekStart.MONDAY),
 )
+
+/**
+ * P2#1: pure calendar-presentation helpers (no Android dependencies, unit-tested).
+ * Only ordering changes with [WeekStart]; dates keep their meaning.
+ */
+
+/** Monday..Sunday or Sunday..Saturday, starting at [weekStart]. */
+fun orderedWeekDays(weekStart: WeekStart): List<DayOfWeek> {
+    val start = if (weekStart == WeekStart.SUNDAY) DayOfWeek.SUNDAY else DayOfWeek.MONDAY
+    return (0..6).map { start.plus(it.toLong()) }
+}
+
+/** First visible grid date for [month]: backs up to the nearest [weekStart] day. */
+fun gridStartForMonth(month: YearMonth, weekStart: WeekStart): LocalDate {
+    val first = month.atDay(1)
+    val back = if (weekStart == WeekStart.SUNDAY) {
+        first.dayOfWeek.value % 7 // Mon->1 … Sat->6, Sun->0
+    } else {
+        first.dayOfWeek.value - 1 // Mon->0 … Sun->6
+    }
+    return first.minusDays(back.toLong())
+}
 
 class CalendarViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -48,18 +75,25 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
     val messages = messagesChannel.receiveAsFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state = monthOffset.flatMapLatest { offset ->
-        val month = YearMonth.now().plusMonths(offset.toLong())
-        val gridStart = month.atDay(1).minusDays(((month.atDay(1).dayOfWeek.value - 1) % 7).toLong())
-        val gridEnd = gridStart.plusDays(41)
-        combine(
-            container.activityRepository.observeAll(),
-            container.completionRepository.observeInRange(gridStart.toIso(), gridEnd.toIso()),
-            selected,
-        ) { activities, completions, sel ->
-            buildState(month, activities, completions, sel, gridStart)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CalendarUiState())
+    val state = combine(
+        monthOffset,
+        container.settingsRepository.observe(),
+    ) { offset, settings -> offset to settings.weekStart }
+        .flatMapLatest { (offset, weekStart) ->
+            val month = YearMonth.now().plusMonths(offset.toLong())
+            // Grid bounds derive from the persisted preference (single source
+            // of truth: DataStore), so a WeekStart change re-queries immediately
+            // and survives restarts. Dates keep their meaning; only order shifts.
+            val gridStart = gridStartForMonth(month, weekStart)
+            val gridEnd = gridStart.plusDays(41)
+            combine(
+                container.activityRepository.observeAll(),
+                container.completionRepository.observeInRange(gridStart.toIso(), gridEnd.toIso()),
+                selected,
+            ) { activities, completions, sel ->
+                buildState(month, activities, completions, sel, gridStart, weekStart)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CalendarUiState())
 
     fun shiftMonth(delta: Long) {
         monthOffset.update { it + delta.toInt() }
@@ -78,7 +112,9 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
     /** Toggles the selected day's occurrence (never a future-or-past fake). */
     fun toggle(activityId: Long, date: LocalDate) {
         viewModelScope.launch {
-            runCatching { container.toggleCompletion(activityId, date) }
+            // P2#2: a "done" tap records the full target (8/8), not 1.0.
+            val target = container.activityRepository.getById(activityId)?.targetPerOccurrence ?: 1.0
+            runCatching { container.toggleCompletion(activityId, date, target) }
                 .onFailure { messagesChannel.send("Couldn't save — try again.") }
         }
     }
@@ -89,10 +125,11 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
         completions: List<com.momentum.app.domain.model.CompletionRecord>,
         sel: LocalDate,
         gridStart: LocalDate,
+        weekStart: WeekStart,
     ): CalendarUiState {
         val live = activities.filter { it.status != ActivityStatus.ARCHIVED }
         val byActivity = completions.groupBy { it.activityId }
-            .mapValues { (_, recs) -> recs.map { it.occurrenceDate.toLocalDate() }.toSet() }
+            .mapValues { (_, recs) -> recs.associate { it.occurrenceDate.toLocalDate() to it.value } }
         val cells = (0..41).map { back ->
             val date = gridStart.plusDays(back.toLong())
             var scheduled = 0
@@ -108,6 +145,14 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
             DayCell(date, date.month == month.month, scheduled, done)
         }
         val selectedItems = container.getTodaySchedule(sel, live.filter { it.status == ActivityStatus.ACTIVE }, byActivity)
-        return CalendarUiState(month, LocalDate.now(), cells, sel, selectedItems)
+        return CalendarUiState(
+            month = month,
+            today = LocalDate.now(),
+            cells = cells,
+            selectedDate = sel,
+            selectedItems = selectedItems,
+            weekStart = weekStart,
+            weekDays = orderedWeekDays(weekStart),
+        )
     }
 }

@@ -85,7 +85,8 @@ class ActivitiesViewModel(private val container: AppContainer) : ViewModel() {
                 messagesChannel.send("Not scheduled today.")
                 return@launch
             }
-            runCatching { container.toggleCompletion(id, today) }
+            // P2#2: a "done" tap records the full target (8/8), not 1.0.
+            runCatching { container.toggleCompletion(id, today, activity.targetPerOccurrence) }
                 .onFailure { messagesChannel.send("Couldn't save — try again.") }
         }
     }
