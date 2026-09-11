@@ -1,9 +1,13 @@
 package com.momentum.app.presentation.screens.onboarding
 
+import android.app.Activity as SystemActivity
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -14,18 +18,31 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -33,27 +50,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.momentum.app.AppContainer
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.Recurrence
-import com.momentum.app.presentation.components.MomentumButton
+import com.momentum.app.presentation.components.ProgressOrb
 import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.MomentumDurations
-import com.momentum.app.presentation.theme.MomentumHeights
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
-import com.momentum.app.presentation.theme.MomentumThemeColors
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -78,155 +94,387 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
-private data class OnboardingPage(
-    val iconKey: String,
-    val title: String,
+private data class OnboardingPageData(
+    val scene: OnboardingScene,
+    val headline: String,
     val body: String,
 )
 
 private val Pages = listOf(
-    OnboardingPage(
-        iconKey = "spark",
-        title = "Small steps, unstoppable momentum.",
-        body = "Track habits, routines, tasks, and medicines in one calm place.",
+    OnboardingPageData(
+        scene = OnboardingScene.WELCOME,
+        headline = "A better you starts with a small step.",
+        body = "Build healthy habits, track progress, and create the life you want.",
     ),
-    OnboardingPage(
-        iconKey = "timer",
-        title = "Your progress, visualized.",
-        body = "Streaks, trends, and a calendar heatmap show consistency building.",
+    OnboardingPageData(
+        scene = OnboardingScene.FEATURES,
+        headline = "Track what matters.",
+        body = "Habits, routines, tasks and medicines — all in one calm and powerful app.",
     ),
-    OnboardingPage(
-        iconKey = "home",
-        title = "Private by design.",
-        body = "Everything stays on your device. No account, no cloud, works offline.",
+    OnboardingPageData(
+        scene = OnboardingScene.PROGRESS,
+        headline = "Stay consistent.",
+        body = "Visual progress, streaks and insights help you keep going, day after day.",
+    ),
+    OnboardingPageData(
+        scene = OnboardingScene.BENEFITS,
+        headline = "Small changes. Big results.",
+        body = "A more focused, healthier and happier you is built through consistent, small steps.",
+    ),
+    OnboardingPageData(
+        scene = OnboardingScene.FINAL,
+        headline = "Ready to build your momentum?",
+        body = "Your journey to a brighter tomorrow starts now.",
     ),
 )
 
-/** Short, skippable onboarding → straight into creating the first activity. */
+/**
+ * Immersive full-bleed onboarding. Functional contract is unchanged from the
+ * previous implementation: page state advances with Continue, Skip finishes
+ * without examples, and the final CTA completes onboarding — all through
+ * [OnboardingViewModel.finish], which persists `onboardingDone`.
+ */
 @Composable
 fun OnboardingRoute(onDone: () -> Unit) {
     val vm: OnboardingViewModel = momentumViewModel { OnboardingViewModel(it) }
     var page by remember { mutableIntStateOf(0) }
-    val c = MomentumThemeColors.current
     val reduceMotion = rememberReduceMotion(null)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(
-                horizontal = MomentumSpacing.screen,
-                vertical = MomentumSpacing.section,
-            ),
-        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
-    ) {
-        Spacer(Modifier.weight(0.3f))
-        // Floating hero orb: glass disc with a soft primary glow. The ambient
-        // background shines through — first impression, not a marketing card.
-        Box(
-            modifier = Modifier
-                .size(112.dp)
-                .shadow(
-                    elevation = 20.dp,
-                    shape = CircleShape,
-                    ambientColor = Color.Black.copy(alpha = 0.35f),
-                    spotColor = c.primary.copy(alpha = 0.4f),
-                )
-                .clip(CircleShape)
-                .background(
-                    brush = Brush.radialGradient(
-                        0f to Color.White.copy(alpha = 0.16f),
-                        0.55f to c.surface.copy(alpha = 0.5f),
-                        1f to c.surface.copy(alpha = 0.72f),
-                    ),
-                    shape = CircleShape,
-                )
-                .border(
-                    BorderStroke(Dp.Hairline, Color.White.copy(alpha = 0.25f)),
-                    CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = momentumIcon(Pages[page].iconKey),
-                contentDescription = null,
-                tint = c.primary,
-                modifier = Modifier.size(44.dp),
-            )
-        }
-        AnimatedPageContent(visiblePage = page, reduceMotion = reduceMotion) {
-            Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
-                Text(
-                    Pages[page].title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = c.textPrimary,
-                )
-                Text(
-                    Pages[page].body,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = c.textSecondary,
-                )
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pages.indices.forEach { i ->
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(MomentumRadii.pill))
-                        .background(if (i <= page) c.primary else c.surfaceVariant),
-                )
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        if (page < Pages.lastIndex) {
-            MomentumButton(text = "Continue", onClick = { page++ })
-            OnboardingSkip(label = "Skip", onClick = { vm.finish(false, onDone) })
-        } else {
-            MomentumButton(text = "Start with examples", onClick = { vm.finish(true, onDone) })
-            OnboardingSkip(label = "Start fresh", onClick = { vm.finish(false, onDone) })
+    // Photographic backgrounds need light status-bar icons regardless of the
+    // app theme; restore the previous configuration on dispose. (The gesture
+    // navigation bar keeps the system's default contrast enforcement.)
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = (view.context as? SystemActivity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        val prevLightBars = controller?.isAppearanceLightStatusBars
+        controller?.isAppearanceLightStatusBars = false
+        onDispose {
+            if (prevLightBars != null) controller?.isAppearanceLightStatusBars = prevLightBars
         }
     }
-}
 
-@Composable
-private fun AnimatedPageContent(
-    visiblePage: Int,
-    reduceMotion: Boolean,
-    content: @Composable () -> Unit,
-) {
-    if (reduceMotion) {
-        content()
-    } else {
-        androidx.compose.animation.AnimatedContent(
-            targetState = visiblePage,
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Cinematic backdrop with a whisper of parallax per page.
+        val parallaxTarget = if (reduceMotion) 1f else 1f + page * 0.01f
+        val parallax by animateFloatAsState(
+            targetValue = parallaxTarget,
+            animationSpec = tween(if (reduceMotion) 0 else 600),
+            label = "onboardingParallax",
+        )
+        AnimatedContent(
+            targetState = page,
             transitionSpec = {
-                (fadeIn(animationSpec = tween(MomentumDurations.medium)) +
-                    expandVertically(animationSpec = tween(MomentumDurations.medium))) togetherWith
-                    fadeOut(animationSpec = tween(MomentumDurations.fast))
+                if (reduceMotion) {
+                    fadeIn(animationSpec = tween(MomentumDurations.fast)) togetherWith
+                        fadeOut(animationSpec = tween(MomentumDurations.fast))
+                } else {
+                    (fadeIn(animationSpec = tween(350)) +
+                        slideInHorizontally(animationSpec = tween(350)) { it / 4 }) togetherWith
+                        (fadeOut(animationSpec = tween(250)) +
+                            slideOutHorizontally(animationSpec = tween(250)) { -it / 4 })
+                }
             },
-            label = "onboardingPage",
-        ) {
-            content()
+            label = "onboardingScene",
+        ) { current ->
+            OnboardingBackdrop(scene = Pages[current].scene, parallax = parallax) {}
+        }
+
+        // Foreground frame: Skip, animated visual + copy, indicator, CTA.
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(
+                        horizontal = MomentumSpacing.screen,
+                        vertical = MomentumSpacing.group,
+                    ),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(MomentumRadii.pill))
+                        .clickable(role = Role.Button, onClick = { vm.finish(false, onDone) })
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "Skip",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+
+            // Illustration zone.
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                AnimatedContent(
+                    targetState = page,
+                    transitionSpec = {
+                        if (reduceMotion) {
+                            fadeIn(animationSpec = tween(MomentumDurations.fast)) togetherWith
+                                fadeOut(animationSpec = tween(MomentumDurations.fast))
+                        } else {
+                            fadeIn(animationSpec = tween(300)) togetherWith
+                                fadeOut(animationSpec = tween(200))
+                        }
+                    },
+                    label = "onboardingVisual",
+                ) { current ->
+                    PageVisual(page = current)
+                }
+            }
+
+            // Copy zone.
+            AnimatedContent(
+                targetState = page,
+                transitionSpec = {
+                    if (reduceMotion) {
+                        fadeIn(animationSpec = tween(MomentumDurations.fast)) togetherWith
+                            fadeOut(animationSpec = tween(MomentumDurations.fast))
+                    } else {
+                        (fadeIn(animationSpec = tween(300)) +
+                            slideInHorizontally(animationSpec = tween(300)) { it / 6 }) togetherWith
+                            fadeOut(animationSpec = tween(200))
+                    }
+                },
+                label = "onboardingCopy",
+            ) { current ->
+                Column(
+                    modifier = Modifier.padding(horizontal = MomentumSpacing.screen),
+                    verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+                ) {
+                    Text(
+                        text = Pages[current].headline,
+                        style = MaterialTheme.typography.displayLarge,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = Pages[current].body,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 17.sp,
+                            lineHeight = 26.sp,
+                        ),
+                        color = Color.White.copy(alpha = 0.88f),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(MomentumSpacing.card))
+            OnboardingPageIndicator(
+                count = Pages.size,
+                current = page,
+                reduceMotion = reduceMotion,
+                modifier = Modifier.padding(horizontal = MomentumSpacing.screen),
+            )
+            Spacer(modifier = Modifier.height(MomentumSpacing.card))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(
+                        start = MomentumSpacing.screen,
+                        end = MomentumSpacing.screen,
+                        bottom = MomentumSpacing.card,
+                    ),
+            ) {
+                if (page < Pages.lastIndex) {
+                    OnboardingGlassButton(
+                        text = "Continue",
+                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                        onClick = { page++ },
+                    )
+                } else {
+                    // Single final CTA. Internally this is the clean "fresh
+                    // start" completion path — no demo activities are ever
+                    // injected into the user's real data.
+                    OnboardingGlassButton(
+                        text = "Let's Get Started",
+                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                        onClick = { vm.finish(false, onDone) },
+                    )
+                }
+            }
         }
     }
 }
 
+/** Per-page floating illustration. Purely decorative (semantics cleared). */
 @Composable
-private fun OnboardingSkip(label: String, onClick: () -> Unit) {
+private fun PageVisual(page: Int) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = MomentumHeights.controlMin)
-            .clip(RoundedCornerShape(MomentumRadii.control))
-            .clickable(role = Role.Button, onClick = onClick),
+            .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MomentumThemeColors.current.textSecondary,
-            fontWeight = FontWeight.Medium,
+        when (page) {
+            1 -> FeatureTiles()
+            2 -> MiniTodayPanel()
+            3 -> BenefitsComposition()
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun FeatureTiles() {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card)) {
+            OnboardingGlassIconTile(
+                icon = momentumIcon("fitness"),
+                contentDescription = null,
+                label = "Activity",
+            )
+            OnboardingGlassIconTile(
+                icon = momentumIcon("learning"),
+                contentDescription = null,
+                label = "Learning",
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card)) {
+            OnboardingGlassIconTile(
+                icon = momentumIcon("music"),
+                contentDescription = null,
+                label = "Wellness",
+            )
+            OnboardingGlassIconTile(
+                icon = momentumIcon("water"),
+                contentDescription = null,
+                label = "Health",
+            )
+        }
+    }
+}
+
+/** Static miniature of the Today experience — illustration only, no live data. */
+@Composable
+private fun MiniTodayPanel() {
+    OnboardingGlassPanel(
+        modifier = Modifier.padding(horizontal = MomentumSpacing.screen * 2),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Today",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                )
+                Text(
+                    text = "3 of 5 complete",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.75f),
+                )
+            }
+            ProgressOrb(progress = 0.6f, modifier = Modifier, size = 64.dp, glowEnabled = false)
+        }
+        MiniActivityRow(iconKey = "water", name = "Drink water", done = true)
+        MiniActivityRow(iconKey = "fitness", name = "Morning workout", done = false)
+        MiniActivityRow(iconKey = "learning", name = "Read", done = false)
+    }
+}
+
+@Composable
+private fun MiniActivityRow(iconKey: String, name: String, done: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+    ) {
+        OnboardingGlassIconTile(
+            icon = momentumIcon(iconKey),
+            contentDescription = null,
+            tileSize = 40.dp,
         )
+        Text(
+            text = name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.92f),
+            modifier = Modifier.weight(1f),
+        )
+        if (done) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF4ADE80)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = Color(0xFF062A26),
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .border(
+                        BorderStroke(1.5f.dp, Color.White.copy(alpha = 0.45f)),
+                        CircleShape,
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BenefitsComposition() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(56.dp),
+        ) {
+            OnboardingGlassIconTile(
+                icon = Icons.Filled.SelfImprovement,
+                contentDescription = null,
+                tileSize = 56.dp,
+                label = "Healthier\nHabits",
+            )
+            OnboardingGlassIconTile(
+                icon = Icons.Filled.LightMode,
+                contentDescription = null,
+                tileSize = 56.dp,
+                label = "Greater\nFocus",
+            )
+        }
+        OnboardingGlassOrb(orbSize = 168.dp) {
+            Icon(
+                imageVector = Icons.Filled.Spa,
+                contentDescription = null,
+                tint = Color(0xFF86EFAC),
+                modifier = Modifier.size(64.dp),
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(56.dp),
+        ) {
+            OnboardingGlassIconTile(
+                icon = Icons.Filled.Favorite,
+                contentDescription = null,
+                tileSize = 56.dp,
+                label = "Less\nStress",
+            )
+            OnboardingGlassIconTile(
+                icon = Icons.Filled.BarChart,
+                contentDescription = null,
+                tileSize = 56.dp,
+                label = "A Brighter\nYou",
+            )
+        }
     }
 }

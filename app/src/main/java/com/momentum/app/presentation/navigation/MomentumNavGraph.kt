@@ -69,13 +69,17 @@ private val TopLevelRoutes = Destinations.map { it.route }.toSet()
 fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    // Onboarding draws its own full-bleed photographic backdrop, so it opts
+    // out of the Scaffold content padding; every other route is unchanged.
+    val isOnboarding =
+        currentDestination?.hierarchy?.any { it.route == Routes.ONBOARDING } == true
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
                 val showBar = currentDestination?.hierarchy?.any { it.route in TopLevelRoutes } == true
                 if (showBar) {
                     Box(
@@ -112,7 +116,7 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
             NavHost(
                 navController = navController,
                 startDestination = if (onboardingDone) Routes.TODAY else Routes.ONBOARDING,
-                modifier = Modifier.padding(innerPadding),
+                modifier = if (isOnboarding) Modifier else Modifier.padding(innerPadding),
             ) {
                 composable(Routes.ONBOARDING) {
                     OnboardingRoute(onDone = {
