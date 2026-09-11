@@ -68,3 +68,44 @@ object MomentumDurations {
     const val medium = 250
     const val slow = 350
 }
+
+/**
+ * Liquid Glass translucency + light tokens. Glass fills let the ambient
+ * background breathe through; borders and top highlights sell the depth.
+ * Values are alphas applied to theme slots — never hardcoded colors.
+ */
+object MomentumGlass {
+    /** Primary hero surfaces (progress hero, dialogs, nav bar). */
+    const val heroFill = 0.68f
+
+    /** Standard cards, rows, panels. */
+    const val cardFill = 0.55f
+
+    /** Chips, badges, tiles, controls. */
+    const val controlFill = 0.45f
+
+    /** Hairline border highlight (white in dark mode). */
+    const val borderDark = 0.16f
+
+    /** Hairline border (ink) in light mode, where white is invisible. */
+    const val borderLight = 0.10f
+
+    /** Top-edge illumination streak. */
+    const val highlight = 0.10f
+
+    /** Ambient light field opacity over the base background. */
+    const val ambientDark = 0.13f
+    const val ambientLight = 0.16f
+
+    /** Soft shadow elevation for floating layers (dialogs, nav, hero). */
+    val dialogElevation = 16.dp
+    val heroElevation = 12.dp
+
+    /**
+     * True backdrop blur is deliberately NOT used: no reliable cross-device
+     * API exists on our minSdk, and no fragile dependency is worth it.
+     * Depth comes from translucency + highlight + shadow + ambient light,
+     * so every screen stays beautiful with blur unavailable.
+     */
+    val backdropBlur = 0.dp
+}

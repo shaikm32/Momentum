@@ -21,8 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -45,9 +43,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.ActivityCard
+import com.momentum.app.presentation.components.GlassLevel
+import com.momentum.app.presentation.components.LiquidGlassIconButton
 import com.momentum.app.presentation.components.MomentumCard
 import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
+import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.components.recurrenceLabel
 import com.momentum.app.presentation.components.targetProgressLabel
 import com.momentum.app.presentation.momentumViewModel
@@ -103,12 +104,16 @@ fun CalendarScreen(
             MomentumTopBar(
                 title = state.month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
                 actions = {
-                    IconButton(onClick = onPrev) {
-                        Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month")
-                    }
-                    IconButton(onClick = onNext) {
-                        Icon(Icons.Filled.ChevronRight, contentDescription = "Next month")
-                    }
+                    LiquidGlassIconButton(
+                        icon = Icons.Filled.ChevronLeft,
+                        contentDescription = "Previous month",
+                        onClick = onPrev,
+                    )
+                    LiquidGlassIconButton(
+                        icon = Icons.Filled.ChevronRight,
+                        contentDescription = "Next month",
+                        onClick = onNext,
+                    )
                     Box(
                         modifier = Modifier
                             .heightIn(min = MomentumHeights.controlMin)
@@ -205,11 +210,14 @@ private fun DayDot(
     onSelect: () -> Unit,
 ) {
     val c = MomentumThemeColors.current
-    val fill = when {
-        cell.fraction < 0 -> Color.Transparent
-        cell.fraction >= 1f -> c.success
-        cell.fraction > 0f -> c.primary.copy(alpha = 0.30f + 0.45f * cell.fraction)
-        else -> c.surfaceVariant
+    val cellShape = RoundedCornerShape(MomentumRadii.small)
+    // Intensity wash painted over the glass tile: selected and full days go
+    // confident, partial days glow proportionally, quiet days stay glassy.
+    val wash = when {
+        isSelected -> c.primary.copy(alpha = 0.88f)
+        cell.fraction >= 1f -> c.success.copy(alpha = 0.88f)
+        cell.fraction > 0f -> c.primary.copy(alpha = 0.16f + 0.38f * cell.fraction)
+        else -> Color.Transparent
     }
     val description = buildString {
         append(cell.date.format(DateTimeFormatter.ofPattern("MMMM d", Locale.getDefault())))
@@ -220,13 +228,14 @@ private fun DayDot(
             .fillMaxWidth()
             .aspectRatio(1f)
             .alpha(if (cell.inMonth) 1f else 0.35f)
-            .clip(RoundedCornerShape(MomentumRadii.small))
-            .background(if (isSelected) c.primary else fill)
+            .clip(cellShape)
+            .liquidGlass(cellShape, GlassLevel.CONTROL)
+            .background(wash, cellShape)
             .then(
                 if (isToday && !isSelected) {
                     Modifier.border(
                         BorderStroke(Dp.Hairline.times(2), c.primary),
-                        RoundedCornerShape(MomentumRadii.small),
+                        cellShape,
                     )
                 } else {
                     Modifier

@@ -1,7 +1,9 @@
 package com.momentum.app.presentation.screens.insights
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,10 +29,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.EmptyState
+import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.MomentumCard
 import com.momentum.app.presentation.components.MomentumDivider
 import com.momentum.app.presentation.components.MomentumLinearProgress
@@ -84,7 +90,7 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
             return@LazyColumn
         }
         item {
-            MomentumCard {
+            MomentumCard(level = GlassLevel.HERO) {
                 val delta = ((state.weekRate - state.monthRate) * 100).roundToInt()
                 Text(
                     "Last 7 days",
@@ -181,7 +187,19 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(RoundedCornerShape(MomentumRadii.small))
-                                    .background(c.primary.copy(alpha = 0.14f)),
+                                    .background(
+                                        Brush.verticalGradient(
+                                            0f to Color.White.copy(alpha = 0.12f),
+                                            1f to c.primary.copy(alpha = 0.16f),
+                                        ),
+                                    )
+                                    .border(
+                                        BorderStroke(
+                                            Dp.Hairline,
+                                            c.primary.copy(alpha = 0.3f),
+                                        ),
+                                        RoundedCornerShape(MomentumRadii.small),
+                                    ),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
@@ -217,7 +235,7 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
 @Composable
 private fun WeeklyBars(days: List<DayRate>) {
     val c = MomentumThemeColors.current
-    val track = c.surfaceVariant
+    val track = c.surfaceVariant.copy(alpha = 0.55f)
     val fill = c.primary
     Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
         Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)) {

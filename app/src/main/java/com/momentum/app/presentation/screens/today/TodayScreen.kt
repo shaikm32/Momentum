@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.ActivityCard
 import com.momentum.app.presentation.components.EmptyState
+import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.MomentumButton
 import com.momentum.app.presentation.components.MomentumCard
 import com.momentum.app.presentation.components.MomentumSectionHeader
@@ -128,7 +129,7 @@ fun TodayScreen(
             }
         }
         item {
-            MomentumCard {
+            MomentumCard(level = GlassLevel.HERO) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card),

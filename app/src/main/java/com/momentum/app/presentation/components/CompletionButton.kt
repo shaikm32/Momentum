@@ -22,14 +22,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.presentation.theme.LocalMomentumColors
+import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumHeights
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumTheme
@@ -58,13 +62,41 @@ fun CompletionButton(
             .size(MomentumHeights.controlMin)
             .scale(scale)
             .clip(CircleShape)
-            .background(if (completed) c.primary else Color.Transparent)
-            .then(
-                if (completed) Modifier
-                else Modifier.border(
-                    BorderStroke(Dp.Hairline, c.textSecondary.copy(alpha = 0.45f)),
-                    CircleShape,
+            .background(
+                brush = if (completed) {
+                    Brush.linearGradient(
+                        colors = listOf(c.primary, c.secondary),
+                    )
+                } else {
+                    Brush.verticalGradient(
+                        0f to Color.White.copy(alpha = 0.10f),
+                        1f to c.surface.copy(alpha = MomentumGlass.controlFill),
+                    )
+                },
+                shape = CircleShape,
+            )
+            .border(
+                BorderStroke(
+                    Dp.Hairline,
+                    if (completed) {
+                        Color.White.copy(alpha = 0.35f)
+                    } else {
+                        c.textSecondary.copy(alpha = 0.4f)
+                    },
                 ),
+                CircleShape,
+            )
+            .then(
+                if (completed) {
+                    Modifier.shadow(
+                        elevation = 8.dp,
+                        shape = CircleShape,
+                        ambientColor = Color.Black.copy(alpha = 0.3f),
+                        spotColor = c.primary.copy(alpha = 0.45f),
+                    )
+                } else {
+                    Modifier
+                },
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

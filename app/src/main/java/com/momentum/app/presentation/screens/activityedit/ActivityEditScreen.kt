@@ -6,8 +6,11 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -54,21 +58,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.domain.model.Category
 import com.momentum.app.presentation.components.CategoryChip
+import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.MomentumButton
 import com.momentum.app.presentation.components.MomentumCard
 import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
+import com.momentum.app.presentation.components.glassPress
+import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.components.MomentumIconOptions
 import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.MomentumIconSizes
+import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
@@ -143,6 +153,7 @@ fun ActivityEditScreen(
                     isError = form.titleError != null,
                     supportingText = { form.titleError?.let { Text(it) } },
                     shape = RoundedCornerShape(MomentumRadii.control),
+                    colors = glassFieldColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -285,6 +296,7 @@ fun ActivityEditScreen(
                             label = { Text("Amount") },
                             singleLine = true,
                             shape = RoundedCornerShape(MomentumRadii.control),
+                            colors = glassFieldColors(),
                             modifier = Modifier.weight(1f),
                         )
                         OutlinedTextField(
@@ -294,6 +306,7 @@ fun ActivityEditScreen(
                             placeholder = { Text("glasses, min…") },
                             singleLine = true,
                             shape = RoundedCornerShape(MomentumRadii.control),
+                            colors = glassFieldColors(),
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -330,6 +343,7 @@ fun ActivityEditScreen(
                     onValueChange = { v -> onUpdate { it.copy(notes = v) } },
                     label = { Text("Dosage, instructions…") },
                     shape = RoundedCornerShape(MomentumRadii.control),
+                    colors = glassFieldColors(),
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                 )
@@ -361,7 +375,10 @@ fun ActivityEditScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MomentumThemeColors.current.backgroundBottom)
+                .liquidGlass(
+                    RoundedCornerShape(MomentumRadii.card),
+                    GlassLevel.HERO,
+                )
                 .padding(
                     horizontal = MomentumSpacing.screen,
                     vertical = MomentumSpacing.row,
@@ -374,6 +391,19 @@ fun ActivityEditScreen(
             )
         }
     }
+}
+
+/** Translucent text-field colors shared by every field on this screen. */
+@Composable
+private fun glassFieldColors(): androidx.compose.material3.TextFieldColors {
+    val c = MomentumThemeColors.current
+    return OutlinedTextFieldDefaults.colors(
+        unfocusedContainerColor = c.surface.copy(alpha = 0.45f),
+        focusedContainerColor = c.surface.copy(alpha = 0.65f),
+        unfocusedBorderColor = c.textSecondary.copy(alpha = 0.25f),
+        focusedBorderColor = c.primary.copy(alpha = 0.65f),
+        cursorColor = c.primary,
+    )
 }
 
 @Composable
@@ -403,12 +433,36 @@ private fun IconChoice(
     icon: @Composable () -> Unit,
 ) {
     val c = MomentumThemeColors.current
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
             .size(48.dp)
             .clip(RoundedCornerShape(MomentumRadii.small))
-            .background(if (selected) c.primary else c.surfaceVariant)
-            .clickable(onClick = onClick, onClickLabel = label),
+            .background(
+                if (selected) {
+                    c.primary.copy(alpha = 0.85f)
+                } else {
+                    c.surface.copy(alpha = MomentumGlass.controlFill)
+                },
+            )
+            .border(
+                BorderStroke(
+                    Dp.Hairline,
+                    if (selected) {
+                        Color.White.copy(alpha = 0.3f)
+                    } else {
+                        c.textSecondary.copy(alpha = 0.22f)
+                    },
+                ),
+                RoundedCornerShape(MomentumRadii.small),
+            )
+            .glassPress(interaction)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClickLabel = label,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         icon()
@@ -444,6 +498,7 @@ private fun RecurrenceChoiceRow(
     onUpdate: ((EditForm) -> EditForm) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val c = MomentumThemeColors.current
     val labels = mapOf(
         RecurrenceChoice.ONCE to "One-time",
         RecurrenceChoice.DAILY to "Daily",
@@ -464,7 +519,14 @@ private fun RecurrenceChoiceRow(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(
+                c.surface.copy(alpha = 0.95f),
+                RoundedCornerShape(MomentumRadii.control),
+            ),
+        ) {
             labels.forEach { (choice, label) ->
                 DropdownMenuItem(
                     text = { Text(label) },
@@ -522,8 +584,10 @@ private fun DateRow(label: String, date: LocalDate, onPick: (LocalDate) -> Unit)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(MomentumRadii.control))
-            .background(c.surfaceVariant)
+            .liquidGlass(
+                RoundedCornerShape(MomentumRadii.control),
+                GlassLevel.CONTROL,
+            )
             .clickable(onClickLabel = label) { open = true }
             .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
@@ -541,6 +605,10 @@ private fun DateRow(label: String, date: LocalDate, onPick: (LocalDate) -> Unit)
         )
         DatePickerDialog(
             onDismissRequest = { open = false },
+            shape = RoundedCornerShape(MomentumRadii.dialog),
+            colors = androidx.compose.material3.DatePickerDefaults.colors(
+                containerColor = c.surface.copy(alpha = 0.92f),
+            ),
             confirmButton = {
                 TextButton(onClick = {
                     state.selectedDateMillis?.let {
@@ -565,8 +633,10 @@ private fun ReminderTimeRow(time: String, onPick: (String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(MomentumRadii.control))
-            .background(c.surfaceVariant)
+            .liquidGlass(
+                RoundedCornerShape(MomentumRadii.control),
+                GlassLevel.CONTROL,
+            )
             .clickable(onClickLabel = "Reminder time") { open = true }
             .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
@@ -583,6 +653,8 @@ private fun ReminderTimeRow(time: String, onPick: (String) -> Unit) {
         )
         AlertDialog(
             onDismissRequest = { open = false },
+            shape = RoundedCornerShape(MomentumRadii.dialog),
+            containerColor = c.surface.copy(alpha = 0.92f),
             confirmButton = {
                 TextButton(onClick = {
                     onPick("%02d:%02d".format(state.hour, state.minute))

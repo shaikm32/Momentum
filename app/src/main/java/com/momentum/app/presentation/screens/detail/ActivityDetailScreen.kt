@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -37,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.presentation.components.CompletionButton
+import com.momentum.app.presentation.components.GlassLevel
+import com.momentum.app.presentation.components.LiquidGlassIconButton
 import com.momentum.app.presentation.components.MomentumCard
 import com.momentum.app.presentation.components.MomentumDialog
 import com.momentum.app.presentation.components.MomentumDivider
@@ -55,6 +58,7 @@ import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.components.recurrenceLabel
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.theme.MomentumIconSizes
+import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
@@ -144,9 +148,11 @@ fun ActivityDetailScreen(
                 },
                 onBack = onBack,
                 actions = {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit ${activity.title}")
-                    }
+                    LiquidGlassIconButton(
+                        icon = Icons.Filled.Edit,
+                        contentDescription = "Edit ${activity.title}",
+                        onClick = onEdit,
+                    )
                 },
             )
         }
@@ -165,7 +171,19 @@ fun ActivityDetailScreen(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(RoundedCornerShape(MomentumRadii.small))
-                            .background(c.primary.copy(alpha = 0.14f)),
+                            .background(
+                                Brush.verticalGradient(
+                                    0f to Color.White.copy(alpha = 0.14f),
+                                    1f to c.primary.copy(alpha = 0.16f),
+                                ),
+                            )
+                            .border(
+                                BorderStroke(
+                                    Dp.Hairline,
+                                    c.primary.copy(alpha = 0.35f),
+                                ),
+                                RoundedCornerShape(MomentumRadii.small),
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -266,9 +284,22 @@ fun ActivityDetailScreen(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(RoundedCornerShape(MomentumRadii.small))
-                                    .background(if (done) c.success else c.surfaceVariant)
+                                    .background(
+                                        if (done) {
+                                            c.success.copy(alpha = 0.9f)
+                                        } else {
+                                            c.surface.copy(alpha = MomentumGlass.controlFill)
+                                        },
+                                    )
                                     .border(
-                                        BorderStroke(Dp.Hairline, c.textSecondary.copy(alpha = 0.14f)),
+                                        BorderStroke(
+                                            Dp.Hairline,
+                                            if (done) {
+                                                Color.White.copy(alpha = 0.3f)
+                                            } else {
+                                                c.textSecondary.copy(alpha = 0.22f)
+                                            },
+                                        ),
                                         RoundedCornerShape(MomentumRadii.small),
                                     ),
                                 contentAlignment = Alignment.Center,

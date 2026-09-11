@@ -1,6 +1,7 @@
 package com.momentum.app.presentation.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 /**
  * Restrained semantic palettes: deep near-black backgrounds, quietly elevated
@@ -321,3 +322,7 @@ val MomentumThemes = listOf(
 
 fun themeById(id: String): MomentumThemeDefinition =
     MomentumThemes.firstOrNull { it.id == id } ?: MomentumThemes.first()
+
+/** True for the deep dark palettes; drives glass border/highlight choices. */
+val MomentumColors.isDark: Boolean
+    get() = backgroundBottom.luminance() < 0.25f

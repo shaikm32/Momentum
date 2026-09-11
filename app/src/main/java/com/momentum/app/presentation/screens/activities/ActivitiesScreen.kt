@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -35,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.ActivityCard
 import com.momentum.app.presentation.components.CategoryChip
 import com.momentum.app.presentation.components.EmptyState
+import com.momentum.app.presentation.components.LiquidGlassIconButton
 import com.momentum.app.presentation.components.MomentumDialog
 import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
@@ -68,9 +68,12 @@ fun ActivitiesRoute(
                 ActivityTab.ARCHIVED -> "${state.items.size} archived"
             },
             actions = {
-                IconButton(onClick = onAddActivity) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add activity")
-                }
+                LiquidGlassIconButton(
+                    icon = Icons.Filled.Add,
+                    contentDescription = "Add activity",
+                    onClick = onAddActivity,
+                    active = true,
+                )
             },
         )
         ActivitiesScreen(
@@ -124,6 +127,13 @@ fun ActivitiesScreen(
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = c.textSecondary) },
             singleLine = true,
             shape = androidx.compose.foundation.shape.RoundedCornerShape(MomentumRadii.control),
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = c.surface.copy(alpha = 0.45f),
+                focusedContainerColor = c.surface.copy(alpha = 0.65f),
+                unfocusedBorderColor = c.textSecondary.copy(alpha = 0.22f),
+                focusedBorderColor = c.primary.copy(alpha = 0.6f),
+                cursorColor = c.primary,
+            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MomentumSpacing.screen),
@@ -213,30 +223,33 @@ fun ActivitiesScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (state.tab == ActivityTab.ACTIVE) {
-                                IconButton(onClick = { onPause(activity.id) }) {
-                                    Icon(Icons.Filled.Pause, contentDescription = "Pause ${activity.title}")
-                                }
+                                LiquidGlassIconButton(
+                                    icon = Icons.Filled.Pause,
+                                    contentDescription = "Pause ${activity.title}",
+                                    onClick = { onPause(activity.id) },
+                                )
                             }
                             if (state.tab == ActivityTab.PAUSED) {
-                                IconButton(onClick = { onResume(activity.id) }) {
-                                    Icon(Icons.Filled.PlayArrow, contentDescription = "Resume ${activity.title}")
-                                }
+                                LiquidGlassIconButton(
+                                    icon = Icons.Filled.PlayArrow,
+                                    contentDescription = "Resume ${activity.title}",
+                                    onClick = { onResume(activity.id) },
+                                    active = true,
+                                )
                             }
                             if (state.tab != ActivityTab.ARCHIVED) {
-                                IconButton(onClick = { onArchive(activity.id) }) {
-                                    Icon(
-                                        Icons.Filled.Archive,
-                                        contentDescription = "Archive ${activity.title}",
-                                    )
-                                }
+                                LiquidGlassIconButton(
+                                    icon = Icons.Filled.Archive,
+                                    contentDescription = "Archive ${activity.title}",
+                                    onClick = { onArchive(activity.id) },
+                                )
                             } else {
-                                IconButton(onClick = { onDelete(activity.id) }) {
-                                    Icon(
-                                        Icons.Filled.Delete,
-                                        contentDescription = "Delete ${activity.title}",
-                                        tint = c.error,
-                                    )
-                                }
+                                LiquidGlassIconButton(
+                                    icon = Icons.Filled.Delete,
+                                    contentDescription = "Delete ${activity.title}",
+                                    onClick = { onDelete(activity.id) },
+                                    tint = c.error,
+                                )
                             }
                         }
                     }

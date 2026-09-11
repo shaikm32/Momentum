@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,18 +25,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.domain.model.DarkModeSetting
+import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.MomentumTopBar
+import com.momentum.app.presentation.components.glassPress
+import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.screens.settings.SettingsViewModel
 import com.momentum.app.presentation.theme.MomentumTheme
@@ -93,22 +99,34 @@ fun ThemePreviewCard(
 ) {
     val c = MomentumThemeColors.current
     val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(MomentumRadii.card))
-            .background(c.surface)
-            .border(
-                BorderStroke(
-                    Dp.Hairline,
-                    if (selected) c.primary else c.textSecondary.copy(alpha = 0.14f),
-                ),
+            .liquidGlass(
                 RoundedCornerShape(MomentumRadii.card),
+                if (selected) GlassLevel.HERO else GlassLevel.CARD,
             )
-            .clickable(onClick = {
-                onSelect()
-                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-            })
+            .then(
+                if (selected) {
+                    Modifier.border(
+                        BorderStroke(Dp.Hairline, c.primary.copy(alpha = 0.45f)),
+                        RoundedCornerShape(MomentumRadii.card),
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .glassPress(interaction)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClick = {
+                    onSelect()
+                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                },
+            )
             .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
@@ -118,7 +136,11 @@ fun ThemePreviewCard(
             modifier = Modifier
                 .size(56.dp)
                 .clip(RoundedCornerShape(MomentumRadii.small))
-                .background(Brush.linearGradient(listOf(theme.dark.primary, theme.dark.secondary, theme.dark.accent))),
+                .background(Brush.linearGradient(listOf(theme.dark.primary, theme.dark.secondary, theme.dark.accent)))
+                .border(
+                    BorderStroke(Dp.Hairline, Color.White.copy(alpha = 0.25f)),
+                    RoundedCornerShape(MomentumRadii.small),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

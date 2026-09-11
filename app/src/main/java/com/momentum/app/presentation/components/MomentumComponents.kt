@@ -1,8 +1,5 @@
 package com.momentum.app.presentation.components
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,9 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +30,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.momentum.app.presentation.theme.LocalMomentumColors
 import com.momentum.app.presentation.theme.MomentumHeights
 import com.momentum.app.presentation.theme.MomentumRadii
@@ -132,26 +128,18 @@ fun MomentumSectionHeader(
     }
 }
 
-/** Quiet surface card: solid fill, hairline border, consistent padding. */
+/** Quiet glass surface card: translucent fill, hairline light, consistent padding. */
 @Composable
 fun MomentumCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    level: GlassLevel = GlassLevel.CARD,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val c = LocalMomentumColors.current
-    val base = modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(MomentumRadii.card))
-        .background(c.surface)
-        .border(
-            BorderStroke(Dp.Hairline, c.textSecondary.copy(alpha = 0.14f)),
-            RoundedCornerShape(MomentumRadii.card),
-        )
-    val clickable = if (onClick != null) base.clickable(onClick = onClick) else base
-    Column(
-        modifier = clickable.padding(MomentumSpacing.card),
-        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+    LiquidGlassCard(
+        modifier = modifier,
+        onClick = onClick,
+        level = level,
         content = content,
     )
 }
@@ -165,23 +153,13 @@ fun MomentumButton(
     enabled: Boolean = true,
     secondary: Boolean = false,
 ) {
-    val c = LocalMomentumColors.current
-    Button(
+    LiquidGlassButton(
+        text = text,
         onClick = onClick,
+        modifier = modifier,
         enabled = enabled,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = MomentumHeights.button),
-                shape = RoundedCornerShape(MomentumRadii.control),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (secondary) c.surfaceVariant else c.primary,
-            contentColor = if (secondary) c.textPrimary else c.onPrimary,
-            disabledContainerColor = c.surfaceVariant,
-            disabledContentColor = c.textSecondary,
-        ),
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-    }
+        secondary = secondary,
+    )
 }
 
 /**
@@ -231,7 +209,7 @@ fun MomentumSettingRow(
     }
 }
 
-/** Unified confirmation dialog; [destructive] tints the confirm action. */
+/** Unified confirmation dialog on a floating glass panel; [destructive] tints confirm. */
 @Composable
 fun MomentumDialog(
     title: String,
@@ -243,31 +221,39 @@ fun MomentumDialog(
     destructive: Boolean = false,
 ) {
     val c = LocalMomentumColors.current
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-                shape = RoundedCornerShape(MomentumRadii.dialog),
-        containerColor = c.surface,
-        title = {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
-        },
-        text = {
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    confirmLabel,
-                    color = if (destructive) c.error else c.primary,
-                    fontWeight = FontWeight.SemiBold,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .liquidGlass(
+                    RoundedCornerShape(MomentumRadii.dialog),
+                    GlassLevel.HERO,
                 )
+                .padding(MomentumSpacing.card),
+            verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(dismissLabel, color = c.textSecondary)
+                }
+                TextButton(onClick = onConfirm) {
+                    Text(
+                        confirmLabel,
+                        color = if (destructive) c.error else c.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(dismissLabel, color = c.textSecondary)
-            }
-        },
-    )
+        }
+    }
 }
 
 /** Thin linear progress with theme track/fill. */

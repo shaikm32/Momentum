@@ -70,12 +70,7 @@ fun ActivityCard(
         modifier = modifier
             .fillMaxWidth()
             .alpha(cardAlpha)
-            .clip(RoundedCornerShape(MomentumRadii.card))
-            .background(c.surface)
-            .border(
-                BorderStroke(Dp.Hairline, c.textSecondary.copy(alpha = 0.14f)),
-                RoundedCornerShape(MomentumRadii.card),
-            )
+            .liquidGlass(RoundedCornerShape(MomentumRadii.card), GlassLevel.CARD)
             .clickable(onClick = onOpen)
             .padding(MomentumSpacing.row),
         verticalAlignment = Alignment.CenterVertically,
@@ -85,7 +80,24 @@ fun ActivityCard(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(MomentumRadii.small))
-                .background(tileTint.copy(alpha = 0.14f)),
+                .background(
+                    if (completed) {
+                        c.success.copy(alpha = 0.18f)
+                    } else {
+                        tileTint.copy(alpha = 0.16f)
+                    },
+                )
+                .border(
+                    BorderStroke(
+                        Dp.Hairline,
+                        if (completed) {
+                            c.success.copy(alpha = 0.35f)
+                        } else {
+                            tileTint.copy(alpha = 0.3f)
+                        },
+                    ),
+                    RoundedCornerShape(MomentumRadii.small),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

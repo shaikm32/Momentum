@@ -1,6 +1,13 @@
 package com.momentum.app.presentation.screens.onboarding
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,8 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,8 +48,9 @@ import com.momentum.app.domain.model.Recurrence
 import com.momentum.app.presentation.components.MomentumButton
 import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.theme.MomentumDurations
 import com.momentum.app.presentation.theme.MomentumHeights
-import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
@@ -95,6 +108,7 @@ fun OnboardingRoute(onDone: () -> Unit) {
     val vm: OnboardingViewModel = momentumViewModel { OnboardingViewModel(it) }
     var page by remember { mutableIntStateOf(0) }
     val c = MomentumThemeColors.current
+    val reduceMotion = rememberReduceMotion(null)
 
     Column(
         modifier = Modifier
@@ -105,31 +119,54 @@ fun OnboardingRoute(onDone: () -> Unit) {
             ),
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
     ) {
-        Spacer(Modifier.weight(0.35f))
+        Spacer(Modifier.weight(0.3f))
+        // Floating hero orb: glass disc with a soft primary glow. The ambient
+        // background shines through — first impression, not a marketing card.
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(MomentumRadii.card))
-                .background(c.primary.copy(alpha = 0.14f)),
+                .size(112.dp)
+                .shadow(
+                    elevation = 20.dp,
+                    shape = CircleShape,
+                    ambientColor = Color.Black.copy(alpha = 0.35f),
+                    spotColor = c.primary.copy(alpha = 0.4f),
+                )
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.radialGradient(
+                        0f to Color.White.copy(alpha = 0.16f),
+                        0.55f to c.surface.copy(alpha = 0.5f),
+                        1f to c.surface.copy(alpha = 0.72f),
+                    ),
+                    shape = CircleShape,
+                )
+                .border(
+                    BorderStroke(Dp.Hairline, Color.White.copy(alpha = 0.25f)),
+                    CircleShape,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = momentumIcon(Pages[page].iconKey),
                 contentDescription = null,
                 tint = c.primary,
-                modifier = Modifier.size(MomentumIconSizes.hero),
+                modifier = Modifier.size(44.dp),
             )
         }
-        Text(
-            Pages[page].title,
-            style = MaterialTheme.typography.headlineMedium,
-            color = c.textPrimary,
-        )
-        Text(
-            Pages[page].body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = c.textSecondary,
-        )
+        AnimatedPageContent(visiblePage = page, reduceMotion = reduceMotion) {
+            Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
+                Text(
+                    Pages[page].title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = c.textPrimary,
+                )
+                Text(
+                    Pages[page].body,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = c.textSecondary,
+                )
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Pages.indices.forEach { i ->
                 Box(
@@ -148,6 +185,29 @@ fun OnboardingRoute(onDone: () -> Unit) {
         } else {
             MomentumButton(text = "Start with examples", onClick = { vm.finish(true, onDone) })
             OnboardingSkip(label = "Start fresh", onClick = { vm.finish(false, onDone) })
+        }
+    }
+}
+
+@Composable
+private fun AnimatedPageContent(
+    visiblePage: Int,
+    reduceMotion: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (reduceMotion) {
+        content()
+    } else {
+        androidx.compose.animation.AnimatedContent(
+            targetState = visiblePage,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(MomentumDurations.medium)) +
+                    expandVertically(animationSpec = tween(MomentumDurations.medium))) togetherWith
+                    fadeOut(animationSpec = tween(MomentumDurations.fast))
+            },
+            label = "onboardingPage",
+        ) {
+            content()
         }
     }
 }

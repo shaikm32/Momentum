@@ -10,7 +10,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -22,9 +27,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.BuildConfig
 import com.momentum.app.domain.model.DarkModeSetting
@@ -110,12 +117,23 @@ fun SettingsScreen(
                     supporting = themeById(themeId).name,
                     onClick = onOpenThemes,
                     trailing = {
-                        Text(
-                            "Change",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = c.primary,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                "Change",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = c.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = c.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     },
                 )
                 MomentumDivider()

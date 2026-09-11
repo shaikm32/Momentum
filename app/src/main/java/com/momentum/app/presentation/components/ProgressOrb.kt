@@ -51,7 +51,7 @@ fun ProgressOrb(
             val topLeft = Offset(stroke / 2f, stroke / 2f)
             // Track.
             drawArc(
-                color = c.surfaceVariant,
+                color = c.surfaceVariant.copy(alpha = 0.6f),
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
