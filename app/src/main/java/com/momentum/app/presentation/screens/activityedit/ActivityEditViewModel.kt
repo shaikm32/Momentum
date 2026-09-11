@@ -119,14 +119,15 @@ class ActivityEditViewModel(
                     status = container.activityRepository.getById(activityId ?: -1)?.status
                         ?: ActivityStatus.ACTIVE,
                 )
-                val savedId = container.activityRepository.upsert(activity)
-                // v1: a single local reminder per activity (schema supports N; UI adds more later).
-                container.reminderRepository.deleteForActivity(savedId)
-                if (current.reminderEnabled) {
-                    container.reminderRepository.upsert(
-                        Reminder(activityId = savedId, timeLocal = current.reminderTime, enabled = true),
-                    )
-                }
+                val savedId = container.activityRepository.saveWithReminders(
+                    // v1: a single local reminder per activity (schema supports N; UI adds more later).
+                    activity,
+                    if (current.reminderEnabled) {
+                        listOf(Reminder(timeLocal = current.reminderTime, enabled = true, activityId = activityId ?: 0))
+                    } else {
+                        emptyList()
+                    },
+                )
                 container.reminderScheduler.scheduleForActivity(savedId)
                 effects.send(EditEffect.Saved(savedId))
             } catch (t: Throwable) {

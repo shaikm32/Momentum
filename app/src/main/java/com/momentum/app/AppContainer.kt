@@ -9,6 +9,7 @@ import com.momentum.app.data.repository.RoomActivityRepository
 import com.momentum.app.data.repository.RoomCategoryRepository
 import com.momentum.app.data.repository.RoomCompletionRepository
 import com.momentum.app.data.repository.RoomReminderRepository
+import com.momentum.app.data.repository.UserDataReset
 import com.momentum.app.domain.repository.ActivityRepository
 import com.momentum.app.domain.repository.CategoryRepository
 import com.momentum.app.domain.repository.CompletionRepository
@@ -31,16 +32,20 @@ class AppContainer(private val context: Context) {
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * P1#2: no destructive-migration fallback. The schema is at version 1 since
+     * inception and the app is unreleased, so no historical schema exists to
+     * migrate — and none may ever be silently wiped. A future schema change
+     * MUST bump the version and add a real Migration plus a migration test;
+     * without one, Room fails fast here instead of destroying user data.
+     */
     val database: MomentumDatabase by lazy {
         Room.databaseBuilder(context, MomentumDatabase::class.java, "momentum.db")
-            // Pre-1.0: destructive fallback is a conscious choice (see DATA_MODEL.md);
-            // post-1.0 every schema change ships a real Migration.
-            .fallbackToDestructiveMigration()
             .build()
     }
 
     val activityRepository: ActivityRepository by lazy {
-        RoomActivityRepository(database.activityDao())
+        RoomActivityRepository(database.activityDao(), database.reminderDao(), database)
     }
 
     val completionRepository: CompletionRepository by lazy {
@@ -65,6 +70,10 @@ class AppContainer(private val context: Context) {
 
     val reminderScheduler: ReminderScheduler by lazy {
         ReminderScheduler.create(context)
+    }
+
+    val userDataReset: UserDataReset by lazy {
+        UserDataReset(database)
     }
 
     init {

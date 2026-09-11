@@ -37,9 +37,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 container.reminderRepository.enabledAll()
                     .groupBy { it.activityId }.keys
                     .forEach { container.reminderScheduler.cancelForActivity(it) }
-                container.reminderRepository.clearAll()
-                container.completionRepository.clearAll()
-                container.activityRepository.clearAll()
+                // Single transaction: never partially cleared (see UserDataReset).
+                container.userDataReset.clearAllUserData()
                 effects.send(SettingsEffect.ShowMessage("All data cleared."))
             }.onFailure { effects.send(SettingsEffect.ShowMessage("Couldn't clear data — try again.")) }
         }

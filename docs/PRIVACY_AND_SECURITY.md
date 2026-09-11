@@ -26,8 +26,8 @@ About, and the README.
   delete flows are explicit and confirmed (archive = soft-delete default).
 - `clearAllData()` cancels alarms before deleting rows.
 - Room `exportSchema = true`; schema JSON in `app/schemas/` is committed;
-  pre-1.0 destructive migration is a conscious per-change choice, post-1.0 all
-  changes ship real `Migration`s.
+  destructive migration fallback is removed — a schema mismatch fails fast
+  instead of wiping data; future schema changes ship real `Migration`s.
 - User-facing errors are human-readable; stack traces never reach the UI.
 - Input validation at the domain boundary (`Activity` init requires title
   ≤120 chars, priority 0–3, target > 0, end ≥ start); storage codec degrades

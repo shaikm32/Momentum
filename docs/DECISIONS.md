@@ -112,3 +112,26 @@
   limitation, revisit only with measured need (paged history query).
 - **Consequences:** `scheduledInRange` callers must pass explicit windows;
   never `SELECT *` unbounded into UI state.
+
+## ADR-14 — Transaction boundaries + no destructive migration fallback
+- **Decision:** (1) Multi-step writes run in explicit Room transactions at the
+  owning boundary: `ActivityRepository.saveWithReminders` (activity +
+  reminder-set replacement) and `deleteHard` (reminder cleanup + activity
+  delete) via `db.withTransaction`; the cross-aggregate user reset lives in
+  the single-purpose `UserDataReset` class. AlarmManager work stays outside
+  transactions (non-transactional by nature; callers cancel before DB writes,
+  launch-time resync re-arms). (2) `fallbackToDestructiveMigration()` removed
+  with no replacement.
+- **Context:** P0 audit proved REPLACE-upsert wiped history via cascades; P1
+  audit found non-atomic save/delete/reset paths and an armed wipe-on-mismatch.
+  Schema is version 1 since inception and the app is unreleased, so no
+  historical schema exists to migrate — removing the fallback loses nothing
+  and converts silent data loss into a loud startup failure.
+- **Options:** Granular repo calls from ViewModels vs owned transactions;
+  destructive fallback vs fail-fast vs invented migrations.
+- **Chosen:** Owned transactions (proven by rollback/co-commit Robolectric
+  tests); fail-fast with zero migrations (nothing to migrate yet).
+- **Consequences:** Future schema changes must bump the version and add a real
+  `Migration` + `MigrationTestHelper` data-preservation test; `upsert` stays
+  single-row (last-writer-wins is benign there); no new DAO may use REPLACE on
+  a row with FK children (see `ActivityDao` KDoc).

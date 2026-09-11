@@ -11,6 +11,7 @@ import com.momentum.app.domain.model.Recurrence
 import com.momentum.app.domain.model.Reminder
 import java.time.DayOfWeek
 import java.time.LocalDate
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -43,7 +44,7 @@ class ActivityHistoryPreservedTest {
         db = Room.inMemoryDatabaseBuilder(context, MomentumDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        activities = RoomActivityRepository(db.activityDao())
+        activities = RoomActivityRepository(db.activityDao(), db.reminderDao(), db)
         completions = RoomCompletionRepository(db.completionDao())
         reminders = RoomReminderRepository(db.reminderDao())
     }
@@ -130,5 +131,103 @@ class ActivityHistoryPreservedTest {
         activities.upsert(Activity(id = id, title = "Evening journal", startDate = LocalDate.of(2026, 1, 5)))
 
         assertEquals(createdAt, activities.getById(id)!!.createdAtEpochMs)
+    }
+
+    @Test
+    fun `saveWithReminders commits activity and reminders together`() = runTest {
+        val id = activities.saveWithReminders(
+            Activity(title = "Meds", startDate = LocalDate.of(2026, 1, 5)),
+            listOf(Reminder(activityId = 0, timeLocal = "08:00", enabled = true)),
+        )
+
+        assertTrue(id > 0)
+        assertEquals("Meds", activities.getById(id)!!.title)
+        // Reminder rows are stamped with the saved activity id.
+        val rows = reminders.forActivity(id)
+        assertEquals(1, rows.size)
+        assertEquals("08:00", rows.single().timeLocal)
+    }
+
+    @Test
+    fun `resaving replaces the reminder set without duplicating`() = runTest {
+        val id = activities.saveWithReminders(
+            Activity(title = "Meds", startDate = LocalDate.of(2026, 1, 5)),
+            listOf(Reminder(activityId = 0, timeLocal = "08:00", enabled = true)),
+        )
+        val before = activities.getById(id)!!
+
+        val resavedId = activities.saveWithReminders(
+            before.copy(title = "Morning meds"),
+            listOf(Reminder(activityId = 0, timeLocal = "20:00", enabled = true)),
+        )
+
+        assertEquals(id, resavedId)
+        assertEquals("Morning meds", activities.getById(id)!!.title)
+        val rows = reminders.forActivity(id)
+        assertEquals(1, rows.size)
+        assertEquals("20:00", rows.single().timeLocal)
+    }
+
+    @Test
+    fun `resaving with reminders keeps completion history`() = runTest {
+        // The true production edit path (activity + reminder replacement).
+        val id = activities.saveWithReminders(
+            Activity(title = "Run", startDate = LocalDate.of(2026, 1, 5)),
+            listOf(Reminder(activityId = 0, timeLocal = "07:00", enabled = true)),
+        )
+        completions.complete(id, "2026-01-05", 1.0)
+        completions.complete(id, "2026-01-06", 1.0)
+
+        val before = activities.getById(id)!!
+        activities.saveWithReminders(
+            before.copy(title = "Morning run"),
+            listOf(Reminder(activityId = 0, timeLocal = "07:30", enabled = true)),
+        )
+
+        assertEquals(
+            listOf("2026-01-05", "2026-01-06"),
+            completions.recordsForActivity(id).map { it.occurrenceDate },
+        )
+        assertEquals("07:30", reminders.forActivity(id).single().timeLocal)
+    }
+
+    @Test
+    fun `reminder failure rolls back the activity save`() = runTest {
+        // P1#1 boundary proof: saveWithReminders runs inside one Room
+        // transaction, so a failure in the reminder half must undo the
+        // activity half. The throwing DAO simulates a mid-transaction failure.
+        val throwingReminders = object : ReminderDao by db.reminderDao() {
+            override suspend fun upsert(entity: ReminderEntity): Long =
+                throw IllegalStateException("simulated reminder write failure")
+        }
+        val repo = RoomActivityRepository(db.activityDao(), throwingReminders, db)
+
+        var failed = false
+        try {
+            repo.saveWithReminders(
+                Activity(title = "Doomed", startDate = LocalDate.of(2026, 1, 5)),
+                listOf(Reminder(activityId = 0, timeLocal = "08:00", enabled = true)),
+            )
+        } catch (t: IllegalStateException) {
+            failed = true
+        }
+
+        assertTrue(failed)
+        assertTrue(db.activityDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun `deleteHard removes activity, reminders and completions together`() = runTest {
+        val id = activities.saveWithReminders(
+            Activity(title = "Temp", startDate = LocalDate.of(2026, 1, 5)),
+            listOf(Reminder(activityId = 0, timeLocal = "08:00", enabled = true)),
+        )
+        completions.complete(id, "2026-01-05", 1.0)
+
+        activities.deleteHard(id)
+
+        assertEquals(null, activities.getById(id))
+        assertTrue(reminders.forActivity(id).isEmpty())
+        assertTrue(completions.recordsForActivity(id).isEmpty())
     }
 }

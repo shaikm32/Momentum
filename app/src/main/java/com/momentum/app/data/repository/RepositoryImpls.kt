@@ -1,9 +1,11 @@
 package com.momentum.app.data.repository
 
+import androidx.room.withTransaction
 import com.momentum.app.data.local.ActivityDao
 import com.momentum.app.data.local.CategoryDao
 import com.momentum.app.data.local.CompletionDao
 import com.momentum.app.data.local.CompletionEntity
+import com.momentum.app.data.local.MomentumDatabase
 import com.momentum.app.data.local.ReminderDao
 import com.momentum.app.data.local.toDomain
 import com.momentum.app.data.local.toEntity
@@ -19,7 +21,11 @@ import com.momentum.app.domain.repository.ReminderRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class RoomActivityRepository(private val dao: ActivityDao) : ActivityRepository {
+class RoomActivityRepository(
+    private val dao: ActivityDao,
+    private val reminderDao: ReminderDao,
+    private val db: MomentumDatabase,
+) : ActivityRepository {
     override fun observeByStatus(statuses: List<ActivityStatus>): Flow<List<Activity>> =
         dao.observeByStatus(statuses.map { it.name }).map { list -> list.map { it.toDomain() } }
 
@@ -39,7 +45,32 @@ class RoomActivityRepository(private val dao: ActivityDao) : ActivityRepository 
      */
     override suspend fun upsert(activity: Activity): Long {
         val nowMs = System.currentTimeMillis()
-        if (activity.id == 0L) return dao.insert(activity.toEntity(nowMs))
+        return if (activity.id == 0L) {
+            dao.insert(activity.toEntity(nowMs))
+        } else {
+            upsertExisting(activity, nowMs)
+        }
+    }
+
+    /**
+     * P1#1 transaction boundary: the activity write + the full reminder-set
+     * replacement commit atomically. A crash/failure between them can neither
+     * orphan reminders nor strand an activity without its reminder.
+     */
+    override suspend fun saveWithReminders(activity: Activity, reminders: List<Reminder>): Long =
+        db.withTransaction {
+            val nowMs = System.currentTimeMillis()
+            val savedId = if (activity.id == 0L) {
+                dao.insert(activity.toEntity(nowMs))
+            } else {
+                upsertExisting(activity, nowMs)
+            }
+            reminderDao.deleteForActivity(savedId)
+            reminders.forEach { reminderDao.upsert(it.copy(activityId = savedId).toEntity()) }
+            savedId
+        }
+
+    private suspend fun upsertExisting(activity: Activity, nowMs: Long): Long {
         val existing = dao.getById(activity.id)
         val entity = activity.toEntity(nowMs).copy(createdAt = existing?.createdAt ?: nowMs)
         // Row vanished underneath us (e.g. after a data reset): re-insert with
@@ -50,7 +81,20 @@ class RoomActivityRepository(private val dao: ActivityDao) : ActivityRepository 
     override suspend fun setStatus(id: Long, status: ActivityStatus) =
         dao.setStatus(id, status.name, System.currentTimeMillis())
 
-    override suspend fun deleteHard(id: Long) = dao.deleteHard(id)
+    /**
+     * P1#1 transaction boundary: reminder cleanup + activity delete commit
+     * together, so a crash between them can never leave orphan reminder rows
+     * that would re-arm alarms for a deleted activity on the next resync.
+     * Completions cascade via FK inside the same transaction. Alarm
+     * cancellation stays outside (Android-side, idempotent) — callers cancel
+     * alarms before invoking this.
+     */
+    override suspend fun deleteHard(id: Long) {
+        db.withTransaction {
+            reminderDao.deleteForActivity(id)
+            dao.deleteHard(id)
+        }
+    }
 
     override suspend fun clearAll() = dao.clearAll()
 }

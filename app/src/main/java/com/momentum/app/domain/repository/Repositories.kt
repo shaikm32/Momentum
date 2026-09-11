@@ -19,7 +19,21 @@ interface ActivityRepository {
      * place (id and completion history untouched). Never deletes/recreates.
      */
     suspend fun upsert(activity: Activity): Long
+    /**
+     * Atomically saves the activity and replaces its reminder set (v1: 0..1 rows).
+     * Runs in a single Room transaction: activity insert/update + reminder
+     * delete + reminder inserts either all commit or all roll back. Reminder
+     * rows are stamped with the saved activity id. AlarmManager work stays
+     * outside the transaction (callers schedule/cancel alarms after this returns).
+     */
+    suspend fun saveWithReminders(activity: Activity, reminders: List<Reminder>): Long
     suspend fun setStatus(id: Long, status: ActivityStatus)
+    /**
+     * Intentional hard delete (explicit user confirmation in UI): removes the
+     * activity row; completions cascade via FK. The activity's reminders are
+     * deleted in the same Room transaction so no orphan reminder rows survive
+     * to re-arm alarms for a deleted activity. Callers cancel alarms first.
+     */
     suspend fun deleteHard(id: Long)
     /** Deletes everything (user-initiated reset). Categories are kept. */
     suspend fun clearAll()

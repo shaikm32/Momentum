@@ -95,5 +95,9 @@ Seeded defaults (user can rename): Health, Fitness, Mind, Learning, Work, Home.
 
 ## Migrations
 
-Pre-1.0: destructive fallback allowed but must be a conscious, documented choice
-per change. Post-1.0: real `Migration`s + schema JSON + migration tests.
+Destructive fallback is removed and must never return: without it, Room fails
+fast on a schema mismatch instead of silently wiping user data. Schema is at
+version 1 since inception (app unreleased), so no historical migrations exist.
+Every future schema change ships: version bump + real `Migration` + schema JSON
++ `MigrationTestHelper` test proving activities, completions (with values),
+reminders, recurrence payloads, categories and statuses survive.
