@@ -65,7 +65,6 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val EXTRA_REMINDER_ID = "reminder_id"
         const val EXTRA_ACTIVITY_ID = "activity_id"
     }
 }

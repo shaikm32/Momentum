@@ -31,8 +31,21 @@ class RoomActivityRepository(private val dao: ActivityDao) : ActivityRepository 
 
     override suspend fun getById(id: Long): Activity? = dao.getById(id)?.toDomain()
 
-    override suspend fun upsert(activity: Activity): Long =
-        dao.upsert(activity.toEntity(nowMs = System.currentTimeMillis()))
+    /**
+     * P0#1: insert-vs-update (never REPLACE). Editing must UPDATE the existing
+     * row so the id is unchanged and the ON DELETE CASCADE children
+     * (completion_records, reminders) are never touched. Only id == 0 inserts.
+     * createdAt is preserved from the stored row — an edit must not rewrite it.
+     */
+    override suspend fun upsert(activity: Activity): Long {
+        val nowMs = System.currentTimeMillis()
+        if (activity.id == 0L) return dao.insert(activity.toEntity(nowMs))
+        val existing = dao.getById(activity.id)
+        val entity = activity.toEntity(nowMs).copy(createdAt = existing?.createdAt ?: nowMs)
+        // Row vanished underneath us (e.g. after a data reset): re-insert with
+        // the requested id instead of silently dropping the save.
+        return if (dao.update(entity) == 0) dao.insert(entity) else entity.id
+    }
 
     override suspend fun setStatus(id: Long, status: ActivityStatus) =
         dao.setStatus(id, status.name, System.currentTimeMillis())

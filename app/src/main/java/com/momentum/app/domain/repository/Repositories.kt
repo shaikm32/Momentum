@@ -13,7 +13,11 @@ interface ActivityRepository {
     fun observeAll(): Flow<List<Activity>>
     fun observeById(id: Long): Flow<Activity?>
     suspend fun getById(id: Long): Activity?
-    /** Returns the row id. Enforces title/priority/target validation via domain model. */
+    /**
+     * Returns the row id. Enforces title/priority/target validation via domain model.
+     * Insert-vs-update: id == 0 inserts; otherwise the existing row is UPDATED in
+     * place (id and completion history untouched). Never deletes/recreates.
+     */
     suspend fun upsert(activity: Activity): Long
     suspend fun setStatus(id: Long, status: ActivityStatus)
     suspend fun deleteHard(id: Long)

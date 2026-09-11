@@ -8,6 +8,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Entity(
@@ -111,8 +112,25 @@ interface ActivityDao {
     @Query("SELECT * FROM activities WHERE id = :id")
     fun observeById(id: Long): Flow<ActivityEntity?>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(entity: ActivityEntity): Long
+    /**
+     * Inserts a brand-new activity (id == 0, auto-generated). Never call this
+     * for an existing row — see [update].
+     */
+    @Insert
+    suspend fun insert(entity: ActivityEntity): Long
+
+    /**
+     * Updates an existing activity row in place, matched by primary key.
+     * Returns the number of rows updated (0 if the row does not exist).
+     *
+     * P0 SAFETY (do not "simplify" back to a REPLACE upsert): activities own
+     * completion_records and reminders rows via ON DELETE CASCADE foreign keys.
+     * An INSERT OR REPLACE deletes the conflicting activity row first, which
+     * fires the cascades and silently wipes the user's completion history,
+     * streaks and reminders on every edit. UPDATE never touches child rows.
+     */
+    @Update
+    suspend fun update(entity: ActivityEntity): Int
 
     @Query("UPDATE activities SET status = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setStatus(id: Long, status: String, updatedAt: Long)
@@ -162,6 +180,9 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun getById(id: Long): CategoryEntity?
 
+    // REPLACE is safe here (P0#5): no other table holds a foreign key to
+    // categories, so replacing a category row can never cascade-delete
+    // user data. Activities keep their categoryId value (no FK enforcement).
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: CategoryEntity): Long
 
@@ -180,6 +201,9 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders WHERE enabled = 1")
     suspend fun enabledAll(): List<ReminderEntity>
 
+    // REPLACE is safe here (P0#5): reminders are leaf rows — no other table
+    // references them, and the explicit id is preserved across the
+    // delete+reinsert, so alarm identity derived elsewhere is unaffected.
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ReminderEntity): Long
 
