@@ -1,6 +1,8 @@
 package com.momentum.app.presentation.screens.themes
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,10 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,17 +30,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.domain.model.DarkModeSetting
+import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.screens.settings.SettingsViewModel
 import com.momentum.app.presentation.theme.MomentumTheme
 import com.momentum.app.presentation.theme.MomentumThemeDefinition
 import com.momentum.app.presentation.theme.MomentumThemes
 import com.momentum.app.presentation.theme.MomentumThemeColors
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 
 @Composable
 fun ThemeGalleryRoute(onBack: () -> Unit) {
@@ -61,19 +64,16 @@ fun ThemeGalleryScreen(
     onSelect: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val c = MomentumThemeColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(
+            horizontal = MomentumSpacing.screen,
+            vertical = MomentumSpacing.group,
+        ),
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                }
-                Text("Themes", style = MaterialTheme.typography.headlineMedium, color = c.textPrimary)
-            }
+            MomentumTopBar(title = "Themes", onBack = onBack)
         }
         items(themes, key = { it.id }) { theme ->
             ThemePreviewCard(
@@ -96,33 +96,40 @@ fun ThemePreviewCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(c.surface.copy(alpha = 0.72f))
+            .clip(RoundedCornerShape(MomentumRadii.card))
+            .background(c.surface)
+            .border(
+                BorderStroke(
+                    Dp.Hairline,
+                    if (selected) c.primary else c.textSecondary.copy(alpha = 0.14f),
+                ),
+                RoundedCornerShape(MomentumRadii.card),
+            )
             .clickable(onClick = {
                 onSelect()
                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
             })
-            .padding(16.dp),
+            .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
     ) {
-        // Mini gradient preview: dark canvas + light swatch + palette dots.
+        // Compact swatch: theme gradient chip with light-mode dots.
         Box(
             modifier = Modifier
-                .size(72.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .size(56.dp)
+                .clip(RoundedCornerShape(MomentumRadii.small))
                 .background(Brush.linearGradient(listOf(theme.dark.primary, theme.dark.secondary, theme.dark.accent))),
             contentAlignment = Alignment.Center,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(theme.light.primary, theme.light.secondary, theme.light.accent).forEach { color ->
-                    Box(Modifier.size(12.dp).clip(CircleShape).background(color))
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
                 }
             }
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(theme.name, style = MaterialTheme.typography.titleLarge, color = c.textPrimary, fontWeight = FontWeight.SemiBold)
-            Text("Light + dark", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(theme.name, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
+            Text("Light · Dark", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         }
         if (selected) {
             Icon(Icons.Filled.Check, contentDescription = "${theme.name} selected", tint = c.primary)

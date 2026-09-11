@@ -4,7 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,23 +25,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.domain.model.Recurrence
 import com.momentum.app.presentation.theme.LocalMomentumColors
+import com.momentum.app.presentation.theme.MomentumIconSizes
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumTheme
 import java.time.LocalDate
 
 /**
- * Rich activity row: icon tile, title, schedule line, streak, complete affordance.
- * Completed state has reduced visual weight + success wash — meaningfully
- * different from incomplete, never just a checkbox flip.
+ * Compact activity row: icon tile, title, metadata line, streak pill,
+ * completion affordance. Completed rows quiet down (reduced alpha + success
+ * tile) without collapsing.
  */
 @Composable
 fun ActivityCard(
@@ -54,7 +58,7 @@ fun ActivityCard(
 ) {
     val c = LocalMomentumColors.current
     val cardAlpha by animateFloatAsState(
-        targetValue = if (completed) 0.62f else 1f,
+        targetValue = if (completed) 0.6f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "cardWeight",
     )
@@ -66,35 +70,29 @@ fun ActivityCard(
         modifier = modifier
             .fillMaxWidth()
             .alpha(cardAlpha)
-            .clip(RoundedCornerShape(24.dp))
-            .background(
-                if (completed) {
-                    Brush.linearGradient(
-                        listOf(c.success.copy(alpha = 0.22f), c.surface.copy(alpha = 0.72f)),
-                    )
-                } else {
-                    Brush.linearGradient(
-                        listOf(c.surface.copy(alpha = 0.85f), c.surface.copy(alpha = 0.72f)),
-                    )
-                },
+            .clip(RoundedCornerShape(MomentumRadii.card))
+            .background(c.surface)
+            .border(
+                BorderStroke(Dp.Hairline, c.textSecondary.copy(alpha = 0.14f)),
+                RoundedCornerShape(MomentumRadii.card),
             )
             .clickable(onClick = onOpen)
-            .padding(14.dp),
+            .padding(MomentumSpacing.row),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.row),
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(tileTint.copy(alpha = 0.18f)),
+                .size(44.dp)
+                .clip(RoundedCornerShape(MomentumRadii.small))
+                .background(tileTint.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = momentumIcon(activity.iconKey),
                 contentDescription = null,
                 tint = tileTint,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(MomentumIconSizes.tile),
             )
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -108,7 +106,7 @@ fun ActivityCard(
             )
             Text(
                 text = scheduleLabel,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = c.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

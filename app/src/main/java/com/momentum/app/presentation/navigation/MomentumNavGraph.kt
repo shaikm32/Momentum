@@ -1,15 +1,18 @@
 package com.momentum.app.presentation.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -23,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -41,6 +45,7 @@ import com.momentum.app.presentation.screens.onboarding.OnboardingRoute
 import com.momentum.app.presentation.screens.settings.SettingsRoute
 import com.momentum.app.presentation.screens.themes.ThemeGalleryRoute
 import com.momentum.app.presentation.screens.today.TodayRoute
+import com.momentum.app.presentation.theme.MomentumThemeColors
 
 private data class TopLevelDestination(
     val route: String,
@@ -50,7 +55,7 @@ private data class TopLevelDestination(
 
 private val Destinations = listOf(
     TopLevelDestination(Routes.TODAY, "Today", Icons.Filled.Home),
-    TopLevelDestination(Routes.ACTIVITIES, "Activities", Icons.Filled.List),
+    TopLevelDestination(Routes.ACTIVITIES, "Activities", Icons.AutoMirrored.Filled.List),
     TopLevelDestination(Routes.INSIGHTS, "Insights", Icons.Filled.BarChart),
     TopLevelDestination(Routes.CALENDAR, "Calendar", Icons.Filled.CalendarMonth),
     TopLevelDestination(Routes.SETTINGS, "Settings", Icons.Filled.Settings),
@@ -76,12 +81,28 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
                 val currentDestination = navBackStackEntry?.destination
                 val showBar = currentDestination?.hierarchy?.any { it.route in TopLevelRoutes } == true
                 if (showBar) {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = MomentumThemeColors.current.surface,
+                        tonalElevation = 0.dp,
+                    ) {
                         Destinations.forEach { dest ->
+                            val selected =
+                                currentDestination?.hierarchy?.any { it.route == dest.route } == true
                             NavigationBarItem(
-                                icon = { Icon(dest.icon, contentDescription = dest.label) },
-                                label = { Text(dest.label) },
-                                selected = currentDestination?.hierarchy?.any { it.route == dest.route } == true,
+                                icon = {
+                                    Icon(
+                                        dest.icon,
+                                        contentDescription = dest.label,
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        dest.label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                },
+                                selected = selected,
                                 onClick = {
                                     navController.navigate(dest.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
@@ -91,6 +112,13 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
                                         restoreState = true
                                     }
                                 },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MomentumThemeColors.current.primary,
+                                    selectedTextColor = MomentumThemeColors.current.primary,
+                                    unselectedIconColor = MomentumThemeColors.current.textSecondary,
+                                    unselectedTextColor = MomentumThemeColors.current.textSecondary,
+                                    indicatorColor = MomentumThemeColors.current.primary.copy(alpha = 0.14f),
+                                ),
                             )
                         }
                     }

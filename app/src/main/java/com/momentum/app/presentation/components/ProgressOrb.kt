@@ -15,9 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,15 +26,16 @@ import com.momentum.app.presentation.theme.MomentumTheme
 import kotlin.math.roundToInt
 
 /**
- * Signature progress visualization: layered glowing ring with a % hero.
- * Efficient single-Canvas draw; sweep animates with a spring, glow only when
- * [glowEnabled] (disabled under reduced-motion).
+ * Refined progress ring: thin track, solid accent arc, emphasized number.
+ * Compact by default — progress should inform, not dominate. Single efficient
+ * Canvas draw; sweep animates with a spring, glow only when [glowEnabled]
+ * (disabled under reduced-motion).
  */
 @Composable
 fun ProgressOrb(
     progress: Float,
     modifier: Modifier = Modifier,
-    size: Dp = 172.dp,
+    size: Dp = 96.dp,
     glowEnabled: Boolean = true,
 ) {
     val c = LocalMomentumColors.current
@@ -45,7 +46,7 @@ fun ProgressOrb(
     )
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
-            val stroke = size.toPx() * 0.09f
+            val stroke = size.toPx() * 0.075f
             val diameter = size.toPx() - stroke
             val topLeft = Offset(stroke / 2f, stroke / 2f)
             // Track.
@@ -61,17 +62,17 @@ fun ProgressOrb(
             if (sweep > 0.001f) {
                 if (glowEnabled) {
                     drawArc(
-                        color = c.glow.copy(alpha = 0.28f),
+                        color = c.glow.copy(alpha = 0.22f),
                         startAngle = -90f,
                         sweepAngle = 360f * sweep,
                         useCenter = false,
                         topLeft = topLeft,
                         size = Size(diameter, diameter),
-                        style = Stroke(stroke * 1.9f, cap = StrokeCap.Round),
+                        style = Stroke(stroke * 1.8f, cap = StrokeCap.Round),
                     )
                 }
                 drawArc(
-                    brush = Brush.sweepGradient(listOf(c.primary, c.secondary, c.accent, c.primary)),
+                    color = c.primary,
                     startAngle = -90f,
                     sweepAngle = 360f * sweep,
                     useCenter = false,
@@ -84,7 +85,7 @@ fun ProgressOrb(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "${(sweep * 100).roundToInt()}%",
-                style = MaterialTheme.typography.displayLarge,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                 color = c.textPrimary,
             )
         }

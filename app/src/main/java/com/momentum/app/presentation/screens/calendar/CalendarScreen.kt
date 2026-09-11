@@ -1,23 +1,22 @@
 package com.momentum.app.presentation.screens.calendar
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -27,7 +26,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,14 +34,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.ActivityCard
+import com.momentum.app.presentation.components.MomentumCard
+import com.momentum.app.presentation.components.MomentumSectionHeader
+import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.recurrenceLabel
 import com.momentum.app.presentation.components.targetProgressLabel
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.theme.MomentumHeights
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -83,57 +93,89 @@ fun CalendarScreen(
     val c = MomentumThemeColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(
+            horizontal = MomentumSpacing.screen,
+            vertical = MomentumSpacing.group,
+        ),
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    state.month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = c.textPrimary,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onPrev) {
-                    Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month")
-                }
-                IconButton(onClick = onNext) {
-                    Icon(Icons.Filled.ChevronRight, contentDescription = "Next month")
-                }
-                TextButton(onClick = onToday) { Text("Today") }
-            }
-        }
-        item {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                // Same single-letter glyphs as before; order follows WeekStart.
-                state.weekDays.forEach { day ->
-                    Text(
-                        day.name.take(1), modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
-                        color = c.textSecondary, style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(7),
-                modifier = Modifier.height(320.dp),
-                userScrollEnabled = false,
-            ) {
-                items(state.cells, key = { it.date }) { cell ->
-                    DayDot(cell = cell, isToday = cell.date == state.today, isSelected = cell.date == state.selectedDate, onSelect = { onSelect(cell.date) })
-                }
-            }
-        }
-        item {
-            Text(
-                state.selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
-                style = MaterialTheme.typography.titleLarge,
-                color = c.textPrimary,
+            MomentumTopBar(
+                title = state.month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
+                actions = {
+                    IconButton(onClick = onPrev) {
+                        Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month")
+                    }
+                    IconButton(onClick = onNext) {
+                        Icon(Icons.Filled.ChevronRight, contentDescription = "Next month")
+                    }
+                    Box(
+                        modifier = Modifier
+                            .heightIn(min = MomentumHeights.controlMin)
+                            .clip(RoundedCornerShape(MomentumRadii.control))
+                            .clickable(role = Role.Button, onClick = onToday)
+                            .padding(
+                                horizontal = MomentumSpacing.row,
+                                vertical = MomentumSpacing.group,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "Today",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = c.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                },
             )
-            val done = state.selectedItems.count { it.completed }
+        }
+        item {
+            MomentumCard {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    // Same single-letter glyphs as before; order follows WeekStart.
+                    state.weekDays.forEach { day ->
+                        Text(
+                            day.name.take(1),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = c.textSecondary,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(MomentumSpacing.group))
+                // Plain rows (not lazy): 42 fixed cells compose cheaply and size
+                // responsively, with no nested-scroll measurement hazards.
+                state.cells.chunked(7).forEach { week ->
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        week.forEach { cell ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                DayDot(
+                                    cell = cell,
+                                    isToday = cell.date == state.today,
+                                    isSelected = cell.date == state.selectedDate,
+                                    onSelect = { onSelect(cell.date) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            MomentumSectionHeader(
+                title = state.selectedDate.format(
+                    DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault()),
+                ),
+            )
             Text(
                 if (state.selectedItems.isEmpty()) "Nothing scheduled."
-                else "$done of ${state.selectedItems.size} complete",
-                style = MaterialTheme.typography.bodyMedium,
+                else {
+                    val done = state.selectedItems.count { it.completed }
+                    "$done of ${state.selectedItems.size} complete"
+                },
+                style = MaterialTheme.typography.bodySmall,
                 color = c.textSecondary,
             )
         }
@@ -163,35 +205,50 @@ private fun DayDot(
     onSelect: () -> Unit,
 ) {
     val c = MomentumThemeColors.current
-    val bg = when {
+    val fill = when {
         cell.fraction < 0 -> Color.Transparent
         cell.fraction >= 1f -> c.success
-        cell.fraction > 0f -> c.primary.copy(alpha = 0.35f + 0.45f * cell.fraction)
+        cell.fraction > 0f -> c.primary.copy(alpha = 0.30f + 0.45f * cell.fraction)
         else -> c.surfaceVariant
     }
-    Column(
+    val description = buildString {
+        append(cell.date.format(DateTimeFormatter.ofPattern("MMMM d", Locale.getDefault())))
+        if (cell.scheduled > 0) append(", ${cell.completed} of ${cell.scheduled} complete")
+    }
+    Box(
         modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
             .alpha(if (cell.inMonth) 1f else 0.35f)
-            .clickable(onClick = onSelect)
-            .padding(2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(if (isSelected || isToday) RoundedCornerShape(12.dp) else CircleShape)
-                .background(if (isSelected) c.primary.copy(alpha = 0.35f) else bg)
-                .padding(2.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                "${cell.date.dayOfMonth}",
-                color = if (cell.fraction >= 1f && !isSelected) c.backgroundBottom else c.textPrimary,
-                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            .clip(RoundedCornerShape(MomentumRadii.small))
+            .background(if (isSelected) c.primary else fill)
+            .then(
+                if (isToday && !isSelected) {
+                    Modifier.border(
+                        BorderStroke(Dp.Hairline.times(2), c.primary),
+                        RoundedCornerShape(MomentumRadii.small),
+                    )
+                } else {
+                    Modifier
+                },
             )
-        }
-        if (isToday) {
-            Text("•", color = c.accent, style = MaterialTheme.typography.bodyMedium)
-        }
+            .semantics(mergeDescendants = true) {
+                contentDescription = description
+                role = Role.Button
+                onClick { onSelect(); true }
+            }
+            .padding(2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "${cell.date.dayOfMonth}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = when {
+                isSelected -> c.onPrimary
+                cell.fraction >= 1f -> c.backgroundBottom
+                else -> c.textPrimary
+            },
+            fontWeight = if (isToday || isSelected) FontWeight.SemiBold else FontWeight.Normal,
+        )
     }
 }

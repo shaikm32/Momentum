@@ -12,20 +12,17 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +35,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.ActivityCard
 import com.momentum.app.presentation.components.CategoryChip
 import com.momentum.app.presentation.components.EmptyState
+import com.momentum.app.presentation.components.MomentumDialog
+import com.momentum.app.presentation.components.MomentumSectionHeader
+import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.recurrenceLabel
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,17 +59,22 @@ fun ActivitiesRoute(
         vm.messages.collect { snackbar.showSnackbar(it) }
     }
 
-    Scaffold(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddActivity) {
-                Icon(Icons.Filled.Add, contentDescription = "Add activity")
-            }
-        },
-    ) { padding ->
+    Column(modifier = Modifier.fillMaxSize()) {
+        MomentumTopBar(
+            title = "Activities",
+            subtitle = when (state.tab) {
+                ActivityTab.ACTIVE -> "${state.items.size} active"
+                ActivityTab.PAUSED -> "${state.items.size} paused"
+                ActivityTab.ARCHIVED -> "${state.items.size} archived"
+            },
+            actions = {
+                IconButton(onClick = onAddActivity) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add activity")
+                }
+            },
+        )
         ActivitiesScreen(
             state = state,
-            modifier = Modifier.padding(padding),
             onQuery = { vm.setQuery(it) },
             onTab = { vm.setTab(it) },
             onCategory = { vm.setCategory(it) },
@@ -81,16 +88,14 @@ fun ActivitiesRoute(
         )
     }
     pendingDelete?.let { id ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete permanently?") },
-            text = { Text("History and reminders for this activity are deleted too. Archive keeps history.") },
-            confirmButton = {
-                TextButton(onClick = { vm.deleteHard(id); pendingDelete = null }) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Keep") }
-            },
+        MomentumDialog(
+            title = "Delete permanently?",
+            body = "History and reminders for this activity are deleted too. Archive keeps history.",
+            confirmLabel = "Delete",
+            onConfirm = { vm.deleteHard(id); pendingDelete = null },
+            dismissLabel = "Keep",
+            onDismiss = { pendingDelete = null },
+            destructive = true,
         )
     }
 }
@@ -112,26 +117,31 @@ fun ActivitiesScreen(
 ) {
     val c = MomentumThemeColors.current
     Column(modifier.fillMaxSize()) {
-        Text(
-            "Activities",
-            style = MaterialTheme.typography.displayLarge,
-            color = c.textPrimary,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-        )
         OutlinedTextField(
             value = state.query,
             onValueChange = onQuery,
-            label = { Text("Search") },
+            label = { Text("Search activities") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = c.textSecondary) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(MomentumRadii.control),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MomentumSpacing.screen),
         )
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(
+                horizontal = MomentumSpacing.screen,
+                vertical = MomentumSpacing.group,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
         ) {
             items(ActivityTab.entries.toList()) { tab ->
                 CategoryChip(
-                    label = tab.name.lowercase().replaceFirstChar(Char::titlecase),
+                    label = when (tab) {
+                        ActivityTab.ACTIVE -> "Active"
+                        ActivityTab.PAUSED -> "Paused"
+                        ActivityTab.ARCHIVED -> "Archived"
+                    },
                     selected = state.tab == tab,
                     onClick = { onTab(tab) },
                 )
@@ -139,8 +149,8 @@ fun ActivitiesScreen(
         }
         if (state.categories.isNotEmpty()) {
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = MomentumSpacing.screen),
+                horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
             ) {
                 item {
                     CategoryChip(label = "All", selected = state.categoryId == null, onClick = { onCategory(null) })
@@ -164,15 +174,28 @@ fun ActivitiesScreen(
                 body = "Create something worth showing up for.",
                 actionLabel = "Create activity",
                 onAction = onAdd,
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(top = MomentumSpacing.group),
+                icon = Icons.Filled.Add,
             )
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(
+                    horizontal = MomentumSpacing.screen,
+                    vertical = MomentumSpacing.group,
+                ),
+                verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
             ) {
+                item {
+                    MomentumSectionHeader(
+                        title = when (state.tab) {
+                            ActivityTab.ACTIVE -> "Active"
+                            ActivityTab.PAUSED -> "Paused"
+                            ActivityTab.ARCHIVED -> "Archived"
+                        },
+                    )
+                }
                 items(state.items, key = { it.id }) { activity ->
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         ActivityCard(
                             activity = activity,
                             completed = false,
@@ -185,7 +208,7 @@ fun ActivitiesScreen(
                             onOpen = { onOpen(activity.id) },
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -200,10 +223,19 @@ fun ActivitiesScreen(
                                 }
                             }
                             if (state.tab != ActivityTab.ARCHIVED) {
-                                TextButton(onClick = { onArchive(activity.id) }) { Text("Archive") }
+                                IconButton(onClick = { onArchive(activity.id) }) {
+                                    Icon(
+                                        Icons.Filled.Archive,
+                                        contentDescription = "Archive ${activity.title}",
+                                    )
+                                }
                             } else {
                                 IconButton(onClick = { onDelete(activity.id) }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Delete ${activity.title}")
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = "Delete ${activity.title}",
+                                        tint = c.error,
+                                    )
                                 }
                             }
                         }

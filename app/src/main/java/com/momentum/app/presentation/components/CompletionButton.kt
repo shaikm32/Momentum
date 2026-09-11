@@ -3,7 +3,9 @@ package com.momentum.app.presentation.components
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -20,20 +22,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.presentation.theme.LocalMomentumColors
+import com.momentum.app.presentation.theme.MomentumHeights
+import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumTheme
 
 /**
- * Big satisfying completion toggle (≥48 dp). Pops with a spring + haptic on
- * completion; the data state flips immediately — the animation never blocks it.
+ * Restrained completion toggle (48 dp touch target). Idle: quiet hairline ring;
+ * done: solid accent fill. Pops with a spring + haptic on completion; the data
+ * state flips immediately — the animation never blocks it.
  */
 @Composable
 fun CompletionButton(
@@ -45,21 +49,23 @@ fun CompletionButton(
     val c = LocalMomentumColors.current
     val haptics = LocalHapticFeedback.current
     val scale by animateFloatAsState(
-        targetValue = if (completed) 1f else 0.92f,
+        targetValue = if (completed) 1f else 0.94f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
         label = "completionPop",
     )
-    val background = if (completed) {
-        Brush.linearGradient(listOf(c.primary, c.secondary))
-    } else {
-        Brush.linearGradient(listOf(c.surfaceVariant, c.surfaceVariant))
-    }
     Box(
         modifier = modifier
-            .size(56.dp)
+            .size(MomentumHeights.controlMin)
             .scale(scale)
             .clip(CircleShape)
-            .background(background)
+            .background(if (completed) c.primary else Color.Transparent)
+            .then(
+                if (completed) Modifier
+                else Modifier.border(
+                    BorderStroke(Dp.Hairline, c.textSecondary.copy(alpha = 0.45f)),
+                    CircleShape,
+                ),
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = true),
@@ -75,7 +81,7 @@ fun CompletionButton(
             imageVector = Icons.Filled.Check,
             contentDescription = contentDescription,
             tint = if (completed) c.onPrimary else c.textSecondary,
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(MomentumIconSizes.medium),
         )
     }
 }

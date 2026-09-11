@@ -4,18 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -27,18 +22,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.BuildConfig
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.domain.model.WeekStart
 import com.momentum.app.presentation.components.CategoryChip
+import com.momentum.app.presentation.components.MomentumCard
+import com.momentum.app.presentation.components.MomentumDialog
+import com.momentum.app.presentation.components.MomentumDivider
+import com.momentum.app.presentation.components.MomentumSectionHeader
+import com.momentum.app.presentation.components.MomentumSettingRow
+import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import com.momentum.app.presentation.theme.themeById
 
@@ -92,46 +91,72 @@ fun SettingsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        contentPadding = PaddingValues(
+            horizontal = MomentumSpacing.screen,
+            vertical = MomentumSpacing.group,
+        ),
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            Text("Settings", style = MaterialTheme.typography.displayLarge, color = c.textPrimary)
+            MomentumTopBar(title = "Settings")
         }
         item {
-            Section("Appearance") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .background(c.surface.copy(alpha = 0.72f))
-                        .clickable(onClick = onOpenThemes)
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Theme", color = c.textPrimary, fontWeight = FontWeight.SemiBold)
-                        Text(themeById(themeId).name, color = c.textSecondary)
-                    }
-                    Text("Change", color = c.primary, fontWeight = FontWeight.SemiBold)
-                }
-                LabelRow("Mode")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DarkModeSetting.entries.forEach { mode ->
-                        CategoryChip(
-                            label = mode.name.lowercase().replaceFirstChar(Char::titlecase),
-                            selected = darkMode == mode,
-                            onClick = { onDarkMode(mode) },
+            MomentumSectionHeader(title = "Appearance")
+        }
+        item {
+            MomentumCard {
+                MomentumSettingRow(
+                    title = "Theme",
+                    supporting = themeById(themeId).name,
+                    onClick = onOpenThemes,
+                    trailing = {
+                        Text(
+                            "Change",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = c.primary,
+                            fontWeight = FontWeight.SemiBold,
                         )
+                    },
+                )
+                MomentumDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
+                    Text(
+                        "Mode",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = c.textPrimary,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        DarkModeSetting.entries.forEach { mode ->
+                            CategoryChip(
+                                label = mode.name.lowercase().replaceFirstChar(Char::titlecase),
+                                selected = darkMode == mode,
+                                onClick = { onDarkMode(mode) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
-                SwitchRow(
-                    label = "Reduce motion",
-                    checked = reduceMotion == true,
-                    onChange = { onReduceMotion(if (it) true else null) },
+                MomentumDivider()
+                MomentumSettingRow(
+                    title = "Reduce motion",
+                    supporting = "Calm animations throughout the app",
+                    trailing = {
+                        Switch(
+                            checked = reduceMotion == true,
+                            onCheckedChange = { onReduceMotion(if (it) true else null) },
+                        )
+                    },
                 )
             }
         }
         item {
-            Section("Notifications") {
+            MomentumSectionHeader(title = "Notifications")
+        }
+        item {
+            MomentumCard {
                 Text(
                     "Reminders fire on-device. Enable notifications so Momentum can nudge you.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -154,21 +179,49 @@ fun SettingsScreen(
             }
         }
         item {
-            Section("Preferences") {
-                LabelRow("Week starts on")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CategoryChip(label = "Monday", selected = weekStart == WeekStart.MONDAY, onClick = { onWeekStart(WeekStart.MONDAY) })
-                    CategoryChip(label = "Sunday", selected = weekStart == WeekStart.SUNDAY, onClick = { onWeekStart(WeekStart.SUNDAY) })
+            MomentumSectionHeader(title = "Preferences")
+        }
+        item {
+            MomentumCard {
+                Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
+                    Text(
+                        "Week starts on",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = c.textPrimary,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        CategoryChip(
+                            label = "Monday",
+                            selected = weekStart == WeekStart.MONDAY,
+                            onClick = { onWeekStart(WeekStart.MONDAY) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        CategoryChip(
+                            label = "Sunday",
+                            selected = weekStart == WeekStart.SUNDAY,
+                            onClick = { onWeekStart(WeekStart.SUNDAY) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
-                SwitchRow(
-                    label = "Motivational messages",
-                    checked = motivational,
-                    onChange = onMotivational,
+                MomentumDivider()
+                MomentumSettingRow(
+                    title = "Motivational messages",
+                    supporting = "Gentle encouragement on Today",
+                    trailing = {
+                        Switch(checked = motivational, onCheckedChange = onMotivational)
+                    },
                 )
             }
         }
         item {
-            Section("Data") {
+            MomentumSectionHeader(title = "Data & privacy")
+        }
+        item {
+            MomentumCard {
                 Text(
                     "Everything stays on this device. Clearing deletes all activities, history, and reminders.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -180,8 +233,16 @@ fun SettingsScreen(
             }
         }
         item {
-            Section("About") {
-                Text("Momentum ${BuildConfig.VERSION_NAME}", color = c.textPrimary, fontWeight = FontWeight.SemiBold)
+            MomentumSectionHeader(title = "About")
+        }
+        item {
+            MomentumCard {
+                Text(
+                    "Momentum ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = c.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                )
                 Text(
                     "Your data stays on your device. No account, no cloud, no tracking — offline by design.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -191,38 +252,14 @@ fun SettingsScreen(
         }
     }
     if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text("Clear everything?") },
-            text = { Text("All activities, completion history, and reminders will be deleted. This can't be undone.") },
-            confirmButton = {
-                TextButton(onClick = { confirmClear = false; onClearData() }) {
-                    Text("Clear all", color = MomentumThemeColors.current.error)
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Keep my data") } },
+        MomentumDialog(
+            title = "Clear everything?",
+            body = "All activities, completion history, and reminders will be deleted. This can't be undone.",
+            confirmLabel = "Clear all",
+            onConfirm = { confirmClear = false; onClearData() },
+            dismissLabel = "Keep my data",
+            onDismiss = { confirmClear = false },
+            destructive = true,
         )
-    }
-}
-
-@Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    val c = MomentumThemeColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
-        content()
-    }
-}
-
-@Composable
-private fun LabelRow(text: String) {
-    Text(text, color = MomentumThemeColors.current.textSecondary, style = MaterialTheme.typography.bodyMedium)
-}
-
-@Composable
-private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = MomentumThemeColors.current.textPrimary, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
     }
 }

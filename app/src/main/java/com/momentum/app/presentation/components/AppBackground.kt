@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import com.momentum.app.presentation.theme.MomentumThemeColors
 
 /**
- * Layered gradient canvas for every screen. Establishes the visual
- * direction: rich gradient + subtle depth instead of flat gray surfaces.
+ * Calm canvas for every screen: a solid theme background. The app is designed
+ * to look intentional with no gradients at all; gradient accents live only in
+ * hero/progress moments on individual screens.
  */
 @Composable
 fun AppBackground(
@@ -21,7 +21,7 @@ fun AppBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(c.backgroundTop, c.backgroundBottom))),
+            .background(c.backgroundBottom),
     ) {
         content()
     }

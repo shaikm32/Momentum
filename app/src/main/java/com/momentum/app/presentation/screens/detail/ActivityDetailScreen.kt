@@ -1,35 +1,33 @@
 package com.momentum.app.presentation.screens.detail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,15 +37,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.presentation.components.CompletionButton
+import com.momentum.app.presentation.components.MomentumCard
+import com.momentum.app.presentation.components.MomentumDialog
+import com.momentum.app.presentation.components.MomentumDivider
+import com.momentum.app.presentation.components.MomentumSectionHeader
+import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.StatCard
 import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.components.recurrenceLabel
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.theme.MomentumIconSizes
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -91,14 +100,14 @@ fun ActivityDetailRoute(
         )
     }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete permanently?") },
-            text = { Text("Completion history and reminders are deleted too. This can't be undone.") },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; vm.deleteHard() }) { Text("Delete") }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep") } },
+        MomentumDialog(
+            title = "Delete permanently?",
+            body = "Completion history and reminders are deleted too. This can't be undone.",
+            confirmLabel = "Delete",
+            onConfirm = { confirmDelete = false; vm.deleteHard() },
+            dismissLabel = "Keep",
+            onDismiss = { confirmDelete = false },
+            destructive = true,
         )
     }
 }
@@ -119,119 +128,161 @@ fun ActivityDetailScreen(
     val stats = state.stats.stats
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(
+            horizontal = MomentumSpacing.screen,
+            vertical = MomentumSpacing.group,
+        ),
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit ${activity.title}")
-                }
-            }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Box(
-                    modifier = Modifier.size(72.dp).clip(CircleShape)
-                        .background(c.primary.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        momentumIcon(activity.iconKey), contentDescription = null,
-                        tint = c.primary, modifier = Modifier.size(36.dp),
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(activity.title, style = MaterialTheme.typography.headlineMedium, color = c.textPrimary)
-                    Text(
-                        buildString {
-                            append(recurrenceLabel(activity.recurrence))
-                            state.category?.let { append(" · ${it.name}") }
-                        },
-                        style = MaterialTheme.typography.bodyMedium, color = c.textSecondary,
-                    )
-                    if (activity.description.isNotBlank()) {
-                        Text(activity.description, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
-                    }
-                }
-                CompletionButton(completed = state.completedToday, onToggle = onToggle)
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatCard(
-                    value = "${state.stats.stats.currentStreak}",
-                    label = "Current streak",
-                    modifier = Modifier.weight(1f),
-                )
-                StatCard(
-                    value = "${stats.longestStreak}",
-                    label = "Best streak",
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatCard(
-                    value = "${(stats.completionRate * 100).roundToInt()}%",
-                    label = "Last 30 days",
-                    modifier = Modifier.weight(1f),
-                )
-                StatCard(
-                    value = "${stats.completedCount}",
-                    label = "Completions",
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        item {
-            DetailRow(
-                "Schedule",
-                buildString {
+            MomentumTopBar(
+                title = activity.title,
+                subtitle = buildString {
                     append(recurrenceLabel(activity.recurrence))
-                    append(" · from ${activity.startDate.format(DateTimeFormatter.ofPattern("MMM d yyyy"))}")
-                    activity.endDate?.let { append(" to ${it.format(DateTimeFormatter.ofPattern("MMM d yyyy"))}") }
+                    state.category?.let { append(" · ${it.name}") }
+                    append(" · ${activity.status.name.lowercase().replaceFirstChar(Char::titlecase)}")
+                },
+                onBack = onBack,
+                actions = {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit ${activity.title}")
+                    }
                 },
             )
-            if (activity.targetPerOccurrence != 1.0 || activity.unit.isNotBlank()) {
-                DetailRow("Target", "${trimTarget(activity.targetPerOccurrence)} ${activity.unit}".trim())
+        }
+        if (activity.description.isNotBlank()) {
+            item {
+                Text(activity.description, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
             }
-            if (state.reminders.isNotEmpty()) {
-                DetailRow("Reminders", state.reminders.filter { it.enabled }.joinToString { it.timeLocal })
-            }
-            if (activity.notes.isNotBlank()) DetailRow("Notes", activity.notes)
-            DetailRow("Trend", state.stats.trend.name.lowercase().replaceFirstChar(Char::titlecase).replace('_', ' '))
         }
         item {
-            Text("Recent history", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
-            Spacer(Modifier.height(8.dp))
+            MomentumCard {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(MomentumRadii.small))
+                            .background(c.primary.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            momentumIcon(activity.iconKey), contentDescription = null,
+                            tint = c.primary, modifier = Modifier.size(MomentumIconSizes.large),
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "Today",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = c.textSecondary,
+                        )
+                        Text(
+                            if (state.completedToday) "Completed" else "Not yet done",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (state.completedToday) c.success else c.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    CompletionButton(completed = state.completedToday, onToggle = onToggle)
+                }
+            }
+        }
+        item {
+            MomentumSectionHeader(title = "Statistics")
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group), modifier = Modifier.fillMaxWidth()) {
+                    StatCard(
+                        value = "${stats.currentStreak}",
+                        label = "Current streak",
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatCard(
+                        value = "${stats.longestStreak}",
+                        label = "Best streak",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group), modifier = Modifier.fillMaxWidth()) {
+                    StatCard(
+                        value = "${(stats.completionRate * 100).roundToInt()}%",
+                        label = "Last 30 days",
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatCard(
+                        value = "${stats.completedCount}",
+                        label = "Completions",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+        item {
+            MomentumSectionHeader(title = "Details")
+        }
+        item {
+            MomentumCard {
+                DetailRow(
+                    "Schedule",
+                    buildString {
+                        append(recurrenceLabel(activity.recurrence))
+                        append(" · from ${activity.startDate.format(DateTimeFormatter.ofPattern("MMM d yyyy"))}")
+                        activity.endDate?.let { append(" to ${it.format(DateTimeFormatter.ofPattern("MMM d yyyy"))}") }
+                    },
+                )
+                MomentumDivider()
+                if (activity.targetPerOccurrence != 1.0 || activity.unit.isNotBlank()) {
+                    DetailRow("Target", "${trimTarget(activity.targetPerOccurrence)} ${activity.unit}".trim())
+                    MomentumDivider()
+                }
+                if (state.reminders.isNotEmpty()) {
+                    DetailRow("Reminders", state.reminders.filter { it.enabled }.joinToString { it.timeLocal })
+                    MomentumDivider()
+                }
+                if (activity.notes.isNotBlank()) {
+                    DetailRow("Notes", activity.notes)
+                    MomentumDivider()
+                }
+                DetailRow("Trend", state.stats.trend.name.lowercase().replaceFirstChar(Char::titlecase).replace('_', ' '))
+            }
+        }
+        item {
+            MomentumSectionHeader(title = "Recent history")
+        }
+        item {
             val recent = state.stats.scheduled.takeLast(14).reversed()
             if (recent.isEmpty()) {
                 Text("No scheduled occurrences yet.", color = c.textSecondary)
             } else {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
                     items(recent) { date ->
                         val done = date in state.stats.completed
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
-                                modifier = Modifier.size(40.dp).clip(CircleShape)
-                                    .background(if (done) c.success else c.surfaceVariant),
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(MomentumRadii.small))
+                                    .background(if (done) c.success else c.surfaceVariant)
+                                    .border(
+                                        BorderStroke(Dp.Hairline, c.textSecondary.copy(alpha = 0.14f)),
+                                        RoundedCornerShape(MomentumRadii.small),
+                                    ),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     "${date.dayOfMonth}",
-                                    color = if (done) c.backgroundBottom else c.textSecondary,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (done) c.backgroundBottom else c.textPrimary,
+                                    fontWeight = FontWeight.SemiBold,
                                 )
                             }
                             Text(
                                 date.dayOfWeek.name.take(1),
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = c.textSecondary,
                             )
                         }
@@ -240,28 +291,83 @@ fun ActivityDetailScreen(
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MomentumSectionHeader(title = "Actions")
+        }
+        item {
+            MomentumCard {
                 if (activity.status == ActivityStatus.ACTIVE) {
-                    TextButton(onClick = onPause) {
-                        Icon(Icons.Filled.Pause, contentDescription = null)
-                        Text("Pause")
-                    }
+                    DetailActionRow(
+                        icon = Icons.Filled.Pause,
+                        label = "Pause",
+                        supporting = "Hide from Today, keep history",
+                        onClick = onPause,
+                    )
+                    MomentumDivider()
                 }
                 if (activity.status == ActivityStatus.PAUSED) {
-                    TextButton(onClick = onResume) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                        Text("Resume")
-                    }
+                    DetailActionRow(
+                        icon = Icons.Filled.PlayArrow,
+                        label = "Resume",
+                        supporting = "Show on Today again",
+                        onClick = onResume,
+                    )
+                    MomentumDivider()
                 }
                 if (activity.status != ActivityStatus.ARCHIVED) {
-                    TextButton(onClick = onArchive) { Text("Archive") }
+                    DetailActionRow(
+                        icon = Icons.Filled.Archive,
+                        label = "Archive",
+                        supporting = "Retire without deleting history",
+                        onClick = onArchive,
+                    )
+                    MomentumDivider()
                 }
-                TextButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = null, tint = c.error)
-                    Text("Delete", color = c.error)
-                }
+                DetailActionRow(
+                    icon = Icons.Filled.Delete,
+                    label = "Delete permanently",
+                    supporting = "Erases history and reminders",
+                    destructive = true,
+                    onClick = onDelete,
+                )
             }
-            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun DetailActionRow(
+    icon: ImageVector,
+    label: String,
+    supporting: String,
+    onClick: () -> Unit,
+    destructive: Boolean = false,
+) {
+    val c = MomentumThemeColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(MomentumRadii.control))
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            .padding(
+                horizontal = MomentumSpacing.row,
+                vertical = MomentumSpacing.group,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.row),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (destructive) c.error else c.textSecondary,
+            modifier = Modifier.size(MomentumIconSizes.medium),
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (destructive) c.error else c.textPrimary,
+            )
+            Text(supporting, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         }
     }
 }

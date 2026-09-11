@@ -3,6 +3,7 @@ package com.momentum.app.presentation.screens.insights
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,10 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,13 +27,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.EmptyState
+import com.momentum.app.presentation.components.MomentumCard
+import com.momentum.app.presentation.components.MomentumDivider
+import com.momentum.app.presentation.components.MomentumLinearProgress
+import com.momentum.app.presentation.components.MomentumSectionHeader
+import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.StatCard
+import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.theme.MomentumIconSizes
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import java.time.format.TextStyle
 import java.util.Locale
@@ -48,15 +59,16 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
     val c = MomentumThemeColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(
+            horizontal = MomentumSpacing.screen,
+            vertical = MomentumSpacing.group,
+        ),
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            Text("Insights", style = MaterialTheme.typography.displayLarge, color = c.textPrimary)
-            Text(
-                "Real numbers from your actual history.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = c.textSecondary,
+            MomentumTopBar(
+                title = "Insights",
+                subtitle = "Your consistency at a glance",
             )
         }
         if (state.isEmpty) {
@@ -66,99 +78,134 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
                     body = "Complete activities for a few days and your trends will appear here.",
                     actionLabel = "Create activity",
                     onAction = onAdd,
+                    icon = Icons.Filled.BarChart,
                 )
             }
             return@LazyColumn
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatCard(
-                    value = "${(state.weekRate * 100).roundToInt()}%",
-                    label = "Last 7 days",
-                    modifier = Modifier.weight(1f),
+            MomentumCard {
+                val delta = ((state.weekRate - state.monthRate) * 100).roundToInt()
+                Text(
+                    "Last 7 days",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = c.textSecondary,
                 )
-                StatCard(
-                    value = "${(state.monthRate * 100).roundToInt()}%",
-                    label = "Last 30 days",
-                    modifier = Modifier.weight(1f),
+                Text(
+                    "${(state.weekRate * 100).roundToInt()}%",
+                    style = MaterialTheme.typography.displayLarge,
+                    color = c.textPrimary,
+                )
+                Text(
+                    text = when {
+                        delta > 0 -> "+$delta pts vs 30-day average"
+                        delta < 0 -> "$delta pts vs 30-day average"
+                        else -> "Even with your 30-day average"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (delta >= 0) c.success else c.warning,
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatCard(
-                    value = "${state.totalCompletions}",
-                    label = "Completions (30d)",
-                    modifier = Modifier.weight(1f),
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group), modifier = Modifier.fillMaxWidth()) {
                 StatCard(
                     value = "${state.bestStreak}",
                     label = "Best streak",
                     sublabel = state.bestStreakTitle.takeIf { it.isNotBlank() },
                     modifier = Modifier.weight(1f),
                 )
+                StatCard(
+                    value = "${state.totalCompletions}",
+                    label = "Completions · 30d",
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
         item {
-            Text("This week", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
-            WeeklyBars(days = state.last7Days)
+            MomentumSectionHeader(title = "This week")
+        }
+        item {
+            MomentumCard {
+                WeeklyBars(days = state.last7Days)
+            }
         }
         if (state.categories.isNotEmpty()) {
             item {
-                Text("By category", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
+                MomentumSectionHeader(title = "By category")
             }
-            items(state.categories) { cat ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(c.surface.copy(alpha = 0.72f))
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Row {
-                        Text(cat.name, color = c.textPrimary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Text(
-                            "${(cat.rate * 100).roundToInt()}%",
-                            color = c.primary,
-                            fontWeight = FontWeight.Bold,
-                        )
+            item {
+                MomentumCard {
+                    state.categories.forEachIndexed { index, cat ->
+                        if (index > 0) MomentumDivider(modifier = Modifier.padding(horizontal = 0.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    cat.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = c.textPrimary,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    "${(cat.rate * 100).roundToInt()}%",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = c.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                            MomentumLinearProgress(progress = cat.rate.toFloat())
+                            Text(
+                                "${cat.completed} of ${cat.scheduled} complete",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = c.textSecondary,
+                            )
+                        }
                     }
-                    LinearProgressIndicator(
-                        progress = { cat.rate.toFloat() },
-                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)),
-                        color = c.primary,
-                        trackColor = c.surfaceVariant,
-                        strokeCap = StrokeCap.Round,
-                    )
-                    Text(
-                        "${cat.completed} of ${cat.scheduled} complete",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = c.textSecondary,
-                    )
                 }
             }
         }
         if (state.topActivities.isNotEmpty()) {
             item {
-                Text("Most consistent", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
+                MomentumSectionHeader(title = "Most consistent")
             }
-            items(state.topActivities, key = { it.activity.id }) { perf ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(c.surface.copy(alpha = 0.72f))
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(perf.activity.title, color = c.textPrimary, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "${(perf.rate * 100).roundToInt()}% · ${perf.streak} in a row",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = c.textSecondary,
-                        )
+            item {
+                MomentumCard {
+                    state.topActivities.forEachIndexed { index, perf ->
+                        if (index > 0) MomentumDivider(modifier = Modifier.padding(horizontal = 0.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.row),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(MomentumRadii.small))
+                                    .background(c.primary.copy(alpha = 0.14f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = momentumIcon(perf.activity.iconKey),
+                                    contentDescription = null,
+                                    tint = c.primary,
+                                    modifier = Modifier.size(MomentumIconSizes.medium),
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    perf.activity.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = c.textPrimary,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    "${(perf.rate * 100).roundToInt()}% · ${perf.streak} in a row",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = c.textSecondary,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -166,22 +213,16 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
     }
 }
 
-/** Custom-drawn weekly bars — no chart library in v1 (dependency discipline). */
+/** Slim weekly bars — clean, minimal, no chart library. */
 @Composable
 private fun WeeklyBars(days: List<DayRate>) {
     val c = MomentumThemeColors.current
     val track = c.surfaceVariant
     val fill = c.primary
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(c.surface.copy(alpha = 0.72f))
-            .padding(16.dp),
-    ) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(140.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)) {
             if (days.isEmpty()) return@Canvas
-            val gap = 8.dp.toPx()
+            val gap = 6.dp.toPx()
             val barWidth = (size.width - gap * (days.size - 1)) / days.size
             days.forEachIndexed { i, day ->
                 val x = i * (barWidth + gap)
@@ -206,7 +247,7 @@ private fun WeeklyBars(days: List<DayRate>) {
             days.forEach { day ->
                 Text(
                     day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelMedium,
                     color = c.textSecondary,
                     modifier = Modifier.weight(1f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,

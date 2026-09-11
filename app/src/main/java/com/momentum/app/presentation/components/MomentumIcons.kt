@@ -1,20 +1,24 @@
 package com.momentum.app.presentation.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -22,14 +26,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 /**
  * Curated icon set keyed by [iconKey]. Keys are stored on activities/categories;
  * unknown keys fall back to [Star] so a bad key can never break the UI.
- * (Extended Material icons arrive once verified in Android Studio; core set keeps
- * Phase 1 compiling on the pinned BOM with zero risk.)
+ * One family (Material filled) at consistent optical scale.
  */
 data class MomentumIconOption(val key: String, val label: String)
 
 val MomentumIconOptions = listOf(
     MomentumIconOption("spark", "Spark"),
     MomentumIconOption("health", "Health"),
+    MomentumIconOption("meds", "Medicine"),
     MomentumIconOption("fitness", "Fitness"),
     MomentumIconOption("mind", "Mind"),
     MomentumIconOption("learning", "Learning"),
@@ -49,21 +53,23 @@ val MomentumIconOptions = listOf(
 @Composable
 fun momentumIcon(key: String): ImageVector = when (key) {
     "health" -> Icons.Filled.Favorite
-    "fitness" -> Icons.Filled.ThumbUp
-    "mind" -> Icons.Filled.Face
-    "learning" -> Icons.Filled.School
+    "meds" -> Icons.Filled.Medication
+    "fitness" -> Icons.AutoMirrored.Filled.DirectionsRun
+    "mind" -> Icons.Filled.SelfImprovement
+    "learning" -> Icons.AutoMirrored.Filled.MenuBook
     "work" -> Icons.Filled.Work
     "home" -> Icons.Filled.Home
-    "food" -> Icons.Filled.ShoppingCart
-    "water" -> Icons.Filled.Email // placeholder glyph; refined with extended set in Studio
-    "sleep" -> Icons.Filled.Timer
-    "music" -> Icons.Filled.MusicNote
+    "food" -> Icons.Filled.Restaurant
+    "water" -> Icons.Filled.WaterDrop
+    "sleep" -> Icons.Filled.Bedtime
+    "music" -> Icons.Filled.Spa
     "art" -> Icons.Filled.Brush
     "mail" -> Icons.Filled.Email
     "people" -> Icons.Filled.Person
     "timer" -> Icons.Filled.Timer
-    "list" -> Icons.Filled.List
-    "folder" -> Icons.Filled.List
+    "list" -> Icons.AutoMirrored.Filled.List
+    "school" -> Icons.Filled.School
+    "folder" -> Icons.AutoMirrored.Filled.List
     "date" -> Icons.Filled.DateRange
     else -> Icons.Filled.Star
 }

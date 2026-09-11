@@ -1,6 +1,11 @@
 package com.momentum.app.presentation.screens.activityedit
 
 import android.text.format.DateFormat
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,14 +22,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -34,6 +36,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -53,12 +56,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.domain.model.Category
 import com.momentum.app.presentation.components.CategoryChip
+import com.momentum.app.presentation.components.MomentumButton
+import com.momentum.app.presentation.components.MomentumCard
+import com.momentum.app.presentation.components.MomentumSectionHeader
+import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.MomentumIconOptions
 import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.theme.MomentumIconSizes
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import java.time.DayOfWeek
 import java.time.Instant
@@ -103,192 +115,326 @@ fun ActivityEditScreen(
     onSave: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val c = MomentumThemeColors.current
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                }
-                Text(
-                    if (form.isNew) "New activity" else "Edit activity",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = c.textPrimary,
+    val reduceMotion = rememberReduceMotion(null)
+    Column(modifier = Modifier.fillMaxSize()) {
+        MomentumTopBar(
+            title = if (form.isNew) "New activity" else "Edit activity",
+            subtitle = if (form.isNew) "Small steps, done daily" else null,
+            onBack = onBack,
+        )
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(
+                horizontal = MomentumSpacing.screen,
+                vertical = MomentumSpacing.group,
+            ),
+            verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
+        ) {
+            // ——— BASIC ———
+            item {
+                MomentumSectionHeader(title = "Basic")
+            }
+            item {
+                OutlinedTextField(
+                    value = form.title,
+                    onValueChange = { v -> onUpdate { it.copy(title = v) } },
+                    label = { Text("What do you want to accomplish?") },
+                    singleLine = true,
+                    isError = form.titleError != null,
+                    supportingText = { form.titleError?.let { Text(it) } },
+                    shape = RoundedCornerShape(MomentumRadii.control),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
-        item {
-            OutlinedTextField(
-                value = form.title,
-                onValueChange = { v -> onUpdate { it.copy(title = v) } },
-                label = { Text("What do you want to accomplish?") },
-                singleLine = true,
-                isError = form.titleError != null,
-                supportingText = { form.titleError?.let { Text(it) } },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            SectionTitle("Icon")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                MomentumIconOptions.forEach { option ->
-                    val selected = form.iconKey == option.key
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) c.primary else c.surface.copy(alpha = 0.72f))
-                            .clickable { onUpdate { it.copy(iconKey = option.key) } },
-                        contentAlignment = Alignment.Center,
+            item {
+                MomentumCard {
+                    Text(
+                        "Icon",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MomentumThemeColors.current.textPrimary,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+                        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
                     ) {
-                        Icon(
-                            momentumIcon(option.key),
-                            contentDescription = option.label,
-                            tint = if (selected) c.onPrimary else c.textSecondary,
+                        MomentumIconOptions.forEach { option ->
+                            IconChoice(
+                                selected = form.iconKey == option.key,
+                                label = option.label,
+                                onClick = { onUpdate { it.copy(iconKey = option.key) } },
+                            ) {
+                                Icon(
+                                    momentumIcon(option.key),
+                                    contentDescription = null,
+                                    tint = if (form.iconKey == option.key) {
+                                        MomentumThemeColors.current.onPrimary
+                                    } else {
+                                        MomentumThemeColors.current.textSecondary
+                                    },
+                                    modifier = Modifier.size(MomentumIconSizes.medium),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (categories.isNotEmpty()) {
+                item {
+                    MomentumCard {
+                        Text(
+                            "Category",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MomentumThemeColors.current.textPrimary,
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+                            verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+                        ) {
+                            CategoryChip(
+                                label = "None",
+                                selected = form.categoryId == null,
+                                onClick = { onUpdate { it.copy(categoryId = null) } },
+                            )
+                            categories.forEach { cat ->
+                                CategoryChip(
+                                    label = cat.name,
+                                    selected = form.categoryId == cat.id,
+                                    onClick = {
+                                        onUpdate {
+                                            it.copy(categoryId = if (it.categoryId == cat.id) null else cat.id)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            // ——— SCHEDULE ———
+            item {
+                MomentumSectionHeader(title = "Schedule")
+            }
+            item {
+                MomentumCard {
+                    RecurrenceChoiceRow(form = form, onUpdate = onUpdate)
+                    Expandable(visible = form.recurrenceChoice == RecurrenceChoice.CUSTOM_DAYS ||
+                        form.recurrenceChoice == RecurrenceChoice.EVERY_N_WEEKS,
+                        reduceMotion = reduceMotion,
+                    ) {
+                        WeekdayPicker(
+                            selected = form.days,
+                            onToggle = { day ->
+                                onUpdate { it.copy(days = if (day in it.days) it.days - day else it.days + day) }
+                            },
+                        )
+                    }
+                    Expandable(
+                        visible = form.recurrenceChoice == RecurrenceChoice.EVERY_N_DAYS ||
+                            form.recurrenceChoice == RecurrenceChoice.EVERY_N_WEEKS,
+                        reduceMotion = reduceMotion,
+                    ) {
+                        Stepper(
+                            label = "Every ${form.interval} " +
+                                if (form.recurrenceChoice == RecurrenceChoice.EVERY_N_DAYS) "days" else "weeks",
+                            value = form.interval,
+                            range = 1..30,
+                            onChange = { v -> onUpdate { it.copy(interval = v) } },
+                        )
+                    }
+                    Expandable(
+                        visible = form.recurrenceChoice == RecurrenceChoice.MONTHLY,
+                        reduceMotion = reduceMotion,
+                    ) {
+                        Stepper(
+                            label = "Day ${form.dayOfMonth} of the month",
+                            value = form.dayOfMonth,
+                            range = 1..31,
+                            onChange = { v -> onUpdate { it.copy(dayOfMonth = v) } },
+                        )
+                    }
+                    DateRow(
+                        label = "Starts",
+                        date = form.startDate,
+                        onPick = { d -> onUpdate { it.copy(startDate = d) } },
+                    )
+                    LabeledSwitch(
+                        label = "End date",
+                        supporting = if (form.hasEndDate) "Stops repeating" else "Repeats indefinitely",
+                        checked = form.hasEndDate,
+                        onChange = { checked -> onUpdate { it.copy(hasEndDate = checked) } },
+                    )
+                    Expandable(visible = form.hasEndDate, reduceMotion = reduceMotion) {
+                        DateRow(
+                            label = "Ends",
+                            date = form.endDate,
+                            onPick = { d -> onUpdate { it.copy(endDate = d) } },
                         )
                     }
                 }
             }
-        }
-        item {
-            SectionTitle("Category")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                categories.forEach { cat ->
-                    CategoryChip(
-                        label = cat.name,
-                        selected = form.categoryId == cat.id,
-                        onClick = { onUpdate { it.copy(categoryId = if (it.categoryId == cat.id) null else cat.id) } },
-                    )
+            // ——— GOAL ———
+            item {
+                MomentumSectionHeader(title = "Goal")
+            }
+            item {
+                MomentumCard {
+                    Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
+                        OutlinedTextField(
+                            value = form.target,
+                            onValueChange = { v -> onUpdate { it.copy(target = v) } },
+                            label = { Text("Amount") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(MomentumRadii.control),
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedTextField(
+                            value = form.unit,
+                            onValueChange = { v -> onUpdate { it.copy(unit = v) } },
+                            label = { Text("Unit") },
+                            placeholder = { Text("glasses, min…") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(MomentumRadii.control),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
-        }
-        item {
-            SectionTitle("Schedule")
-            RecurrenceChoiceRow(form = form, onUpdate = onUpdate)
-            Spacer(Modifier.height(8.dp))
-            when (form.recurrenceChoice) {
-                RecurrenceChoice.CUSTOM_DAYS, RecurrenceChoice.EVERY_N_WEEKS ->
-                    WeekdayPicker(selected = form.days, onToggle = { day ->
-                        onUpdate { it.copy(days = if (day in it.days) it.days - day else it.days + day) }
-                    })
-                RecurrenceChoice.EVERY_N_DAYS, RecurrenceChoice.EVERY_N_WEEKS -> {}
-                else -> {}
+            // ——— PRIORITY ———
+            item {
+                MomentumSectionHeader(title = "Priority")
             }
-            if (form.recurrenceChoice == RecurrenceChoice.EVERY_N_DAYS ||
-                form.recurrenceChoice == RecurrenceChoice.EVERY_N_WEEKS
-            ) {
-                Stepper(
-                    label = "Every ${form.interval} ${if (form.recurrenceChoice == RecurrenceChoice.EVERY_N_DAYS) "days" else "weeks"}",
-                    value = form.interval,
-                    range = 1..30,
-                    onChange = { v -> onUpdate { it.copy(interval = v) } },
-                )
-            }
-            if (form.recurrenceChoice == RecurrenceChoice.MONTHLY) {
-                Stepper(
-                    label = "Day ${form.dayOfMonth} of the month",
-                    value = form.dayOfMonth,
-                    range = 1..31,
-                    onChange = { v -> onUpdate { it.copy(dayOfMonth = v) } },
-                )
-            }
-        }
-        item {
-            SectionTitle("Dates")
-            DateRow(label = "Starts", date = form.startDate, onPick = { d -> onUpdate { it.copy(startDate = d) } })
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Has end date", color = c.textPrimary, modifier = Modifier.weight(1f))
-                Switch(
-                    checked = form.hasEndDate,
-                    onCheckedChange = { checked -> onUpdate { it.copy(hasEndDate = checked) } },
-                )
-            }
-            if (form.hasEndDate) {
-                DateRow(label = "Ends", date = form.endDate, onPick = { d -> onUpdate { it.copy(endDate = d) } })
-            }
-        }
-        item {
-            SectionTitle("Target (optional)")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = form.target,
-                    onValueChange = { v -> onUpdate { it.copy(target = v) } },
-                    label = { Text("Amount") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = form.unit,
-                    onValueChange = { v -> onUpdate { it.copy(unit = v) } },
-                    label = { Text("Unit (glasses, min…)") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        item {
-            SectionTitle("Priority")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                (0..3).forEach { p ->
-                    CategoryChip(
-                        label = when (p) {
-                            0 -> "Normal"
-                            1 -> "Medium"
-                            2 -> "High"
-                            else -> "Top"
-                        },
-                        selected = form.priority == p,
-                        onClick = { onUpdate { it.copy(priority = p) } },
-                    )
+            item {
+                MomentumCard {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        listOf("Normal", "Medium", "High", "Top").forEachIndexed { p, label ->
+                            CategoryChip(
+                                label = label,
+                                selected = form.priority == p,
+                                onClick = { onUpdate { it.copy(priority = p) } },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                 }
             }
-        }
-        item {
-            OutlinedTextField(
-                value = form.notes,
-                onValueChange = { v -> onUpdate { it.copy(notes = v) } },
-                label = { Text("Notes (dosage, instructions…)") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-            )
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Reminder", color = c.textPrimary, modifier = Modifier.weight(1f))
-                Switch(
-                    checked = form.reminderEnabled,
-                    onCheckedChange = { checked -> onUpdate { it.copy(reminderEnabled = checked) } },
+            // ——— NOTES ———
+            item {
+                MomentumSectionHeader(title = "Notes")
+            }
+            item {
+                OutlinedTextField(
+                    value = form.notes,
+                    onValueChange = { v -> onUpdate { it.copy(notes = v) } },
+                    label = { Text("Dosage, instructions…") },
+                    shape = RoundedCornerShape(MomentumRadii.control),
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
                 )
             }
-            if (form.reminderEnabled) {
-                ReminderTimeRow(time = form.reminderTime, onPick = { t -> onUpdate { it.copy(reminderTime = t) } })
+            // ——— REMINDER ———
+            item {
+                MomentumSectionHeader(title = "Reminder")
+            }
+            item {
+                MomentumCard {
+                    LabeledSwitch(
+                        label = "Daily nudge",
+                        supporting = "On-device notification at your time",
+                        checked = form.reminderEnabled,
+                        onChange = { checked -> onUpdate { it.copy(reminderEnabled = checked) } },
+                    )
+                    Expandable(visible = form.reminderEnabled, reduceMotion = reduceMotion) {
+                        ReminderTimeRow(
+                            time = form.reminderTime,
+                            onPick = { t -> onUpdate { it.copy(reminderTime = t) } },
+                        )
+                    }
+                }
+            }
+            item {
+                Spacer(Modifier.height(MomentumSpacing.group))
             }
         }
-        item {
-            Button(
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MomentumThemeColors.current.backgroundBottom)
+                .padding(
+                    horizontal = MomentumSpacing.screen,
+                    vertical = MomentumSpacing.row,
+                ),
+        ) {
+            MomentumButton(
+                text = if (form.isSaving) "Saving…" else "Save activity",
                 onClick = onSave,
                 enabled = !form.isSaving,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-            ) {
-                Text(if (form.isSaving) "Saving…" else "Save activity")
-            }
-            Spacer(Modifier.height(24.dp))
+            )
         }
     }
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleLarge,
-        color = MomentumThemeColors.current.textPrimary,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
+private fun Expandable(
+    visible: Boolean,
+    reduceMotion: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (reduceMotion) {
+        if (visible) content()
+    } else {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun IconChoice(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    val c = MomentumThemeColors.current
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(MomentumRadii.small))
+            .background(if (selected) c.primary else c.surfaceVariant)
+            .clickable(onClick = onClick, onClickLabel = label),
+        contentAlignment = Alignment.Center,
+    ) {
+        icon()
+    }
+}
+
+@Composable
+private fun LabeledSwitch(
+    label: String,
+    supporting: String?,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    val c = MomentumThemeColors.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.row),
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
+            if (supporting != null) {
+                Text(supporting, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,8 +460,9 @@ private fun RecurrenceChoiceRow(
             onValueChange = {},
             readOnly = true,
             label = { Text("Repeats") },
+            shape = RoundedCornerShape(MomentumRadii.control),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             labels.forEach { (choice, label) ->
@@ -331,7 +478,10 @@ private fun RecurrenceChoiceRow(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WeekdayPicker(selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+    ) {
         DayOfWeek.entries.forEach { day ->
             CategoryChip(
                 label = day.name.lowercase().replaceFirstChar(Char::titlecase).take(3),
@@ -344,12 +494,20 @@ private fun WeekdayPicker(selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> Uni
 
 @Composable
 private fun Stepper(label: String, value: Int, range: IntRange, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(label, color = MomentumThemeColors.current.textPrimary, modifier = Modifier.weight(1f))
+    val c = MomentumThemeColors.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = c.textPrimary, modifier = Modifier.weight(1f))
         IconButton(onClick = { onChange((value - 1).coerceIn(range)) }) {
             Icon(Icons.Filled.Remove, contentDescription = "Decrease")
         }
-        Text("$value", style = MaterialTheme.typography.titleLarge, color = MomentumThemeColors.current.textPrimary)
+        Text(
+            "$value",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = c.textPrimary,
+        )
         IconButton(onClick = { onChange((value + 1).coerceIn(range)) }) {
             Icon(Icons.Filled.Add, contentDescription = "Increase")
         }
@@ -364,17 +522,17 @@ private fun DateRow(label: String, date: LocalDate, onPick: (LocalDate) -> Unit)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(c.surface.copy(alpha = 0.72f))
-            .clickable { open = true }
-            .padding(16.dp),
+            .clip(RoundedCornerShape(MomentumRadii.control))
+            .background(c.surfaceVariant)
+            .clickable(onClickLabel = label) { open = true }
+            .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = c.textSecondary, modifier = Modifier.weight(1f))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, modifier = Modifier.weight(1f))
         Text(
             date.format(DateTimeFormatter.ofPattern("EEE, MMM d yyyy")),
             color = c.textPrimary,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
         )
     }
     if (open) {
@@ -407,14 +565,14 @@ private fun ReminderTimeRow(time: String, onPick: (String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(c.surface.copy(alpha = 0.72f))
-            .clickable { open = true }
-            .padding(16.dp),
+            .clip(RoundedCornerShape(MomentumRadii.control))
+            .background(c.surfaceVariant)
+            .clickable(onClickLabel = "Reminder time") { open = true }
+            .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Time", color = c.textSecondary, modifier = Modifier.weight(1f))
-        Text(time, color = c.textPrimary, style = MaterialTheme.typography.titleLarge)
+        Text("Time", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, modifier = Modifier.weight(1f))
+        Text(time, color = c.textPrimary, style = MaterialTheme.typography.titleMedium)
     }
     if (open) {
         val parts = time.split(":")

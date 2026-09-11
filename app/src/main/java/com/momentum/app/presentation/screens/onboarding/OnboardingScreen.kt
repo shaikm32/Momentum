@@ -1,6 +1,7 @@
 package com.momentum.app.presentation.screens.onboarding
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -23,8 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -32,7 +33,13 @@ import androidx.lifecycle.viewModelScope
 import com.momentum.app.AppContainer
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.Recurrence
+import com.momentum.app.presentation.components.MomentumButton
+import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.theme.MomentumHeights
+import com.momentum.app.presentation.theme.MomentumIconSizes
+import com.momentum.app.presentation.theme.MomentumRadii
+import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import java.time.LocalDate
 import kotlinx.coroutines.launch
@@ -58,20 +65,27 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
-private data class OnboardingPage(val title: String, val body: String)
+private data class OnboardingPage(
+    val iconKey: String,
+    val title: String,
+    val body: String,
+)
 
 private val Pages = listOf(
     OnboardingPage(
-        "Small steps, unstoppable momentum.",
-        "Track habits, routines, tasks, and medicines in one calm place.",
+        iconKey = "spark",
+        title = "Small steps, unstoppable momentum.",
+        body = "Track habits, routines, tasks, and medicines in one calm place.",
     ),
     OnboardingPage(
-        "Your progress, visualized.",
-        "Streaks, trends, and a calendar heatmap show consistency building.",
+        iconKey = "timer",
+        title = "Your progress, visualized.",
+        body = "Streaks, trends, and a calendar heatmap show consistency building.",
     ),
     OnboardingPage(
-        "Private by design.",
-        "Everything stays on your device. No account, no cloud, works offline.",
+        iconKey = "home",
+        title = "Private by design.",
+        body = "Everything stays on your device. No account, no cloud, works offline.",
     ),
 )
 
@@ -83,53 +97,76 @@ fun OnboardingRoute(onDone: () -> Unit) {
     val c = MomentumThemeColors.current
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = MomentumSpacing.screen,
+                vertical = MomentumSpacing.section,
+            ),
+        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
     ) {
-        Spacer(Modifier.weight(0.2f))
+        Spacer(Modifier.weight(0.35f))
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(Brush.linearGradient(listOf(c.primary, c.secondary, c.accent)))
-                .padding(32.dp),
+                .size(64.dp)
+                .clip(RoundedCornerShape(MomentumRadii.card))
+                .background(c.primary.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    Pages[page].title,
-                    style = MaterialTheme.typography.displayLarge,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(Pages[page].body, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.9f))
-            }
+            Icon(
+                imageVector = momentumIcon(Pages[page].iconKey),
+                contentDescription = null,
+                tint = c.primary,
+                modifier = Modifier.size(MomentumIconSizes.hero),
+            )
         }
+        Text(
+            Pages[page].title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = c.textPrimary,
+        )
+        Text(
+            Pages[page].body,
+            style = MaterialTheme.typography.bodyLarge,
+            color = c.textSecondary,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Pages.indices.forEach { i ->
                 Box(
                     Modifier
                         .weight(1f)
                         .height(4.dp)
-                        .clip(RoundedCornerShape(999.dp))
+                        .clip(RoundedCornerShape(MomentumRadii.pill))
                         .background(if (i <= page) c.primary else c.surfaceVariant),
                 )
             }
         }
         Spacer(Modifier.weight(1f))
         if (page < Pages.lastIndex) {
-            Button(onClick = { page++ }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                Text("Continue")
-            }
-            TextButton(onClick = { vm.finish(false, onDone) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Skip", color = c.textSecondary)
-            }
+            MomentumButton(text = "Continue", onClick = { page++ })
+            OnboardingSkip(label = "Skip", onClick = { vm.finish(false, onDone) })
         } else {
-            Button(onClick = { vm.finish(true, onDone) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                Text("Start with examples")
-            }
-            TextButton(onClick = { vm.finish(false, onDone) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Start fresh", color = c.textSecondary)
-            }
+            MomentumButton(text = "Start with examples", onClick = { vm.finish(true, onDone) })
+            OnboardingSkip(label = "Start fresh", onClick = { vm.finish(false, onDone) })
         }
+    }
+}
+
+@Composable
+private fun OnboardingSkip(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = MomentumHeights.controlMin)
+            .clip(RoundedCornerShape(MomentumRadii.control))
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MomentumThemeColors.current.textSecondary,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
