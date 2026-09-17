@@ -14,10 +14,11 @@ import com.momentum.app.presentation.theme.MomentumThemeColors
 import com.momentum.app.presentation.theme.isDark
 
 /**
- * Atmospheric canvas for every screen: a deep theme base washed with three
- * large, diffuse ambient light fields (primary / secondary / accent at very
- * low opacity). Calm, not colorful — the light mainly shows through glass
- * surfaces layered above it. One static Canvas draw; zero animation cost.
+ * Atmospheric canvas for every screen: a deep theme base with a whisper of
+ * vertical depth, washed with three large, diffuse ambient light fields
+ * (primary / secondary / accent at very low opacity). Calm, not colorful —
+ * the light mainly shows through glass surfaces layered above it. One static
+ * draw; zero animation cost.
  */
 @Composable
 fun AppBackground(
@@ -29,7 +30,12 @@ fun AppBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(c.backgroundBottom),
+            .background(
+                Brush.verticalGradient(
+                    0f to c.backgroundTop,
+                    1f to c.backgroundBottom,
+                ),
+            ),
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width

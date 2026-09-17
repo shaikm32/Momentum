@@ -23,7 +23,7 @@ object MomentumThemeColors {
  */
 @Composable
 fun MomentumTheme(
-    themeId: String = "aurora",
+    themeId: String = "twilight",
     darkMode: DarkModeSetting = DarkModeSetting.SYSTEM,
     systemDark: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,

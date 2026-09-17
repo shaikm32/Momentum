@@ -46,7 +46,7 @@ class DataStoreSettingsRepository(private val context: Context) : SettingsReposi
     }
 
     private fun androidx.datastore.preferences.core.Preferences.toSettings() = AppSettings(
-        themeId = get(Keys.ThemeId) ?: "aurora",
+        themeId = get(Keys.ThemeId) ?: "twilight",
         darkMode = runCatching { DarkModeSetting.valueOf(get(Keys.DarkMode) ?: "SYSTEM") }
             .getOrDefault(DarkModeSetting.SYSTEM),
         weekStart = runCatching { WeekStart.valueOf(get(Keys.WeekStart) ?: "MONDAY") }

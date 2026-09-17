@@ -308,8 +308,9 @@ data class MomentumThemeDefinition(
     val dark: MomentumColors,
 )
 
-/** Launch gallery (8 concepts × light/dark). New theme = one data entry + previews. */
+/** Launch gallery (9 concepts × light/dark). New theme = one data entry + previews. */
 val MomentumThemes = listOf(
+    MomentumThemeDefinition("twilight", "Twilight", TwilightLight, TwilightDark),
     MomentumThemeDefinition("aurora", "Aurora", AuroraLight, AuroraDark),
     MomentumThemeDefinition("ocean", "Ocean", OceanLight, OceanDark),
     MomentumThemeDefinition("sunset", "Sunset", SunsetLight, SunsetDark),

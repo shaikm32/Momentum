@@ -73,6 +73,8 @@ enum class GlassLevel(val fillAlpha: Float, val elevation: Dp) {
 /**
  * Applies the glass treatment: optional soft shadow, translucent vertical
  * wash (bright top edge fading into the fill), hairline light border.
+ * Shadows stay whisper-quiet (Twilight principle: light comes from the
+ * environment, components never glow on their own).
  */
 @Composable
 fun Modifier.liquidGlass(
@@ -97,7 +99,7 @@ fun Modifier.liquidGlass(
             elevation = level.elevation,
             shape = shape,
             ambientColor = Color.Black.copy(alpha = 0.35f),
-            spotColor = c.primary.copy(alpha = 0.12f),
+            spotColor = c.primary.copy(alpha = 0.10f),
         )
     } else {
         this

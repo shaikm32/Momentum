@@ -1,10 +1,10 @@
 package com.momentum.app.presentation.screens.onboarding
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -14,8 +14,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -48,15 +50,17 @@ import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.MomentumDurations
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
+import com.momentum.app.presentation.theme.Twilight
 
 /**
- * Onboarding-only Liquid Glass implementation.
+ * Onboarding-only Liquid Glass implementation (Twilight Journey).
  *
  * Photographic onboarding needs brighter, more luminous glass than the
- * in-app system (which tints from theme surfaces): low-alpha white/cyan
- * fills, luminous white borders, top highlights and cyan-tinted glow
- * shadows, tuned to sit over cinematic photography — not over app chrome.
- * Kept in this file so the language stays scoped to onboarding.
+ * in-app system (which tints from theme surfaces): low-alpha white/warm
+ * fills, luminous white borders, top highlights and a whisper of golden
+ * shadow, tuned to sit over cinematic twilight photography — not over app
+ * chrome. No cyan/purple neon glow. Kept in this file so the language stays
+ * scoped to onboarding.
  *
  * White is used here as light itself (fill/border/highlight alphas), never
  * as an opaque background; text always sits over the readability gradient
@@ -117,33 +121,20 @@ private fun Modifier.onboardingGlass(
         .border(BorderStroke(Dp.Hairline, Color.White.copy(alpha = borderAlpha)), shape)
 }
 
-/** Frosted illustration panel (Today preview, finale quote card). */
-@Composable
-fun OnboardingGlassPanel(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val shape = RoundedCornerShape(OnboardingGlass.panelCorner)
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .onboardingGlass(shape, glow = Color(0xFF7DD3FC)),
-        verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
-    ) {
-        content()
-    }
-}
-
 /**
- * Luminous pill CTA: translucent white/cyan glass, bright edge, dark text,
- * soft shadow. 56 dp tall for a comfortable thumb target.
+ * Luminous pill CTA: genuine liquid glass — a translucent frosted surface the
+ * artwork stays visible through, with a top-edge light streak, a luminous
+ * hairline border and soft depth. Dark navy text + arrow. 56 dp tall.
+ *
+ * Layering (all translucent, artwork flows through): soft shadow → glass
+ * fill → hairline border → inner top highlight → content.
  */
 @Composable
 fun OnboardingGlassButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
+    icon: ImageVector? = Icons.AutoMirrored.Filled.ArrowForward,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val reduceMotion = rememberReduceMotion(null)
@@ -160,17 +151,17 @@ fun OnboardingGlassButton(
             .heightIn(min = 56.dp)
             .scale(scale)
             .shadow(
-                elevation = 12.dp,
+                elevation = 10.dp,
                 shape = shape,
-                ambientColor = Color.Black.copy(alpha = 0.35f),
-                spotColor = Color(0xFF7DD3FC).copy(alpha = 0.4f),
+                ambientColor = Color.Black.copy(alpha = 0.30f),
+                spotColor = Twilight.GoldenAmber.copy(alpha = 0.25f),
             )
             .clip(shape)
             .background(
                 brush = Brush.verticalGradient(
-                    0f to Color.White.copy(alpha = 0.55f),
-                    0.5f to Color(0xFFD6ECFF).copy(alpha = OnboardingGlass.ctaFillAlpha + 0.12f),
-                    1f to Color(0xFFB9CFF5).copy(alpha = OnboardingGlass.ctaFillAlpha),
+                    0f to Color.White.copy(alpha = 0.34f),
+                    0.45f to Twilight.Moonlight.copy(alpha = 0.26f),
+                    1f to Twilight.WarmPeach.copy(alpha = 0.24f),
                 ),
                 shape = shape,
             )
@@ -182,14 +173,30 @@ fun OnboardingGlassButton(
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
+                onClickLabel = text,
                 onClick = onClick,
             )
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .semantics(mergeDescendants = true) { contentDescription = text },
         contentAlignment = Alignment.Center,
     ) {
+        // Inner top light: the streak that sells the glass thickness.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(26.dp)
+                .align(Alignment.TopCenter)
+                .clip(shape)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.White.copy(alpha = 0.34f),
+                        1f to Color.White.copy(alpha = 0f),
+                    ),
+                ),
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
         ) {
             Text(
                 text = text,
@@ -209,114 +216,75 @@ fun OnboardingGlassButton(
     }
 }
 
-/** Floating glass feature tile (~64 dp) with a luminous icon. */
-@Composable
-fun OnboardingGlassIconTile(
-    icon: ImageVector,
-    contentDescription: String?,
-    modifier: Modifier = Modifier,
-    tileSize: Dp = 64.dp,
-    label: String? = null,
-) {
-    val shape = RoundedCornerShape(OnboardingGlass.tileCorner)
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(tileSize)
-                .onboardingGlass(shape, glow = Color(0xFF7DD3FC)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = Color.White,
-                modifier = Modifier.size(28.dp),
-            )
-        }
-        if (label != null) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.88f),
-            )
-        }
-    }
-}
-
 /**
- * Central glass orb: layered translucent sphere with a top-left refraction
- * highlight, cyan glow and a soft grounding shadow. [content] floats inside
- * (e.g. the growing plant).
+ * Compact liquid-glass capsule for Skip: the same glass language as the CTA
+ * (translucent fill with a top-light wash, hairline border, faint glow) in
+ * ONE single surface at a lightweight scale, with near-white semibold text
+ * for readability over any part of the artwork. Minimum 48 dp touch target.
+ *
+ * NOTE: this button must stay wrap-content. Do NOT add a `fillMaxWidth()`
+ * child (e.g. a highlight overlay) — inside a wrap-content Box such a child
+ * measures against the incoming max constraints and stretches the whole
+ * pill (and its glass background) to full screen width.
  */
 @Composable
-fun OnboardingGlassOrb(
+fun OnboardingGlassSkipButton(
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    orbSize: Dp = 190.dp,
-    content: @Composable () -> Unit,
 ) {
-    Box(modifier = modifier.size(orbSize), contentAlignment = Alignment.Center) {
-        // Grounding shadow.
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .width(orbSize * 0.62f)
-                .height(orbSize * 0.10f)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.4f),
-                            Color.Transparent,
-                        ),
-                    ),
-                    CircleShape,
+    val interaction = remember { MutableInteractionSource() }
+    val reduceMotion = rememberReduceMotion(null)
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && !reduceMotion) 0.96f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "skipPress",
+    )
+    val shape = RoundedCornerShape(MomentumRadii.pill)
+    Box(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .scale(scale)
+            .shadow(
+                elevation = 6.dp,
+                shape = shape,
+                ambientColor = Color.Black.copy(alpha = 0.25f),
+                spotColor = Twilight.GoldenAmber.copy(alpha = 0.18f),
+            )
+            .clip(shape)
+            .background(
+                brush = Brush.verticalGradient(
+                    0f to Color.White.copy(alpha = 0.34f),
+                    0.5f to Color.White.copy(alpha = 0.16f),
+                    1f to Twilight.WarmPeach.copy(alpha = 0.14f),
                 ),
-        )
-        // Glass sphere.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(CircleShape)
-                .background(
-                    brush = Brush.radialGradient(
-                        0f to Color.White.copy(alpha = 0.30f),
-                        0.35f to Color(0xFFBFE3FF).copy(alpha = 0.14f),
-                        0.7f to Color(0xFF7DD3FC).copy(alpha = 0.08f),
-                        1f to Color(0xFF3B5B8C).copy(alpha = 0.22f),
-                    ),
-                    shape = CircleShape,
-                )
-                .border(
-                    BorderStroke(Dp.Hairline, Color.White.copy(alpha = 0.5f)),
-                    CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            content()
-        }
-        // Refraction crescent, upper left.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = orbSize * 0.16f, top = orbSize * 0.12f)
-                .size(width = orbSize * 0.30f, height = orbSize * 0.14f)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.5f),
-                            Color.Transparent,
-                        ),
-                    ),
-                    RoundedCornerShape(MomentumRadii.pill),
-                ),
+                shape = shape,
+            )
+            .border(
+                BorderStroke(Dp.Hairline, Color.White.copy(alpha = 0.45f)),
+                shape,
+            )
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClickLabel = "Skip",
+                onClick = onClick,
+            )
+            .semantics(mergeDescendants = true) { contentDescription = "Skip onboarding" }
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Skip",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = Twilight.Moonlight,
         )
     }
 }
 
-/** Five-dot page indicator: active dot brighter and wider, softly animated. */
+/** Five-dot page indicator: active page is an elongated white pill. */
 @Composable
 fun OnboardingPageIndicator(
     count: Int,
@@ -326,12 +294,12 @@ fun OnboardingPageIndicator(
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(count) { i ->
             val active = i == current
-            val targetWidth = if (active) 22.dp else 8.dp
+            val targetWidth = if (active) 24.dp else 8.dp
             val width by animateDpAsState(
                 targetValue = targetWidth,
                 animationSpec = tween(if (reduceMotion) 0 else MomentumDurations.medium),

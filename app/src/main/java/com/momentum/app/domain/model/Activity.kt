@@ -122,7 +122,7 @@ enum class DarkModeSetting { SYSTEM, LIGHT, DARK }
 enum class WeekStart { MONDAY, SUNDAY }
 
 data class AppSettings(
-    val themeId: String = "aurora",
+    val themeId: String = "twilight",
     val darkMode: DarkModeSetting = DarkModeSetting.SYSTEM,
     val weekStart: WeekStart = WeekStart.MONDAY,
     val onboardingDone: Boolean = false,
