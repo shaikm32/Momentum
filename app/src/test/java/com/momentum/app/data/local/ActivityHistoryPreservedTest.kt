@@ -7,6 +7,7 @@ import com.momentum.app.data.repository.RoomActivityRepository
 import com.momentum.app.data.repository.RoomCompletionRepository
 import com.momentum.app.data.repository.RoomReminderRepository
 import com.momentum.app.domain.model.Activity
+import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.Recurrence
 import com.momentum.app.domain.model.Reminder
 import java.time.DayOfWeek
@@ -214,6 +215,30 @@ class ActivityHistoryPreservedTest {
 
         assertTrue(failed)
         assertTrue(db.activityDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun `archiving and restoring keeps completion history`() = runTest {
+        val id = activities.upsert(
+            Activity(title = "Run", startDate = LocalDate.of(2026, 1, 5), recurrence = Recurrence.Daily),
+        )
+        completions.complete(id, "2026-01-05", 1.0)
+
+        activities.setStatus(id, ActivityStatus.ARCHIVED)
+        assertEquals(ActivityStatus.ARCHIVED, activities.getById(id)!!.status)
+        assertEquals(
+            listOf("2026-01-05"),
+            completions.recordsForActivity(id).map { it.occurrenceDate },
+        )
+
+        activities.setStatus(id, ActivityStatus.ACTIVE)
+        val restored = activities.getById(id)!!
+        assertEquals(ActivityStatus.ACTIVE, restored.status)
+        assertEquals(id, restored.id)
+        assertEquals(
+            listOf(1.0),
+            completions.recordsForActivity(id).map { it.value },
+        )
     }
 
     @Test
