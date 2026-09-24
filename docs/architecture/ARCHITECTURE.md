@@ -11,7 +11,7 @@ build complexity with zero benefit at this size. Revisit only via ADR.
 
 ```
 presentation/        Compose screens, components, theme, navigation — no business logic
-  screens/today|activities|insights|calendar|settings|activityedit|themegallery
+  screens/today|activities|insights|calendar|settings|creation|themegallery
   components/        design-system composables (ActivityCard, ProgressOrb, …)
   theme/             MomentumColors, typography, theme registry
   navigation/        Routes, MomentumNavGraph

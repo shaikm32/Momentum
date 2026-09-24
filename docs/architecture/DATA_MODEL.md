@@ -1,6 +1,6 @@
-# Momentum — Data Model (Room, v1 draft)
+# Momentum — Data Model (Room, v4)
 
-> Status: v1 schema (Room version 1) implemented. Schema exports → `app/schemas/`.
+> Status: v4 schema (Room version 4) implemented. Schema exports → `app/schemas/`.
 
 ## Conventions
 
@@ -19,8 +19,12 @@
 |---|---|---|
 | `id` | INTEGER PK AI | |
 | `title` | TEXT NOT NULL | ≤120 chars (enforced in use case) |
+| `activityType` | TEXT NOT NULL = "HABIT" | `HABIT/TASK` (v2; v1 rows migrate to HABIT). Never inferred from recurrence — see ADR-19 |
+| `habitIntent` | TEXT NOT NULL = "BUILD" | `BUILD/REDUCE/AVOID` (v3; pre-v3 rows migrate to BUILD). Ignored for TASKs — see ADR-20 |
+| `dueTime` | TEXT NULL | Optional task due time `HH:mm` (v3; null = no specific time). Display-only; reminders stay separate |
 | `description` | TEXT = "" | |
 | `iconKey` | TEXT = "spark" | curated set |
+| `habitTemplateId` | TEXT NULL | v4; predefined template id for the icon lock after rename (Decision 11). Null = custom/pre-template; legacy rows fall back to `matchTemplate` on edit |
 | `categoryId` | INTEGER NULL → `categories(id)` ON DELETE SET NULL | index |
 | `colorArgb` | INTEGER NULL | null = inherit |
 | `startDate` | TEXT NOT NULL (`yyyy-MM-dd`) | index; first schedulable date |
@@ -75,6 +79,9 @@ Seeded defaults (user can rename): Health, Fitness, Mind, Learning, Work, Home.
 - Activity N→1 Category; Activity 1→N CompletionRecords; Activity 1→N Reminders.
 - Deleting an activity = `status=ARCHIVED` (history preserved). Hard delete is an
   explicit user action (Phase 5+, needs ADR) and cascades completions+reminders.
+- Archiving is reversible: **Restore** (detail Actions / Archived tab) sets
+  `status` back to `ACTIVE` via the same `setStatus` update — completions,
+  reminders, and `createdAt` are untouched, no migration (ADR-25).
 
 ## Edit semantics for recurring activities (hard rule)
 
@@ -96,8 +103,12 @@ Seeded defaults (user can rename): Health, Fitness, Mind, Learning, Work, Home.
 ## Migrations
 
 Destructive fallback is removed and must never return: without it, Room fails
-fast on a schema mismatch instead of silently wiping user data. Schema is at
-version 1 since inception (app unreleased), so no historical migrations exist.
-Every future schema change ships: version bump + real `Migration` + schema JSON
-+ `MigrationTestHelper` test proving activities, completions (with values),
-reminders, recurrence payloads, categories and statuses survive.
+fast on a schema mismatch instead of silently wiping user data. Migrations:
+v1 → v2 adds `activities.activityType` (default HABIT); v2 → v3 adds
+`activities.habitIntent` (default BUILD) and nullable `activities.dueTime`
+(`MIGRATION_2_3`, proven by `Migration2To3Test`); v3 → v4 adds nullable
+`activities.habitTemplateId` for the predefined icon lock (`MIGRATION_3_4`,
+proven by `Migration3To4Test`). Every future schema change ships: version
+bump + real `Migration` + schema JSON + migration test proving activities,
+completions (with values), reminders, recurrence payloads, categories,
+statuses, types and intents survive.

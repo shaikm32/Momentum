@@ -69,6 +69,19 @@
   - [ ] TalkBack traversal pass + contrast audit on device; cold-start measure;
     baseline profiles before 1.0
 
+- [x] **PHASE 2A — App shell + Home redesign** (see ADR-22)
+  - [x] Locked bottom nav Home · Habits · Tasks · Insights; Home hero/list
+
+- [x] **PHASE 2B — Habits management** (HABITS_MANAGEMENT_* specs; ADR-26)
+  - [x] Dedicated Habits list (cards, Active→Paused order, overflow menu,
+    empty state, header `+` → Create Item)
+  - [x] Habit Details (identity, key config, weekly completion with
+    not-scheduled state, streaks, bottom Pause/Edit/Delete, delete confirm)
+  - [x] Pause/Resume/Hard delete; no archive, no daily completion on these screens
+  - [x] Predefined icon lock after rename (`habitTemplateId`, Room v4 migration)
+  - [x] `ComputeHabitOverviewUseCase` + unit/VM/migration tests
+  - [x] Verify: `.\gradlew :app:assembleDebug :app:testDebugUnitTest` green (schema `4.json` exported) — 157 tests, 0 failures
+
 - [ ] **PHASE 12 — Testing and production hardening**
   - [ ] Full suite green in Android Studio (`assembleDebug` + `testDebugUnitTest`)
   - [ ] Manual pass: onboarding → create → complete → streak → edit → archive →

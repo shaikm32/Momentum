@@ -30,6 +30,18 @@ The design system should be implemented as reusable Compose primitives. Individu
 9. Light and Dark Aurora are two environments of the same design language.
 10. Product behavior wins whenever visual treatment conflicts with established product decisions.
 
+### Minimal Typing, Maximum Selection
+
+Habit creation should minimize manual text entry and favor fast, guided interactions.
+
+- Prefer selection-based controls such as chips, buttons, dropdowns, pickers, and predefined options.
+- Use text fields only when user-provided text is genuinely necessary.
+- Predefined habits should provide sensible measurement and configuration choices so users can configure a habit primarily through selections.
+- Custom habits should remain flexible while still providing structured controls wherever practical.
+- The goal is to make habit creation fast, intuitive, and low-friction.
+- Do not force users to manually type information that Momentum can reasonably provide or let them select.
+- This principle applies to habit creation and should guide future habit-related workflows.
+
 ---
 
 # 3. Theme

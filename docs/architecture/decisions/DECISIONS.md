@@ -241,3 +241,288 @@
   themes; Twilight Light is warm paper for light-mode users. Remaining
   migration (charts, icon tints, empty states) is future work once the
   Twilight default is visually approved on-device.
+
+## ADR-19 — Explicit ActivityType (HABIT/TASK) on the unified Activity
+- **Decision:** One unified `Activity` model/table gains an explicit
+  `ActivityType` discriminator (`HABIT`/`TASK`), persisted as
+  `activities.activityType` (Room v2, `MIGRATION_1_2` with `DEFAULT 'HABIT'`).
+  Recurrence stays a separate concept — type is never inferred from it
+  (`HABIT + ONCE` and `TASK + DAILY` are both legal). No parallel
+  Habit/Task entities, tables, repositories, or use-case stacks.
+- **Context:** Slice 1 (`+ → Create Item → Habit / Task → Create`) needs the
+  product distinction without forking the proven Activity pipeline
+  (editor → `saveWithReminders()` → Room → Today/detail read-back).
+- **Options:** Separate tables/stacks vs recurrence-inferred kind vs explicit
+  discriminator.
+- **Chosen:** Explicit discriminator — smallest change; v1 rows default to
+  HABIT (the generic editor's schedule-first semantics); creation seeds
+  Habit → DAILY default, Task → ONCE default, both still editable.
+- **Consequences:** Task-specific behavior (no streaks, due-time, no-due-date)
+  is intentionally deferred — Tasks currently render like habits. A future
+  kind-dependent behavior change reads this column; no further migration.
+
+## ADR-20 — Guided creation flow: habit intent + task due time (Room v3)
+- **Decision:** (1) New `HabitIntent` discriminator (`BUILD`/`REDUCE`/`AVOID`)
+  persisted as `activities.habitIntent` (`TEXT NOT NULL DEFAULT 'BUILD'`,
+  Room v3, `MIGRATION_2_3`). (2) New nullable `activities.dueTime` (`HH:mm`,
+  task-only display concept — reminders stay separate per ADR-12). (3) One
+  unified `CreationViewModel` + one `Activity` model/table/repository: no
+  Habit/Task tables, stacks, or duplicate VMs. (4) New routes
+  `create/habit` (intent chooser) → `create/habit/config?intent=` →
+  `create/task`; `edit?activityId=` loads the row and shows the
+  kind-appropriate config with type/intent locked. The legacy
+  `add?activityType=` route and the giant `ActivityEdit` form are removed.
+- **Context:** The complete creation flow needs intent captured at creation
+  and preserved on edit. Docs define two habit directions (Build vs
+  Reduce/Avoid) with two tracking modes each; the flow exposes three intents
+  with the mapping Reduce→Limit (stay at/below value+unit) and
+  Avoid→Avoid-completely (zero, no amount, no daily check-in). Build
+  Binary-vs-Target is derived from `target`/`unit` (Binary ⟺ 1.0 + blank),
+  so no second column is needed. Task due time ("due at 8 PM") vs reminder
+  ("nudge at 6 PM") are separate concepts per CREATE_ITEM_SPECS §4.4–4.5.
+- **Options:** Separate Habit/Task entities vs intent column; second column
+  for tracking mode vs derivation; due-time column vs deferral; separate
+  Habit/Task VMs vs one VM.
+- **Chosen:** Single intent column + derived tracking mode (smallest clean
+  extension); nullable due-time column (display-only, no scheduler change);
+  one VM branching on type/intent (creation and edit share the save
+  pipeline: `saveWithReminders` + `scheduleForActivity`, unchanged).
+- **Consequences:** Pre-v3 rows default to BUILD (schedule-first semantics,
+  same reasoning as ADR-19); TASK rows store an ignored intent. "No due
+  date" tasks map to startDate=today (true dateless tasks need an
+  occurrence-model change — open). Repeating tasks run indefinitely (no end
+  date). The v3 schema JSON is hand-written on a machine without JDK/Room
+  (identity hash placeholder) — the next Android Studio/CI build regenerates
+  the canonical hash; commit whatever it writes. Habit Templates
+  (Sleep/Water/Exercise/Read/Meditate) remain future work: creation covers
+  custom habits + tasks only. Avoid-streak/violation semantics are unchanged
+  (completion infrastructure untouched by design).
+
+## ADR-21 — Design System v1.0 foundation: two Aurora environments, Manrope, semantic tokens
+- **Decision:** `docs/design/MOMENTUM_DESIGN_SYSTEM_V1.md` is the visual source
+  of truth. (1) The multi-theme gallery collapses to two first-class
+  environments — Light Aurora / Dark Aurora — chosen by the existing
+  `DarkModeSetting` (system / light / dark); `MomentumThemes` holds a single
+  `"aurora"` entry and any legacy persisted `theme_id` resolves to it through
+  `themeById` (no DataStore migration; Settings/gallery UI untouched this
+  phase). Supersedes the multi-concept half of ADR-08; its token-class +
+  CompositionLocal approach stands. (2) `MomentumColors` is rewritten to the
+  v1 semantic contract (background/surface/soft/elevated/interactive, text
+  tiers, accent + Aurora palette, success/warning/danger, borders, progress);
+  the 14 pre-v1 slots (`primary`, `accent`, `error`, `glow`,
+  `backgroundTop/Bottom`, …) survive as computed aliases so unmigrated
+  screens keep compiling with no behavior change. (3) Manrope is bundled as a
+  variable TTF (`app/src/main/res/font/manrope.ttf`, OFL-1.1 from
+  google/fonts, fetched at build-authoring time and committed) driving the
+  exact 7-token type scale across every Material typography slot — fully
+  offline, no remote font loading. (4) New token files `MomentumShapes`,
+  `MomentumElevation`, `MomentumMotion` (fast 180 / standard 280 / emphasis
+  450 / reward 650 / ambient 6000 ms + easings/springs); legacy
+  `MomentumRadii`, old `MomentumSpacing` names, and `MomentumDurations`
+  delegate to the v1 tokens so there is one source of values. (5)
+  `AuroraBackground(state, intensity, animated)` is the reusable Aurora
+  primitive (REST/PROGRESS/COMPLETION/MILESTONE), drawn programmatically
+  with cached radial-gradient brushes and disabled under reduced motion.
+  (6) `MomentumIcons` establishes Material Symbols Rounded as the single
+  icon family; the `momentumIcon(key)` habit-icon mapper is unchanged until
+  its screen phase.
+- **Context:** Phase 1 of the production UI redesign — foundation only.
+  Individual screens must not be redesigned, and product behavior,
+  navigation, and data layers must not change in this phase.
+- **Consequences:** The 8 non-Aurora gallery palettes and `TwilightDark` /
+  `TwilightLight` entries are deleted; `object Twilight` color constants
+  remain because onboarding artwork references them. Settings' Theme row
+  shows one entry until the Settings phase removes/reworks the gallery.
+  `AppBackground` / `LiquidGlass` render with Aurora values through the
+  legacy aliases.   Screen-by-screen migration proceeds against the design doc
+  in later phases (Progress Hero, Activity Row, nav redesign, etc.). AGENTS
+  §10's "no JDK on this machine" note is now stale — Gradle builds and unit
+  tests run locally (verified: `gradlew :app:assembleDebug
+  :app:testDebugUnitTest` BUILD SUCCESSFUL).
+
+## ADR-22 — Phase 2A: locked bottom navigation (Home · Habits · Tasks · Insights) and Home redesign
+- **Decision:** (1) Bottom navigation is exactly four destinations — Home
+  (`today` route, relabelled from "Today"), Habits (`habits`), Tasks
+  (`tasks`), Insights (`insights`) — with Material Symbols Rounded icons
+  rendered outlined when inactive and filled when active (§8, §11). Calendar
+  and Settings are removed from the bottom bar. (2) The former single
+  "Activities" destination is replaced by Habits and Tasks: both are the
+  existing `ActivitiesScreen` + `ActivitiesViewModel` pinned to an
+  `ActivityType` filter and title — no parallel screens, no duplicated list
+  logic (consistent with ADR-19's unified Activity). (3) Settings is opened
+  from Home's top-right header action (§12); Calendar/history is opened from
+  Insights' top-right action (§26). Both are pushed secondary routes with
+  back affordances, so neither needs a tab. (4) The floating bottom bar now
+  applies `WindowInsets.navigationBars` bottom padding itself — the M3
+  `Scaffold` KDoc explicitly expects the bottom-bar slot to handle its own
+  insets, and the custom glass bar previously had none. (5) Home is
+  restructured as HomeHeader → TodayProgressHero → TodaySummary →
+  TodayActivityList (rows = shared `ActivityCard`/Activity Row), over a
+  state-responsive `AuroraBackground` (REST when empty/idle, PROGRESS once
+  anything is done, COMPLETION at 100%; MILESTONE stays event-only). The
+  progress hero uses the hero shape (28 dp) + HERO glass level; the empty
+  state is one calm, action-oriented card with no streak-loss language.
+- **Context:** Phase 2A of the production UI redesign (app shell + Home only)
+  against `docs/design/MOMENTUM_DESIGN_SYSTEM_V1.md`. Product navigation is
+  locked by the design system; the running app still had the legacy
+  Today / Activities / Insights / Calendar / Settings bar. Habits, Tasks,
+  Insights, Settings, and Create screens themselves are NOT redesigned in
+  this phase — only navigated to.
+- **Consequences:** `Routes.ACTIVITIES` is gone (nothing external referenced
+  it); `Routes.HABITS`/`Routes.TASKS` are new. Room schema, repositories,
+  use cases, engines, completion semantics, and reminder logic are untouched
+  — this is a presentation/navigation change only. Settings and Calendar
+  screens gained a back action because they are no longer tabs. A future
+  Habits/Tasks screen redesign replaces the shared screen's innards, not the
+  routes or type filter.
+
+## ADR-23 — uiMode changes no longer recreate MainActivity (P0 nav-crash fix)
+- **Decision:** `MainActivity` declares `android:configChanges="uiMode"` and
+  re-applies `enableEdgeToEdge()` from `onConfigurationChanged`. Light/Dark
+  changes update the running activity in place instead of recreating it.
+  navigation-compose stays on 2.7.0.
+- **Context:** Phase 2A verification reported
+  `IllegalStateException: You cannot access the NavBackStackEntry's ViewModels
+  after the NavBackStackEntry is destroyed` (around `MomentumNavGraph.kt:147`,
+  i.e. destination content calling `momentumViewModel` → `viewModel()`) when
+  the system uiMode toggled while navigating. Root cause is lifecycle, not
+  navigation logic: a uiMode configuration change destroys `MainActivity`,
+  which destroys every `NavBackStackEntry` and its `ViewModelStore` while the
+  destination composition can still target those entries; `NavBackStackEntry
+  .getViewModelStore` then throws (same class as the known issue in
+  issuetracker 254645321 / accompanist #1487). Momentum is a pure-Compose
+  activity with no night-qualified resources; theme already live-updates via
+  `isSystemInDarkTheme()` + DataStore, so recreation buys nothing for uiMode.
+  The edge-to-edge re-apply resolves status/nav-bar icon contrast against the
+  new uiMode (the default `enableEdgeToEdge()` detection runs only at call
+  time). No exception is caught or suppressed — the destroying lifecycle event
+  is removed for this configuration.
+- **Consequences:** Toggling Light/Dark mid-navigation keeps the nav stack,
+  destination ViewModels, and in-flight work intact (also closes the window
+  where a uiMode recreation could cancel an uncommitted completion toggle —
+  see ADR-24). Rotation/locale/fontScale still recreate the activity as
+  normal Android behavior. Upgrading nav-compose was considered and rejected:
+  the crashing guard lives in `NavBackStackEntry` itself, the Compose runtime
+  fixes for this crash class are already in BOM 2024.09.00, and no
+  2.7.x/2.8.x release notes claim to fix config-change entry teardown — the
+  app-specific trigger (recreation) is what this change removes.
+
+## ADR-24 — Missing `MorningWalk` completion: no persistence bug (P1 finding, no code change)
+- **Decision:** Completion flow left unchanged. The observed loss is not a
+  persistence, ordering, or transaction defect; it is attributed to
+  test-state contamination around the ADR-23 crash window and to intentional
+  toggle semantics.
+- **Context:** Traced end-to-end: UI (`CompletionButton` → `TodayViewModel/
+  ActivityDetailViewModel/ActivitiesViewModel.toggle*`) →
+  `ToggleCompletionUseCase` → `RoomCompletionRepository` → `CompletionDao`
+  (`insertIgnore`/`updateValue`/`delete`, single atomic statements, unique on
+  `(activityId, occurrenceDate)`). Committed rows survive process death and
+  crashes (Room/SQLite WAL); the only cascade path is the confirmed
+  `deleteHard`, and `setStatus`/archive/edit never touch
+  `completion_records` (proved by `ActivityHistoryPreservedTest`). UI state is
+  derived from Room flows, never optimistic, so a row the user saw completed
+  must have been committed — and a committed row cannot vanish in a
+  navigation crash. The realistic explanations for `MorningWalk`'s absence:
+  (a) a second tap after the crash un-completed it — toggling is by design
+  (`ToggleCompletionUseCaseTest: toggle flips state`); the Habits/Tasks list
+  passes `completed = false` to `ActivityCard` (pre-existing display gap, not
+  introduced in Phase 2A), so an already-completed habit renders unchecked
+  there and a verification tap deletes the record; and/or (b) a toggle
+  launched immediately before the crash had its `viewModelScope` cancelled
+  before the insert committed — the write never happened and the UI never
+  showed it complete. `DarkCheck` persisted because it was committed and not
+  toggled again.
+- **Consequences:** No schema or use-case change. The hardcoded
+  `completed = false` on the Habits/Tasks list is recorded as a known display
+  gap (showing real per-today completion there needs list-level completion
+  data — a screens-phase change, deliberately out of scope here).
+
+## ADR-25 — Restore path for archived activities (P2)
+- **Decision:** Archived activities are restorable from two places, both via
+  the existing `activityRepository.setStatus`: the detail screen's Actions
+  card gains a **Restore** row (`Icons.Rounded.Unarchive`, shown only when
+  `status == ARCHIVED`), and the list's Archived tab gains a Restore icon
+  button next to Delete (`ActivitiesViewModel.restore`). Restore sets
+  `status = ACTIVE` — the same state Resume uses — and reschedules reminders
+  exactly like any transition to ACTIVE.
+- **Context:** Archive was previously a one-way door in the UI (Delete was
+  the only action on archived items) even though the persistence model is a
+  reversible status column. Prior status is not stored, so restoring to
+  ACTIVE (not PAUSED) is the defined behavior: archived items reappear on
+  Today.
+- **Consequences:** No schema migration, no new repository methods, no
+  change to delete/archive semantics. Completions and reminders are untouched
+  by restore (status-only UPDATE; regression-tested by
+  `ActivityHistoryPreservedTest.archiving and restoring keeps completion
+  history`). Delete remains confirmed and hard.
+
+## ADR-26 — Phase 2B: dedicated Habits management screen + Habit Details
+- **Decision:** (1) `Routes.HABITS` opens a dedicated `HabitsRoute` /
+  `HabitsViewModel` management list (ACTIVE then Paused, no search/filter,
+  no completion, overflow Pause/Resume/Delete) per
+  `docs/product/features/Habits/HABITS_MANAGEMENT_DECISIONS.md` and the
+  Soft Aurora UI spec. Tasks keeps the shared `ActivitiesScreen` type filter
+  (ADR-22's shared list remains for Tasks). (2) `Routes.DETAIL` gains a
+  one-shot `DetailTypeGate`: HABIT with status ACTIVE/PAUSED opens
+  `HabitDetailRoute` / `HabitDetailViewModel` (weekly completion, streaks,
+  bottom Pause/Edit/Delete group, no daily toggle); tasks and ARCHIVED habits
+  keep the legacy `ActivityDetailRoute` body. (3) New domain use case
+  `ComputeHabitOverviewUseCase` computes a status-independent 7-day week
+  (honoring `SettingsRepository.weekStart`) with denominator = scheduled days
+  this week (user decision: completed / scheduled, future scheduled days
+  included; not-scheduled days never count against) plus current/longest
+  streaks via `StreakEngine` from `startDate..today`. (4) Predefined icon
+  lock after rename requires a persisted template id: Room schema **v4**
+  adds nullable `activities.habitTemplateId` (`MIGRATION_3_4`); save stamps
+  `CreationForm.templateId`; load prefers the column and falls back to
+  `matchTemplate` for pre-v4 rows. Custom template ids also store and unlock
+  the icon via `templateById(...).isCustom`.
+- **Context:** Phase 2B product constraints forbid archive in the habit
+  lifecycle UI (Active ↔ Paused → Delete), forbid daily completion on Habits
+ /Details, and require a seven-day (not bar-chart) weekly view with an
+  explicit not-scheduled state. Bottom nav stays Home · Habits · Tasks ·
+  Insights (ADR-22); the UI spec §4 line `Home | Habits | Insights |
+  Settings` conflicts with that lock and was not applied — flagged for
+  product follow-up, not silently changed.
+- **Consequences:** New packages `presentation/screens/habits` +
+  `HabitDetail*`; `LiquidGlassButton` gains a `destructive` parameter;
+  schema export `app/schemas/.../4.json` must be committed with the
+  migration test (`Migration3To4Test`); `ActivitiesRoute` is now Tasks-only
+  (and still reachable for unfiltered internal use). Weekly/streak logic is
+  unit-tested (`ComputeHabitOverviewTest`); list/detail VMs use the
+  Robolectric + real `AppContainer` pattern.
+
+## ADR-27 — Phase 2B Soft Aurora visual correction pass (no behavior change)
+- **Decision:** Restyle only the Phase 2B surfaces to the finalized Soft
+  Aurora language without touching domain, lifecycle, completion ownership,
+  weekly denominator, streak math, templates, Create Item, Home/Tasks/
+  Insights/Settings, or bottom-nav architecture. (1) `HabitsScreen` gets a
+  full-bleed `AuroraBackground(REST)`, title-only `MomentumTopBar`, 8dp
+  list spacing, shared `HabitIconTile` with accent `habitIconAccent`, a
+  three-slot `Frequency · Target · Reminder` metadata row (`—` for missing),
+  and one floating 56dp circular Add Habit FAB (BottomEnd). (2)
+  `HabitDetailScreen` gets centered Aurora hero (shared tile, status pill,
+  custom-icon edit affordance via `templateById(...)?.isCustom`), three
+  equal-height key-config meta cards, gradient `Check` weekly circles +
+  ring incomplete + faint not-scheduled dot, amber `streak` fire tile, a
+  read-only "Details" card (Direction · Tracking · Start · End · Notes),
+  and 168dp LazyColumn bottom padding under the floating Pause/Edit/Delete
+  group. (3) `LiquidGlassBottomBar`/`LiquidGlassTab` compact (6dp bar
+  padding, 48dp min tab, 26dp icon, animated selection at
+  `MomentumMotion.fast`). (4) `NavHost` crossfade: enter
+  `fadeIn(200ms easeOut)`, exit `fadeOut(150ms easeInOut)`, `None` under
+  reduced motion; bottom-bar inset uses `MomentumSpacing.compact`.
+  Icons gain `"streak" -> LocalFireDepartment`.
+- **Context:** UI spec + design-system polish pass for Habits/Details;
+  prompt mandated a bottom-right FAB and no screenshots were available in
+  context (text descriptions + code only).
+- **Flagged conflicts (not silently resolved):** `HABITS_MANAGEMENT_DECISIONS.md`
+  referenced by ADR-26 does not exist in the repo; UI spec §3 forbids a
+  second FAB (header `+`) while this session's prompt requires one — prompt
+  won; UI spec §7 shows a 🔥 streak glyph while the design system rejects
+  emoji (we use the Material fire icon); UI spec §4 nav order still
+  conflicts with ADR-22/26 lock (unchanged).
+- **Consequences:** Shared `HabitIconTile` + `habitIconAccent` are the one
+  icon language for list/detail; `HabitsViewModelTest` asserts the 3-slot
+  metadata; verification `:app:assembleDebug :app:testDebugUnitTest` green —
+  157 tests, 0 failures.
