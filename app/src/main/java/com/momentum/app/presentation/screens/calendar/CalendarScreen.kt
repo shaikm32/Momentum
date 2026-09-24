@@ -19,8 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -63,6 +63,7 @@ import java.util.Locale
 @Composable
 fun CalendarRoute(
     onOpenActivity: (Long) -> Unit,
+    onBack: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
     val vm: CalendarViewModel = momentumViewModel { CalendarViewModel(it) }
@@ -72,6 +73,7 @@ fun CalendarRoute(
     }
     CalendarScreen(
         state = state,
+        onBack = onBack,
         onPrev = { vm.shiftMonth(-1) },
         onNext = { vm.shiftMonth(1) },
         onToday = { vm.goToday() },
@@ -84,6 +86,7 @@ fun CalendarRoute(
 @Composable
 fun CalendarScreen(
     state: CalendarUiState,
+    onBack: () -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onToday: () -> Unit,
@@ -102,15 +105,18 @@ fun CalendarScreen(
     ) {
         item {
             MomentumTopBar(
-                title = state.month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
+                // Compact month+year: with the back affordance the full
+                // "September 2026" no longer fits beside the month controls.
+                title = state.month.format(DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault())),
+                onBack = onBack,
                 actions = {
                     LiquidGlassIconButton(
-                        icon = Icons.Filled.ChevronLeft,
+                        icon = Icons.Rounded.ChevronLeft,
                         contentDescription = "Previous month",
                         onClick = onPrev,
                     )
                     LiquidGlassIconButton(
-                        icon = Icons.Filled.ChevronRight,
+                        icon = Icons.Rounded.ChevronRight,
                         contentDescription = "Next month",
                         onClick = onNext,
                     )

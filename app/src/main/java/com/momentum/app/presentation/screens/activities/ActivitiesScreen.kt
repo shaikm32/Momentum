@@ -11,12 +11,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -39,6 +40,7 @@ import com.momentum.app.presentation.components.MomentumDialog
 import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.recurrenceLabel
+import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.presentation.momentumViewModel
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
@@ -50,8 +52,10 @@ fun ActivitiesRoute(
     onOpenActivity: (Long) -> Unit,
     onAddActivity: () -> Unit,
     snackbar: SnackbarHostState,
+    type: ActivityType? = null,
+    title: String = "Activities",
 ) {
-    val vm: ActivitiesViewModel = momentumViewModel { ActivitiesViewModel(it) }
+    val vm: ActivitiesViewModel = momentumViewModel { ActivitiesViewModel(it, type) }
     val state by vm.state.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<Long?>(null) }
 
@@ -61,7 +65,7 @@ fun ActivitiesRoute(
 
     Column(modifier = Modifier.fillMaxSize()) {
         MomentumTopBar(
-            title = "Activities",
+            title = title,
             subtitle = when (state.tab) {
                 ActivityTab.ACTIVE -> "${state.items.size} active"
                 ActivityTab.PAUSED -> "${state.items.size} paused"
@@ -69,7 +73,7 @@ fun ActivitiesRoute(
             },
             actions = {
                 LiquidGlassIconButton(
-                    icon = Icons.Filled.Add,
+                    icon = Icons.Rounded.Add,
                     contentDescription = "Add activity",
                     onClick = onAddActivity,
                     active = true,
@@ -86,6 +90,7 @@ fun ActivitiesRoute(
             onPause = { vm.pause(it) },
             onResume = { vm.resume(it) },
             onArchive = { vm.archive(it) },
+            onRestore = { vm.restore(it) },
             onDelete = { pendingDelete = it },
             onAdd = onAddActivity,
         )
@@ -115,6 +120,7 @@ fun ActivitiesScreen(
     onPause: (Long) -> Unit,
     onResume: (Long) -> Unit,
     onArchive: (Long) -> Unit,
+    onRestore: (Long) -> Unit,
     onDelete: (Long) -> Unit,
     onAdd: () -> Unit,
 ) {
@@ -124,7 +130,7 @@ fun ActivitiesScreen(
             value = state.query,
             onValueChange = onQuery,
             label = { Text("Search activities") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = c.textSecondary) },
+            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = c.textSecondary) },
             singleLine = true,
             shape = androidx.compose.foundation.shape.RoundedCornerShape(MomentumRadii.control),
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
@@ -185,7 +191,7 @@ fun ActivitiesScreen(
                 actionLabel = "Create activity",
                 onAction = onAdd,
                 modifier = Modifier.padding(top = MomentumSpacing.group),
-                icon = Icons.Filled.Add,
+                icon = Icons.Rounded.Add,
             )
         } else {
             LazyColumn(
@@ -224,14 +230,14 @@ fun ActivitiesScreen(
                         ) {
                             if (state.tab == ActivityTab.ACTIVE) {
                                 LiquidGlassIconButton(
-                                    icon = Icons.Filled.Pause,
+                                    icon = Icons.Rounded.Pause,
                                     contentDescription = "Pause ${activity.title}",
                                     onClick = { onPause(activity.id) },
                                 )
                             }
                             if (state.tab == ActivityTab.PAUSED) {
                                 LiquidGlassIconButton(
-                                    icon = Icons.Filled.PlayArrow,
+                                    icon = Icons.Rounded.PlayArrow,
                                     contentDescription = "Resume ${activity.title}",
                                     onClick = { onResume(activity.id) },
                                     active = true,
@@ -239,13 +245,19 @@ fun ActivitiesScreen(
                             }
                             if (state.tab != ActivityTab.ARCHIVED) {
                                 LiquidGlassIconButton(
-                                    icon = Icons.Filled.Archive,
+                                    icon = Icons.Rounded.Archive,
                                     contentDescription = "Archive ${activity.title}",
                                     onClick = { onArchive(activity.id) },
                                 )
                             } else {
                                 LiquidGlassIconButton(
-                                    icon = Icons.Filled.Delete,
+                                    icon = Icons.Rounded.Unarchive,
+                                    contentDescription = "Restore ${activity.title}",
+                                    onClick = { onRestore(activity.id) },
+                                    active = true,
+                                )
+                                LiquidGlassIconButton(
+                                    icon = Icons.Rounded.Delete,
                                     contentDescription = "Delete ${activity.title}",
                                     onClick = { onDelete(activity.id) },
                                     tint = c.error,

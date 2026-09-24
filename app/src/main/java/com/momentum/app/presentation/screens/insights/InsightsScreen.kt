@@ -17,7 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.presentation.components.EmptyState
 import com.momentum.app.presentation.components.GlassLevel
+import com.momentum.app.presentation.components.LiquidGlassIconButton
 import com.momentum.app.presentation.components.MomentumCard
 import com.momentum.app.presentation.components.MomentumDivider
 import com.momentum.app.presentation.components.MomentumLinearProgress
@@ -54,14 +56,14 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun InsightsRoute(onAddActivity: () -> Unit) {
+fun InsightsRoute(onAddActivity: () -> Unit, onOpenCalendar: () -> Unit) {
     val vm: InsightsViewModel = momentumViewModel { InsightsViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
-    InsightsScreen(state = state, onAdd = onAddActivity)
+    InsightsScreen(state = state, onAdd = onAddActivity, onOpenCalendar = onOpenCalendar)
 }
 
 @Composable
-fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
+fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: () -> Unit) {
     val c = MomentumThemeColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -75,6 +77,14 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
             MomentumTopBar(
                 title = "Insights",
                 subtitle = "Your consistency at a glance",
+                actions = {
+                    // Calendar/history lives inside Insights (§26) — never a tab.
+                    LiquidGlassIconButton(
+                        icon = Icons.Rounded.CalendarMonth,
+                        contentDescription = "Open calendar history",
+                        onClick = onOpenCalendar,
+                    )
+                },
             )
         }
         if (state.isEmpty) {
@@ -84,7 +94,7 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit) {
                     body = "Complete activities for a few days and your trends will appear here.",
                     actionLabel = "Create activity",
                     onAction = onAdd,
-                    icon = Icons.Filled.BarChart,
+                    icon = Icons.Rounded.BarChart,
                 )
             }
             return@LazyColumn

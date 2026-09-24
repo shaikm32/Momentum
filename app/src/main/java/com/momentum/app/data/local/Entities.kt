@@ -23,8 +23,16 @@ import kotlinx.coroutines.flow.Flow
 data class ActivityEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
+    /** Semantic kind (HABIT/TASK). v2 column; pre-v2 rows default to HABIT. */
+    val activityType: String = "HABIT",
+    /** Habit intent (BUILD/REDUCE). v3 column; pre-v3 rows default to BUILD. Legacy "AVOID" values read as REDUCE (see `toDomain`). */
+    val habitIntent: String = "BUILD",
+    /** Optional task due time (HH:mm). v3 column; null = no specific time. */
+    val dueTime: String? = null,
     val description: String = "",
     val iconKey: String = "spark",
+    /** v4 column; null = custom/pre-template. Non-custom ids lock the icon on edit. */
+    val habitTemplateId: String? = null,
     val categoryId: Long? = null,
     val colorArgb: Int? = null,
     /** ISO-8601 yyyy-MM-dd. */

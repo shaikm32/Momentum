@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,7 +66,7 @@ fun MomentumTopBar(
     ) {
         if (onBack != null) {
             IconButton(onClick = onBack, modifier = Modifier.size48()) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = c.textPrimary)
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = c.textPrimary)
             }
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -152,6 +152,7 @@ fun MomentumButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     secondary: Boolean = false,
+    destructive: Boolean = false,
 ) {
     LiquidGlassButton(
         text = text,
@@ -159,6 +160,7 @@ fun MomentumButton(
         modifier = modifier,
         enabled = enabled,
         secondary = secondary,
+        destructive = destructive,
     )
 }
 

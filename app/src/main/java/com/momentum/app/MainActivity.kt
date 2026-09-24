@@ -2,6 +2,7 @@ package com.momentum.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -30,6 +31,11 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        enableEdgeToEdge()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

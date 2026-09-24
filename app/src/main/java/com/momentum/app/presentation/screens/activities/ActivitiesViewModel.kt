@@ -6,6 +6,7 @@ import com.momentum.app.AppContainer
 import com.momentum.app.domain.engine.RecurrenceEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
+import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.domain.model.Category
 import java.time.LocalDate
 import kotlinx.coroutines.channels.Channel
@@ -29,7 +30,15 @@ data class ActivitiesUiState(
     val categoryNames: Map<Long, String> = emptyMap(),
 )
 
-class ActivitiesViewModel(private val container: AppContainer) : ViewModel() {
+/**
+ * Shared list logic for the Activities screen. The bottom-nav Habits and
+ * Tasks destinations are the same screen pinned to an [ActivityType] via
+ * [type]; a null [type] shows every type (unfiltered).
+ */
+class ActivitiesViewModel(
+    private val container: AppContainer,
+    private val type: ActivityType? = null,
+) : ViewModel() {
 
     private val query = MutableStateFlow("")
     private val tab = MutableStateFlow(ActivityTab.ACTIVE)
@@ -52,6 +61,7 @@ class ActivitiesViewModel(private val container: AppContainer) : ViewModel() {
             query = q, tab = t, categoryId = cat, sort = s,
             categories = categories, categoryNames = names,
             items = activities
+                .filter { type == null || it.activityType == type }
                 .filter { it.status == t.toStatus() }
                 .filter { cat == null || it.categoryId == cat }
                 .filter { q.isBlank() || it.title.contains(q, ignoreCase = true) }
@@ -75,6 +85,7 @@ class ActivitiesViewModel(private val container: AppContainer) : ViewModel() {
     fun archive(id: Long) = update(id, ActivityStatus.ARCHIVED)
     fun pause(id: Long) = update(id, ActivityStatus.PAUSED)
     fun resume(id: Long) = update(id, ActivityStatus.ACTIVE)
+    fun restore(id: Long) = update(id, ActivityStatus.ACTIVE)
 
     /** Quick-complete for today; no-ops with an explanatory message when unscheduled. */
     fun toggleToday(id: Long) {

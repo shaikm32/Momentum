@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -110,7 +110,7 @@ fun CompletionButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Filled.Check,
+            imageVector = Icons.Rounded.Check,
             contentDescription = contentDescription,
             tint = if (completed) c.onPrimary else c.textSecondary,
             modifier = Modifier.size(MomentumIconSizes.medium),

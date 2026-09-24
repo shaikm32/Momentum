@@ -17,13 +17,16 @@ object MomentumThemeColors {
 }
 
 /**
- * Theme entry point. Screens read semantic tokens from [LocalMomentumColors] —
- * never hardcode colors. Theme selection persists via DataStore (Phase 10);
- * [themeId] + [darkMode] come from [com.momentum.app.domain.model.AppSettings].
+ * Theme entry point (Design System v1.0 §3). Two first-class environments —
+ * Light Aurora and Dark Aurora — selected by [darkMode]
+ * (system / light / dark). Screens read semantic tokens from
+ * [LocalMomentumColors] — never hardcode colors. [themeId] comes from
+ * [com.momentum.app.domain.model.AppSettings] and resolves through
+ * [themeById].
  */
 @Composable
 fun MomentumTheme(
-    themeId: String = "twilight",
+    themeId: String = "aurora",
     darkMode: DarkModeSetting = DarkModeSetting.SYSTEM,
     systemDark: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
@@ -37,35 +40,46 @@ fun MomentumTheme(
     val momentum = if (darkTheme) definition.dark else definition.light
     val material = if (darkTheme) {
         darkColorScheme(
-            primary = momentum.primary,
-            onPrimary = momentum.onPrimary,
-            secondary = momentum.secondary,
-            tertiary = momentum.accent,
-            background = momentum.backgroundBottom,
-            surface = momentum.surface,
-            surfaceVariant = momentum.surfaceVariant,
+            primary = momentum.accentPrimary,
+            onPrimary = momentum.onAccent,
+            secondary = momentum.accentSecondary,
+            onSecondary = momentum.onAccent,
+            tertiary = momentum.accentTertiary,
+            background = momentum.background,
             onBackground = momentum.textPrimary,
+            surface = momentum.surface,
             onSurface = momentum.textPrimary,
-            error = momentum.error,
+            surfaceVariant = momentum.surfaceSoft,
+            onSurfaceVariant = momentum.textSecondary,
+            error = momentum.danger,
+            onError = momentum.background,
+            outline = momentum.borderStrong,
+            outlineVariant = momentum.borderSubtle,
         )
     } else {
         lightColorScheme(
-            primary = momentum.primary,
-            onPrimary = momentum.onPrimary,
-            secondary = momentum.secondary,
-            tertiary = momentum.accent,
-            background = momentum.backgroundBottom,
-            surface = momentum.surface,
-            surfaceVariant = momentum.surfaceVariant,
+            primary = momentum.accentPrimary,
+            onPrimary = momentum.onAccent,
+            secondary = momentum.accentSecondary,
+            onSecondary = momentum.onAccent,
+            tertiary = momentum.accentTertiary,
+            background = momentum.background,
             onBackground = momentum.textPrimary,
+            surface = momentum.surface,
             onSurface = momentum.textPrimary,
-            error = momentum.error,
+            surfaceVariant = momentum.surfaceSoft,
+            onSurfaceVariant = momentum.textSecondary,
+            error = momentum.danger,
+            onError = momentum.surfaceElevated,
+            outline = momentum.borderStrong,
+            outlineVariant = momentum.borderSubtle,
         )
     }
     CompositionLocalProvider(LocalMomentumColors provides momentum) {
         MaterialTheme(
             colorScheme = material,
             typography = MomentumTypography,
+            shapes = MomentumShapes.material,
             content = content,
         )
     }

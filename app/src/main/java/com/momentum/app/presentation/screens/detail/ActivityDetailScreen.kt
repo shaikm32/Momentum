@@ -18,11 +18,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -100,6 +101,7 @@ fun ActivityDetailRoute(
             onPause = { vm.setStatus(ActivityStatus.PAUSED) },
             onResume = { vm.setStatus(ActivityStatus.ACTIVE) },
             onArchive = { vm.setStatus(ActivityStatus.ARCHIVED) },
+            onRestore = { vm.setStatus(ActivityStatus.ACTIVE) },
             onDelete = { confirmDelete = true },
         )
     }
@@ -125,6 +127,7 @@ fun ActivityDetailScreen(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onArchive: () -> Unit,
+    onRestore: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val c = MomentumThemeColors.current
@@ -149,7 +152,7 @@ fun ActivityDetailScreen(
                 onBack = onBack,
                 actions = {
                     LiquidGlassIconButton(
-                        icon = Icons.Filled.Edit,
+                        icon = Icons.Rounded.Edit,
                         contentDescription = "Edit ${activity.title}",
                         onClick = onEdit,
                     )
@@ -328,7 +331,7 @@ fun ActivityDetailScreen(
             MomentumCard {
                 if (activity.status == ActivityStatus.ACTIVE) {
                     DetailActionRow(
-                        icon = Icons.Filled.Pause,
+                        icon = Icons.Rounded.Pause,
                         label = "Pause",
                         supporting = "Hide from Today, keep history",
                         onClick = onPause,
@@ -337,16 +340,25 @@ fun ActivityDetailScreen(
                 }
                 if (activity.status == ActivityStatus.PAUSED) {
                     DetailActionRow(
-                        icon = Icons.Filled.PlayArrow,
+                        icon = Icons.Rounded.PlayArrow,
                         label = "Resume",
                         supporting = "Show on Today again",
                         onClick = onResume,
                     )
                     MomentumDivider()
                 }
+                if (activity.status == ActivityStatus.ARCHIVED) {
+                    DetailActionRow(
+                        icon = Icons.Rounded.Unarchive,
+                        label = "Restore",
+                        supporting = "Return to active, keep history",
+                        onClick = onRestore,
+                    )
+                    MomentumDivider()
+                }
                 if (activity.status != ActivityStatus.ARCHIVED) {
                     DetailActionRow(
-                        icon = Icons.Filled.Archive,
+                        icon = Icons.Rounded.Archive,
                         label = "Archive",
                         supporting = "Retire without deleting history",
                         onClick = onArchive,
@@ -354,7 +366,7 @@ fun ActivityDetailScreen(
                     MomentumDivider()
                 }
                 DetailActionRow(
-                    icon = Icons.Filled.Delete,
+                    icon = Icons.Rounded.Delete,
                     label = "Delete permanently",
                     supporting = "Erases history and reminders",
                     destructive = true,

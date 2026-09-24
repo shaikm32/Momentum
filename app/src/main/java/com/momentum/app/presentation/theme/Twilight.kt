@@ -3,22 +3,10 @@ package com.momentum.app.presentation.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * "Momentum — Twilight Journey" palette. Source of truth for the twilight
- * visual identity: cinematic deep-indigo/violet structure (≈80% cool/dark)
- * with restrained sunset warmth (≈20% luminous accents).
- *
- * Core principle: the environment is expressive, the UI is quiet. Warm hues
- * are atmospheric accents (glows, progress light, CTA energy); cool darks
- * carry structure and depth. Nothing neon, nothing gamified.
- *
- * Semantic mapping onto [MomentumColors] slots (see [TwilightDark]):
- * - backgroundPrimary/Secondary → backgroundTop/Bottom
- * - surfaceGlass/surfaceGlassElevated → surface/surfaceVariant
- * - textPrimary/textSecondary → Moonlight / PaleMauve
- * - accentWarm/accentGold/accentRose → primary/accent/secondary family
- * - accentViolet → muted-purple depth (surfaceVariant, secondary)
- * - iconPrimary/iconSecondary → textPrimary/textSecondary
- * - success/warning/error → unchanged functional hues
+ * "Momentum — Twilight Journey" onboarding palette: the exact hexes the
+ * supplied onboarding artwork was composed against, kept as constants so
+ * onboarding copy and glass continue to match the art. Not a theme — the
+ * v1 theme system is Light/Dark Aurora (see [AuroraLight]/[AuroraDark]).
  */
 object Twilight {
     // Cool dark structure.
@@ -51,39 +39,3 @@ object Twilight {
     /** Warm bronze: light-theme primary actions (contrast-safe on paper). */
     val WarmBronze = Color(0xFFB4532A)
 }
-
-/** Twilight Journey, dark (hero experience): indigo structure, peach light. */
-val TwilightDark = MomentumColors(
-    backgroundTop = Twilight.DeepIndigo,
-    backgroundBottom = Twilight.MidnightNavy,
-    surface = Twilight.DeepIndigo,
-    surfaceVariant = Twilight.DeepViolet,
-    primary = Twilight.WarmPeach,
-    onPrimary = Twilight.EmberInk,
-    secondary = Twilight.MutedPurple,
-    accent = Twilight.SunsetCoral,
-    textPrimary = Twilight.Moonlight,
-    textSecondary = Twilight.PaleMauve,
-    success = Color(0xFF4ADE80),
-    warning = Twilight.GoldenAmber,
-    error = Color(0xFFF87171),
-    glow = Twilight.WarmPeach,
-)
-
-/** Twilight Journey, light (warm paper): bronze structure, plum ink. */
-val TwilightLight = MomentumColors(
-    backgroundTop = Color(0xFFF7EEDF),
-    backgroundBottom = Color(0xFFFFF9F1),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFF3E4CF),
-    primary = Twilight.WarmBronze,
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Twilight.MutedPurple,
-    accent = Color(0xFFC05B4D),
-    textPrimary = Twilight.PlumInk,
-    textSecondary = Color(0xFF7C6370),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFB45309),
-    error = Color(0xFFDC2626),
-    glow = Twilight.WarmBronze,
-)

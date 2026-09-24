@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -51,6 +51,7 @@ import com.momentum.app.presentation.theme.themeById
 @Composable
 fun SettingsRoute(
     onOpenThemes: () -> Unit,
+    onBack: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
     val vm: SettingsViewModel = momentumViewModel { SettingsViewModel(it) }
@@ -70,6 +71,7 @@ fun SettingsRoute(
         reduceMotion = settings.reduceMotionOverride,
         motivational = settings.motivationalMessagesEnabled,
         onOpenThemes = onOpenThemes,
+        onBack = onBack,
         onDarkMode = { vm.setDarkMode(it) },
         onWeekStart = { vm.setWeekStart(it) },
         onReduceMotion = { vm.setReduceMotion(it) },
@@ -86,6 +88,7 @@ fun SettingsScreen(
     reduceMotion: Boolean?,
     motivational: Boolean,
     onOpenThemes: () -> Unit,
+    onBack: () -> Unit,
     onDarkMode: (DarkModeSetting) -> Unit,
     onWeekStart: (WeekStart) -> Unit,
     onReduceMotion: (Boolean?) -> Unit,
@@ -105,7 +108,7 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            MomentumTopBar(title = "Settings")
+            MomentumTopBar(title = "Settings", onBack = onBack)
         }
         item {
             MomentumSectionHeader(title = "Appearance")
@@ -128,7 +131,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                 contentDescription = null,
                                 tint = c.primary,
                                 modifier = Modifier.size(20.dp),

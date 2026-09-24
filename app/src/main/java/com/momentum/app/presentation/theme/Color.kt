@@ -4,303 +4,126 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 
 /**
- * Restrained semantic palettes: deep near-black backgrounds, quietly elevated
- * surfaces, muted secondary text with solid contrast. Accent hues carry each
- * theme's identity; brightness is reserved for progress and state.
+ * Momentum semantic color tokens (Design System v1.0 §3). Two first-class
+ * environments — Light Aurora and Dark Aurora — share this exact contract.
+ * Screens read tokens, never raw hex.
  *
- * Aurora is the default launch theme: deep indigo-violet canvas,
- * mint-cyan primary, warm coral accent. Calm, premium, expressive.
+ * Pre-Aurora slot names ([backgroundTop], [primary], [accent], [error], …)
+ * survive as computed aliases so screens that have not yet been migrated to
+ * the v1 token names keep compiling and rendering.
  */
 data class MomentumColors(
-    val backgroundTop: Color,
-    val backgroundBottom: Color,
+    // —— Surfaces ——
+    val background: Color,
     val surface: Color,
-    val surfaceVariant: Color,
-    val primary: Color,
-    val onPrimary: Color,
-    val secondary: Color,
-    val accent: Color,
+    val surfaceSoft: Color,
+    val surfaceElevated: Color,
+    val surfaceInteractive: Color,
+
+    // —— Text ——
     val textPrimary: Color,
     val textSecondary: Color,
+    val textMuted: Color,
+    val textDisabled: Color,
+
+    // —— Status ——
     val success: Color,
     val warning: Color,
-    val error: Color,
-    val glow: Color,
-)
+    val danger: Color,
 
-val AuroraDark = MomentumColors(
-    backgroundTop = Color(0xFF101024),
-    backgroundBottom = Color(0xFF0A0A18),
-    surface = Color(0xFF171731),
-    surfaceVariant = Color(0xFF222244),
-    primary = Color(0xFF5EEAD4),
-    onPrimary = Color(0xFF062A26),
-    secondary = Color(0xFFA78BFA),
-    accent = Color(0xFFFF8A7A),
-    textPrimary = Color(0xFFF4F2FF),
-    textSecondary = Color(0xFFC2BEDB),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFBBF24),
-    error = Color(0xFFF87171),
-    glow = Color(0xFF5EEAD4),
-)
+    // —— Borders ——
+    val borderSubtle: Color,
+    val borderStrong: Color,
 
+    // —— Progress ——
+    val progressTrack: Color,
+
+    // —— Aurora palette (also the accent family) ——
+    val auroraBlue: Color,
+    val auroraLavender: Color,
+    val auroraViolet: Color,
+    val auroraMint: Color,
+    val auroraPeach: Color,
+
+    /** Ink for content placed on an accent-filled control (contrast-checked). */
+    val onAccent: Color,
+) {
+    val accentPrimary: Color get() = auroraBlue
+    val accentSecondary: Color get() = auroraLavender
+    val accentTertiary: Color get() = auroraViolet
+    val progressFill: Color get() = auroraBlue
+    val glow: Color get() = auroraBlue
+
+    // Legacy pre-v1 slot aliases (removed as screens migrate).
+
+    val backgroundTop: Color get() = background
+    val backgroundBottom: Color get() = background
+    val surfaceVariant: Color get() = surfaceSoft
+    val primary: Color get() = accentPrimary
+    val onPrimary: Color get() = onAccent
+    val secondary: Color get() = accentSecondary
+    val accent: Color get() = accentTertiary
+    val error: Color get() = danger
+}
+
+/**
+ * Light Aurora — bright paper canvas, soft tonal surfaces, Aurora Blue
+ * primary. Light leans on tonal contrast and very soft shadows (§7).
+ */
 val AuroraLight = MomentumColors(
-    backgroundTop = Color(0xFFF0EDFF),
-    backgroundBottom = Color(0xFFFFFFFF),
+    background = Color(0xFFF7F8FC),
     surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFEDE9FE),
-    primary = Color(0xFF0D9488),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF7C3AED),
-    accent = Color(0xFFF4543A),
-    textPrimary = Color(0xFF191736),
-    textSecondary = Color(0xFF5B5878),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFF0D9488),
+    surfaceSoft = Color(0xFFF1F2FB),
+    surfaceElevated = Color(0xFFFFFFFF),
+    surfaceInteractive = Color(0xFFE8EBF7),
+    textPrimary = Color(0xFF172033),
+    textSecondary = Color(0xFF596579),
+    textMuted = Color(0xFF8993A4),
+    textDisabled = Color(0xFFB8BFCA),
+    success = Color(0xFF1F8A70),
+    warning = Color(0xFFB45309),
+    danger = Color(0xFFC74545),
+    borderSubtle = Color(0xFFE4E7F1),
+    borderStrong = Color(0xFFC7CDDA),
+    progressTrack = Color(0xFFE7EAF4),
+    auroraBlue = Color(0xFF5C9FEF),
+    auroraLavender = Color(0xFF9278E8),
+    auroraViolet = Color(0xFF8064DD),
+    auroraMint = Color(0xFF55C8AD),
+    auroraPeach = Color(0xFFEAA477),
+    onAccent = Color(0xFF172033),
 )
 
-private val OceanDark = MomentumColors(
-    backgroundTop = Color(0xFF051E2B),
-    backgroundBottom = Color(0xFF020D15),
-    surface = Color(0xFF0A2C3D),
-    surfaceVariant = Color(0xFF0F3A4E),
-    primary = Color(0xFF38BDF8),
-    onPrimary = Color(0xFF032635),
-    secondary = Color(0xFF2DD4BF),
-    accent = Color(0xFFFBBF24),
-    textPrimary = Color(0xFFF0F9FF),
-    textSecondary = Color(0xFFB4CFDD),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFBBF24),
-    error = Color(0xFFF87171),
-    glow = Color(0xFF38BDF8),
+/**
+ * Dark Aurora — near-black ink canvas, quiet tonal surfaces, luminous
+ * Aurora accents. Dark leans on tonal contrast, subtle borders, and
+ * atmospheric glow rather than shadows (§7).
+ */
+val AuroraDark = MomentumColors(
+    background = Color(0xFF080D18),
+    surface = Color(0xFF111827),
+    surfaceSoft = Color(0xFF151E30),
+    surfaceElevated = Color(0xFF172033),
+    surfaceInteractive = Color(0xFF1D2940),
+    textPrimary = Color(0xFFF5F7FC),
+    textSecondary = Color(0xFFAEB8CA),
+    textMuted = Color(0xFF737F95),
+    textDisabled = Color(0xFF4D586B),
+    success = Color(0xFF76DFC4),
+    warning = Color(0xFFFFC49B),
+    danger = Color(0xFFFF8E8E),
+    borderSubtle = Color(0xFF1C2740),
+    borderStrong = Color(0xFF2A3854),
+    progressTrack = Color(0xFF1D2940),
+    auroraBlue = Color(0xFF78B7FF),
+    auroraLavender = Color(0xFFB59CFF),
+    auroraViolet = Color(0xFF9B7CFF),
+    auroraMint = Color(0xFF76DFC4),
+    auroraPeach = Color(0xFFFFC49B),
+    onAccent = Color(0xFF080D18),
 )
 
-private val OceanLight = MomentumColors(
-    backgroundTop = Color(0xFFE0F2FE),
-    backgroundBottom = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFD9EDFA),
-    primary = Color(0xFF0284C7),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF0D9488),
-    accent = Color(0xFFD97706),
-    textPrimary = Color(0xFF082F49),
-    textSecondary = Color(0xFF4A6B80),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFF0284C7),
-)
-
-private val SunsetDark = MomentumColors(
-    backgroundTop = Color(0xFF2C1025),
-    backgroundBottom = Color(0xFF120710),
-    surface = Color(0xFF3A1A2E),
-    surfaceVariant = Color(0xFF4C2439),
-    primary = Color(0xFFFFB25E),
-    onPrimary = Color(0xFF3A1C00),
-    secondary = Color(0xFFFF6B8B),
-    accent = Color(0xFFFFD166),
-    textPrimary = Color(0xFFFFF3EA),
-    textSecondary = Color(0xFFE2C4BC),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFFD166),
-    error = Color(0xFFF87171),
-    glow = Color(0xFFFF8A5C),
-)
-
-private val SunsetLight = MomentumColors(
-    backgroundTop = Color(0xFFFFE8D6),
-    backgroundBottom = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFFBE0CE),
-    primary = Color(0xFFC2410C),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFFDB2777),
-    accent = Color(0xFFB45309),
-    textPrimary = Color(0xFF431407),
-    textSecondary = Color(0xFF8A5A44),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFFEA580C),
-)
-
-private val ForestDark = MomentumColors(
-    backgroundTop = Color(0xFF0A2117),
-    backgroundBottom = Color(0xFF050F0B),
-    surface = Color(0xFF102B1E),
-    surfaceVariant = Color(0xFF173D28),
-    primary = Color(0xFF86EFAC),
-    onPrimary = Color(0xFF052E1B),
-    secondary = Color(0xFFA3E635),
-    accent = Color(0xFFFBBF24),
-    textPrimary = Color(0xFFF0FDF4),
-    textSecondary = Color(0xFFB7D4C1),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFBBF24),
-    error = Color(0xFFF87171),
-    glow = Color(0xFF86EFAC),
-)
-
-private val ForestLight = MomentumColors(
-    backgroundTop = Color(0xFFDCFCE7),
-    backgroundBottom = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFD2EDD9),
-    primary = Color(0xFF15803D),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF4D7C0F),
-    accent = Color(0xFFB45309),
-    textPrimary = Color(0xFF052E16),
-    textSecondary = Color(0xFF4D6B58),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFF15803D),
-)
-
-private val LavenderDark = MomentumColors(
-    backgroundTop = Color(0xFF211A37),
-    backgroundBottom = Color(0xFF0F0B1A),
-    surface = Color(0xFF2C2347),
-    surfaceVariant = Color(0xFF3A2F5C),
-    primary = Color(0xFFC4B5FD),
-    onPrimary = Color(0xFF2E1065),
-    secondary = Color(0xFFF0ABFC),
-    accent = Color(0xFF5EEAD4),
-    textPrimary = Color(0xFFF5F0FF),
-    textSecondary = Color(0xFFCCC3E8),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFBBF24),
-    error = Color(0xFFF87171),
-    glow = Color(0xFFC4B5FD),
-)
-
-private val LavenderLight = MomentumColors(
-    backgroundTop = Color(0xFFEDE9FE),
-    backgroundBottom = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFE2D9FB),
-    primary = Color(0xFF7C3AED),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFFA21CAF),
-    accent = Color(0xFF0D9488),
-    textPrimary = Color(0xFF2E1065),
-    textSecondary = Color(0xFF6D6390),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFF7C3AED),
-)
-
-private val MidnightDark = MomentumColors(
-    backgroundTop = Color(0xFF0C1322),
-    backgroundBottom = Color(0xFF04060B),
-    surface = Color(0xFF141C2E),
-    surfaceVariant = Color(0xFF1E2942),
-    primary = Color(0xFF93C5FD),
-    onPrimary = Color(0xFF0B1B33),
-    secondary = Color(0xFF67E8F9),
-    accent = Color(0xFFF0ABFC),
-    textPrimary = Color(0xFFF8FAFC),
-    textSecondary = Color(0xFFAEBDD4),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFBBF24),
-    error = Color(0xFFF87171),
-    glow = Color(0xFF60A5FA),
-)
-
-private val MidnightLight = MomentumColors(
-    backgroundTop = Color(0xFFE2E8F0),
-    backgroundBottom = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFD8E0EC),
-    primary = Color(0xFF1D4ED8),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF0E7490),
-    accent = Color(0xFFA21CAF),
-    textPrimary = Color(0xFF0F172A),
-    textSecondary = Color(0xFF55677F),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFF2563EB),
-)
-
-private val CosmicDark = MomentumColors(
-    backgroundTop = Color(0xFF1C1035),
-    backgroundBottom = Color(0xFF0A0512),
-    surface = Color(0xFF281A47),
-    surfaceVariant = Color(0xFF36245C),
-    primary = Color(0xFFF0ABFC),
-    onPrimary = Color(0xFF3B0764),
-    secondary = Color(0xFF67E8F9),
-    accent = Color(0xFFFBBF24),
-    textPrimary = Color(0xFFFAF5FF),
-    textSecondary = Color(0xFFCFC1EA),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFBBF24),
-    error = Color(0xFFF87171),
-    glow = Color(0xFFE879F9),
-)
-
-private val CosmicLight = MomentumColors(
-    backgroundTop = Color(0xFFFAE8FF),
-    backgroundBottom = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFF1D4FA),
-    primary = Color(0xFFA21CAF),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF0E7490),
-    accent = Color(0xFFD97706),
-    textPrimary = Color(0xFF3B0764),
-    textSecondary = Color(0xFF7A6391),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFFC026D3),
-)
-
-private val ArcticDark = MomentumColors(
-    backgroundTop = Color(0xFF0E262D),
-    backgroundBottom = Color(0xFF051115),
-    surface = Color(0xFF15353E),
-    surfaceVariant = Color(0xFF1E4650),
-    primary = Color(0xFF99F6E4),
-    onPrimary = Color(0xFF04211B),
-    secondary = Color(0xFFBAE6FD),
-    accent = Color(0xFFFDE68A),
-    textPrimary = Color(0xFFECFEFF),
-    textSecondary = Color(0xFFB2CFD7),
-    success = Color(0xFF4ADE80),
-    warning = Color(0xFFFBBF24),
-    error = Color(0xFFF87171),
-    glow = Color(0xFF5EEAD4),
-)
-
-private val ArcticLight = MomentumColors(
-    backgroundTop = Color(0xFFCFFAFE),
-    backgroundBottom = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFC4E9F1),
-    primary = Color(0xFF0E7490),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF0369A1),
-    accent = Color(0xFFB45309),
-    textPrimary = Color(0xFF083344),
-    textSecondary = Color(0xFF4A6E78),
-    success = Color(0xFF16A34A),
-    warning = Color(0xFFD97706),
-    error = Color(0xFFDC2626),
-    glow = Color(0xFF0E7490),
-)
-
-/** One data-driven theme concept: same token slots, genuinely distinct palettes. */
+/** One theme definition: the same token contract in both environments. */
 data class MomentumThemeDefinition(
     val id: String,
     val name: String,
@@ -308,22 +131,64 @@ data class MomentumThemeDefinition(
     val dark: MomentumColors,
 )
 
-/** Launch gallery (9 concepts × light/dark). New theme = one data entry + previews. */
+/**
+ * The v1 registry holds the single Aurora environment. The legacy `theme_id`
+ * DataStore value resolves through [themeById] to this entry, so persisted
+ * user choices keep working without a data migration.
+ */
 val MomentumThemes = listOf(
-    MomentumThemeDefinition("twilight", "Twilight", TwilightLight, TwilightDark),
     MomentumThemeDefinition("aurora", "Aurora", AuroraLight, AuroraDark),
-    MomentumThemeDefinition("ocean", "Ocean", OceanLight, OceanDark),
-    MomentumThemeDefinition("sunset", "Sunset", SunsetLight, SunsetDark),
-    MomentumThemeDefinition("forest", "Forest", ForestLight, ForestDark),
-    MomentumThemeDefinition("lavender", "Lavender", LavenderLight, LavenderDark),
-    MomentumThemeDefinition("midnight", "Midnight", MidnightLight, MidnightDark),
-    MomentumThemeDefinition("cosmic", "Cosmic", CosmicLight, CosmicDark),
-    MomentumThemeDefinition("arctic", "Arctic", ArcticLight, ArcticDark),
 )
 
 fun themeById(id: String): MomentumThemeDefinition =
     MomentumThemes.firstOrNull { it.id == id } ?: MomentumThemes.first()
 
-/** True for the deep dark palettes; drives glass border/highlight choices. */
+/** True for the Dark Aurora environment; drives glass border/highlight choices. */
 val MomentumColors.isDark: Boolean
-    get() = backgroundBottom.luminance() < 0.25f
+    get() = background.luminance() < 0.25f
+
+/**
+ * Muted jewel icon accents for the habit-creation cards. One consistent
+ * rounded-badge treatment everywhere: the glyph carries the hue, the badge
+ * carries it at low alpha, cards stay dark glass. Centralized here so
+ * screens never hardcode colors.
+ */
+object HabitIconAccents {
+    /** Warm amber/gold — reading. */
+    val amber = Color(0xFFE3A63D)
+
+    /** Energetic teal — exercise. */
+    val teal = Color(0xFF4FB8A8)
+
+    /** Soft lavender — meditation. */
+    val lavender = Color(0xFFB39DDB)
+
+    /** Cyan/blue — water, screen time. */
+    val cyan = Color(0xFF5BB8E8)
+
+    /** Golden yellow — learning, spending. */
+    val golden = Color(0xFFE5C548)
+
+    /** Peach/orange — primary accent family (Build, custom habits). */
+    val peach = Color(0xFFF2A488)
+
+    /** Muted plum — Reduce direction, social media. */
+    val plum = Color(0xFFC08FB8)
+}
+
+/**
+ * Accent hue for a persisted habit/activity icon key. Same muted-jewel
+ * family as [HabitIconAccents], keyed by `iconKey` so list tiles, hero
+ * tiles, and creation cards read as one icon language. Unknown keys fall
+ * back to peach.
+ */
+fun habitIconAccent(iconKey: String): Color = when (iconKey) {
+    "water", "home", "timer" -> HabitIconAccents.cyan
+    "fitness", "health" -> HabitIconAccents.teal
+    "mind", "meds", "sleep" -> HabitIconAccents.lavender
+    "learning", "food", "mail" -> HabitIconAccents.amber
+    "school", "work", "list", "date" -> HabitIconAccents.golden
+    "people", "music" -> HabitIconAccents.plum
+    "streak" -> HabitIconAccents.amber
+    else -> HabitIconAccents.peach
+}

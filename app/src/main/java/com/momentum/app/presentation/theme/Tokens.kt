@@ -1,78 +1,95 @@
 package com.momentum.app.presentation.theme
 
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Central design tokens. Screens and components read rhythm from here —
- * no scattered arbitrary dp values in composables.
+ * Central dimension tokens (§5). Base grid: **4dp**. Screens and components
+ * read rhythm from here — no scattered arbitrary dp values in composables.
+ * Default horizontal screen padding: [MomentumSpacing.screen] (20dp).
  */
 object MomentumSpacing {
-    /** Horizontal screen margin used by every screen. */
+    /** 4dp — micro: hairline-adjacent nudges inside compound controls. */
+    val micro = 4.dp
+
+    /** 8dp — tight: gaps inside compound controls (chips, rows). */
+    val tight = 8.dp
+
+    /** 12dp — compact: gaps between cards / list items, row padding. */
+    val compact = 12.dp
+
+    /** 16dp — standard: card padding, standard gaps. */
+    val standard = 16.dp
+
+    /** 20dp — screen/content padding (default horizontal margin). */
     val screen = 20.dp
 
-    /** Vertical gaps between major sections on a screen. */
-    val section = 20.dp
+    /** 24dp — section: gaps between major sections. */
+    val section = 24.dp
 
-    /** Gaps between cards / list items. */
-    val item = 12.dp
+    /** 32dp — major section: separation between screen regions. */
+    val majorSection = 32.dp
 
-    /** Tight gaps inside compound controls (chips, rows). */
-    val group = 8.dp
+    /** 40dp — large separation. */
+    val large = 40.dp
 
-    /** Internal padding of cards. */
-    val card = 16.dp
+    /** 48dp — hero: dramatic vertical air around hero elements. */
+    val hero = 48.dp
 
-    /** Compact internal padding (setting rows, list rows). */
-    val row = 12.dp
+    /** 64dp — exceptional: reserved, near-empty breathing room. */
+    val exceptional = 64.dp
+
+    // Legacy aliases — delegate to the v1 grid (no second source of values).
+
+    val item: Dp get() = compact
+    val group: Dp get() = tight
+    val card: Dp get() = standard
+    val row: Dp get() = compact
 }
 
-object MomentumRadii {
-    /** Default card corner radius — calm, not bubbly. */
-    val card = 16.dp
-
-    /** Controls: buttons, text fields, pickers. */
-    val control = 12.dp
-
-    /** Small surfaces: icon tiles, day cells, thumbs. */
-    val small = 10.dp
-
-    /** Dialogs and sheets. */
-    val dialog = 20.dp
-
-    /** Pills only: filter chips, badges. */
-    val pill = 999.dp
-}
-
+/**
+ * Control heights (§30 accessibility): interactive targets never fall
+ * below 48dp.
+ */
 object MomentumHeights {
     /** Primary buttons and CTA rows. */
     val button = 52.dp
 
-    /** Minimum touch height for chips and rows (accessibility). */
+    /** Minimum touch height for chips and rows. */
     val controlMin = 48.dp
 
     /** Icon-only touch targets. */
     val iconTarget = 48.dp
 }
 
+/**
+ * Icon sizes (§8): secondary/action 20dp, primary UI/navigation 24dp,
+ * prominent contextual 28dp. Legacy 18/22dp names remain for unmigrated
+ * call sites.
+ */
 object MomentumIconSizes {
+    /** 20dp — secondary/action. */
+    val secondary = 20.dp
+
+    /** 24dp — primary UI/navigation. */
+    val primary = 24.dp
+
+    /** 28dp — prominent contextual icons. */
+    val prominent = 28.dp
+
+    // Legacy aliases.
+
     val small = 18.dp
-    val medium = 20.dp
-    val large = 24.dp
-    val hero = 28.dp
+    val medium: Dp get() = secondary
+    val large: Dp get() = primary
+    val hero: Dp get() = prominent
     val tile = 22.dp
 }
 
-/** Animation durations in milliseconds — short, smooth, purposeful. */
-object MomentumDurations {
-    const val fast = 150
-    const val medium = 250
-    const val slow = 350
-}
-
 /**
- * Liquid Glass translucency + light tokens. Glass fills let the ambient
- * background breathe through; borders and top highlights sell the depth.
- * Values are alphas applied to theme slots — never hardcoded colors.
+ * Liquid Glass translucency + light tokens (§7). Glass fills let the
+ * ambient background breathe through; borders and top highlights sell the
+ * depth. Values are alphas applied to theme slots — never hardcoded colors.
  */
 object MomentumGlass {
     /** Primary hero surfaces (progress hero, dialogs, nav bar). */

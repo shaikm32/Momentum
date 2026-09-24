@@ -1,8 +1,10 @@
 package com.momentum.app.presentation.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,6 +46,7 @@ import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.LocalMomentumColors
 import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumHeights
+import com.momentum.app.presentation.theme.MomentumMotion
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.isDark
@@ -175,27 +178,39 @@ fun LiquidGlassButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     secondary: Boolean = false,
+    destructive: Boolean = false,
 ) {
     val c = LocalMomentumColors.current
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(MomentumRadii.control)
-    val container = if (secondary) {
-        c.surface.copy(alpha = 0.6f)
-    } else {
-        c.primary.copy(alpha = 0.92f)
+    val container = when {
+        destructive -> c.danger.copy(alpha = 0.90f)
+        secondary -> c.surface.copy(alpha = 0.6f)
+        else -> c.primary.copy(alpha = 0.92f)
     }
-    val contentColor = if (secondary) c.primary else c.onPrimary
+    val contentColor = when {
+        destructive -> c.onAccent
+        secondary -> c.primary
+        else -> c.onPrimary
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = MomentumHeights.button)
             .then(
-                if (!secondary) {
+                if (!secondary && !destructive) {
                     Modifier.shadow(
                         elevation = 10.dp,
                         shape = shape,
                         ambientColor = Color.Black.copy(alpha = 0.3f),
                         spotColor = c.primary.copy(alpha = 0.35f),
+                    )
+                } else if (destructive) {
+                    Modifier.shadow(
+                        elevation = 8.dp,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.3f),
+                        spotColor = c.danger.copy(alpha = 0.35f),
                     )
                 } else {
                     Modifier
@@ -204,7 +219,7 @@ fun LiquidGlassButton(
             .clip(shape)
             .background(
                 brush = Brush.verticalGradient(
-                    0f to Color.White.copy(alpha = if (secondary) 0.06f else 0.22f),
+                    0f to Color.White.copy(alpha = if (secondary || destructive) 0.06f else 0.22f),
                     0.45f to container,
                     1f to container,
                 ),
@@ -215,6 +230,8 @@ fun LiquidGlassButton(
                     Dp.Hairline,
                     if (secondary) {
                         c.textSecondary.copy(alpha = 0.25f)
+                    } else if (destructive) {
+                        Color.White.copy(alpha = 0.22f)
                     } else {
                         Color.White.copy(alpha = 0.28f)
                     },
@@ -286,7 +303,7 @@ fun LiquidGlassBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .liquidGlass(shape, GlassLevel.HERO)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
@@ -301,28 +318,38 @@ fun RowScope.LiquidGlassTab(
     onClick: () -> Unit,
 ) {
     val c = LocalMomentumColors.current
+    val reduceMotion = rememberReduceMotion(null)
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(18.dp)
+    val motionSpec = tween<Float>(durationMillis = MomentumMotion.fast, easing = MomentumMotion.easeOut)
+    val colorSpec = tween<Color>(durationMillis = MomentumMotion.fast, easing = MomentumMotion.easeOut)
+    val selectedBg by animateColorAsState(
+        targetValue = if (selected) c.primary.copy(alpha = 0.18f) else Color.Transparent,
+        animationSpec = colorSpec,
+        label = "tabSelectedBg",
+    )
+    val selectedBorder by animateColorAsState(
+        targetValue = if (selected) c.primary.copy(alpha = 0.40f) else Color.Transparent,
+        animationSpec = colorSpec,
+        label = "tabSelectedBorder",
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) c.primary else c.textSecondary,
+        animationSpec = colorSpec,
+        label = "tabIconTint",
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (selected && !reduceMotion) 1.06f else 1f,
+        animationSpec = motionSpec,
+        label = "tabIconScale",
+    )
     Column(
         modifier = Modifier
             .weight(1f)
-            .heightIn(min = 56.dp)
+            .heightIn(min = MomentumHeights.controlMin)
             .clip(shape)
-            .background(
-                if (selected) c.primary.copy(alpha = 0.16f) else Color.Transparent,
-                shape,
-            )
-            .border(
-                BorderStroke(
-                    Dp.Hairline,
-                    if (selected) {
-                        c.primary.copy(alpha = 0.35f)
-                    } else {
-                        Color.Transparent
-                    },
-                ),
-                shape,
-            )
+            .background(selectedBg, shape)
+            .border(BorderStroke(Dp.Hairline, selectedBorder), shape)
             .glassPress(interaction)
             .clickable(
                 interactionSource = interaction,
@@ -330,22 +357,24 @@ fun RowScope.LiquidGlassTab(
                 role = Role.Tab,
                 onClick = onClick,
             )
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = if (selected) c.primary else c.textSecondary,
-            modifier = Modifier.size(22.dp),
+            tint = iconTint,
+            modifier = Modifier
+                .size(26.dp)
+                .scale(iconScale),
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             ),
-            color = if (selected) c.primary else c.textSecondary,
+            color = iconTint,
         )
     }
 }

@@ -2,8 +2,10 @@ package com.momentum.app.data.local
 
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
+import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.domain.model.Category
 import com.momentum.app.domain.model.CompletionRecord
+import com.momentum.app.domain.model.HabitIntent
 import com.momentum.app.domain.model.Reminder
 import com.momentum.app.domain.usecase.toIso
 import com.momentum.app.domain.usecase.toLocalDate
@@ -11,8 +13,17 @@ import com.momentum.app.domain.usecase.toLocalDate
 fun ActivityEntity.toDomain() = Activity(
     id = id,
     title = title,
+    activityType = runCatching { ActivityType.valueOf(activityType) }.getOrDefault(ActivityType.HABIT),
+    // Legacy "AVOID" (v3) folds into REDUCE; its zero-target measure derives
+    // COMPLETE via Activity.reduceMode(), so old rows keep their meaning.
+    habitIntent = when (habitIntent) {
+        "AVOID" -> HabitIntent.REDUCE
+        else -> runCatching { HabitIntent.valueOf(habitIntent) }.getOrDefault(HabitIntent.BUILD)
+    },
+    dueTime = dueTime,
     description = description,
     iconKey = iconKey,
+    habitTemplateId = habitTemplateId,
     categoryId = categoryId,
     colorArgb = colorArgb,
     startDate = startDate.toLocalDate(),
@@ -30,8 +41,12 @@ fun ActivityEntity.toDomain() = Activity(
 fun Activity.toEntity(nowMs: Long) = ActivityEntity(
     id = id,
     title = title.trim(),
+    activityType = activityType.name,
+    habitIntent = habitIntent.name,
+    dueTime = dueTime,
     description = description,
     iconKey = iconKey,
+    habitTemplateId = habitTemplateId,
     categoryId = categoryId,
     colorArgb = colorArgb,
     startDate = startDate.toIso(),

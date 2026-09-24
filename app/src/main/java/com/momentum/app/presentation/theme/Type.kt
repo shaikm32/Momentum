@@ -1,77 +1,119 @@
 package com.momentum.app.presentation.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.momentum.app.R
 
 /**
- * Restrained type scale: hierarchy through weight and size steps, not display
- * excess. Screen titles stay compact; numbers carry the emphasis.
- * System fonts keep the project offline with zero font assets.
+ * Manrope (variable, bundled in `res/font/manrope.ttf` — offline, no remote
+ * loading). Weights 400/500/600 only; the type scale avoids 800/900 (§4).
+ *
+ * The seven Design System tokens — Display, Headline, Title, Body,
+ * Body Small, Label, Caption — are the source of truth; the remaining
+ * Material slots are filled with the nearest token so every `Text` in the
+ * app stays on Manrope:
+ *
+ * | Token | Slots |
+ * |---|---|
+ * | Display 40/48 600 | displayLarge, displayMedium |
+ * | Headline 28/34 600 | displaySmall, headlineLarge |
+ * | Title 20/26 600 | headlineMedium, headlineSmall, titleLarge |
+ * | Body 16/24 400 | titleMedium, bodyLarge |
+ * | Body Small 14/20 400 | titleSmall, bodyMedium |
+ * | Label 13/18 500 | labelLarge |
+ * | Caption 12/16 500 | bodySmall, labelMedium, labelSmall |
+ *
+ * Screens must not construct arbitrary TextStyles — read
+ * [androidx.compose.material3.MaterialTheme.typography] slots instead.
  */
+@OptIn(ExperimentalTextApi::class)
+private val Manrope = FontFamily(
+    Font(
+        R.font.manrope,
+        weight = FontWeight.Normal,
+        variationSettings = FontVariation.Settings(FontVariation.weight(400)),
+    ),
+    Font(
+        R.font.manrope,
+        weight = FontWeight.Medium,
+        variationSettings = FontVariation.Settings(FontVariation.weight(500)),
+    ),
+    Font(
+        R.font.manrope,
+        weight = FontWeight.SemiBold,
+        variationSettings = FontVariation.Settings(FontVariation.weight(600)),
+    ),
+)
+
+private val DisplayStyle = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 40.sp,
+    lineHeight = 48.sp,
+)
+
+private val HeadlineStyle = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 28.sp,
+    lineHeight = 34.sp,
+)
+
+private val TitleStyle = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 20.sp,
+    lineHeight = 26.sp,
+)
+
+private val BodyStyle = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.Normal,
+    fontSize = 16.sp,
+    lineHeight = 24.sp,
+)
+
+private val BodySmallStyle = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.Normal,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
+)
+
+private val LabelStyle = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.Medium,
+    fontSize = 13.sp,
+    lineHeight = 18.sp,
+)
+
+private val CaptionStyle = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.Medium,
+    fontSize = 12.sp,
+    lineHeight = 16.sp,
+)
+
 val MomentumTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.25).sp,
-    ),
-    displaySmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.25).sp,
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-    ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 17.sp,
-        lineHeight = 24.sp,
-    ),
-    titleMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        lineHeight = 20.sp,
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-    ),
-    bodySmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-    ),
-    labelLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-    ),
-    labelMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-    ),
+    displayLarge = DisplayStyle,
+    displayMedium = DisplayStyle,
+    displaySmall = HeadlineStyle,
+    headlineLarge = HeadlineStyle,
+    headlineMedium = TitleStyle,
+    headlineSmall = TitleStyle,
+    titleLarge = TitleStyle,
+    titleMedium = BodyStyle,
+    titleSmall = BodySmallStyle,
+    bodyLarge = BodyStyle,
+    bodyMedium = BodySmallStyle,
+    bodySmall = CaptionStyle,
+    labelLarge = LabelStyle,
+    labelMedium = CaptionStyle,
+    labelSmall = CaptionStyle,
 )

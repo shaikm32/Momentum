@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -154,7 +154,7 @@ fun ThemePreviewCard(
             Text("Light · Dark", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         }
         if (selected) {
-            Icon(Icons.Filled.Check, contentDescription = "${theme.name} selected", tint = c.primary)
+            Icon(Icons.Rounded.Check, contentDescription = "${theme.name} selected", tint = c.primary)
         }
     }
 }
