@@ -21,10 +21,32 @@ management surface, not a dashboard.
 
 ## 1. Habits Screen
 
-### Header
-- Title: **Habits**
-- Supporting text: **Manage the things you're building and reducing.**
-- `+` action in the top-right
+### Header — collapsing Soft Aurora hero
+One cohesive unit above the list:
+
+- **Artwork:** two bundled Aurora illustrations — `habits_hero_light.webp`
+  (light theme) and `habits_hero_dark.webp` (dark theme) — chosen by the
+  active Material theme and used exactly as supplied (no tint, filter,
+  recolor, or brightness change). The artwork spans the full screen width with
+  a bottom-anchored cover crop, and dissolves top and bottom into the screen
+  background so it reads as part of the environment, never as a pasted
+  rectangle. No programmatic/generated artwork.
+- **Title:** **Habits**, centered inside the lower portion of the artwork.
+- **Supporting text:** **Manage the things you're building and reducing.**,
+  centered directly below the title.
+- **Scroll collapse:** scrolling the list down collapses the artwork into a
+  compact header; scrolling up restores the full hero. Collapse is
+  continuous, bounded, and driven directly by scroll position — one clamped
+  px source of truth, no snapping, no jumps, no settle animation, no
+  Boolean expanded/collapsed states.
+- **Title and description never disappear:** they stay visible in the
+  collapsed state in theme ink. Both artwork variants are built for their
+  theme, so text color never changes during the scroll.
+- **Reduced motion:** the header height, crop, and dissolve still track the
+  scroll 1:1 (the hero has no time-based animation); only the decorative text
+  inset interpolation is frozen.
+- The hero is not interactive; creation entry stays the single floating
+  action (see §3).
 - No search or filter controls in the initial release.
 
 ### Habit List

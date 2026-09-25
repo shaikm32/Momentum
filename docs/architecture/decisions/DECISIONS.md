@@ -526,3 +526,66 @@
   icon language for list/detail; `HabitsViewModelTest` asserts the 3-slot
   metadata; verification `:app:assembleDebug :app:testDebugUnitTest` green —
   157 tests, 0 failures.
+
+## ADR-28 — Habits header: collapsing hero on the bundled Aurora artwork
+- **Decision:** The Habits screen's plain-text `MomentumTopBar` is replaced by
+  a self-contained `HabitsHero` rendered from the two production Aurora
+  illustrations supplied for this screen — `habits_hero_light.webp` /
+  `habits_hero_dark.webp` (renamed from the delivered uppercase filenames to
+  resource-safe lowercase) — selected by the active theme and drawn exactly as
+  supplied: no tint, `ColorFilter`, recolor, or brightness change. There is no
+  programmatic artwork; the first iteration's token-derived Canvas scene
+  (sky/sun/ridges/lake/shore/trail) was removed completely, along with its
+  drawing helpers and `smoothstep` color-window logic.
+  Composition: the hero spans the full width with `ContentScale.Crop`,
+  bottom-anchored, so the illustration's quiet lower third — where the centered
+  title + description always sit, at every collapse height — stays pinned under
+  the copy while the crop recedes upward as the header shrinks. An offscreen
+  `BlendMode.DstIn` alpha mask dissolves the artwork's top and bottom edges
+  into whatever is behind it (screen background + ambient Aurora), so the hero
+  never ends on a hard edge and no tinted scrim rectangle is painted over the
+  artwork. Both variants are built for their theme, so the copy uses theme ink
+  (`textPrimary`/`textSecondary`) throughout — no color lerp, no mid-scroll
+  color switch. That same mask is the readability treatment: the lower band
+  fades toward the theme canvas exactly where the text sits.
+  Scroll: the route owns ONE clamped px source of truth
+  (`collapsePx ∈ [0, maxCollapsePx]`) behind a `NestedScrollConnection` —
+  negative deltas consume into collapse pre-scroll (the list reflows under the
+  shrinking header 1:1 with the finger), positive leftover at list-top
+  restores post-scroll. The hero reports its measured range upward as a pure
+  function of its text block — never of `progress` itself, which would feed
+  back into progress and jitter mid-drag — and the route re-clamps
+  `collapsePx` whenever that range changes (font-scale changes included). No
+  Boolean expanded/collapsed states, no independent settle animations: drag,
+  fling, and direction reversals are bounded arithmetic on the same value.
+  Height lerps continuously with progress; typography stays on constant
+  `headlineLarge`/`bodyMedium` slots (no font-size lerp, no relayout jumps).
+  Under reduced motion the hero still has no time-based animation — height,
+  crop, and dissolve keep tracking scroll 1:1 — and the one decorative
+  interpolation (the text's hero inset) is frozen. §32's "prefer
+  Compose-generated assets" guidance yields to supplied production artwork for
+  this hero, matching the onboarding precedent for artwork the product
+  mandates. The FAB, habit cards, list ordering, empty state, data/VM layers,
+  and navigation are untouched; `MomentumTopBar` itself stays (other screens
+  still use it).
+- **Context:** Design iteration on the Phase 2B Habits screen against the
+  final supplied Aurora illustrations (light/dark pair) and the collapsing-hero
+  mock (expanded artwork → continuous scroll collapse → compact
+  title/description header). The shell already pads routes via Scaffold
+  `innerPadding`, so the hero needs no status-bar inset of its own; the top
+  dissolve is what keeps the artwork from reading as a rectangle under the
+  status bar. No new engine/use-case logic ships with this change, so unit
+  tests are pure file checks: `HabitsHeroAssetsTest` guards the asset contract
+  (both WebPs valid at native 1024×1536, resource-safe lowercase names, no
+  legacy variants) and asserts `HabitsHero.kt` consumes them as images with no
+  procedural-landscape drawing code left behind; previews cover the component
+  contract (expanded/collapsed × light/dark + reduced motion).
+- **Consequences:** `presentation/screens/habits/HabitsHero.kt` is an
+  image-based hero; assets live at `res/drawable/habits_hero_light.webp` and
+  `habits_hero_dark.webp`; `HabitsScreen.kt` route owns the collapse px state,
+  its clamping, and the nested-scroll connection. The empty state has no
+  scroll, so the hero stays expanded there (accepted). The UI spec §Header now
+  documents the bundled artwork and drops the never-implemented header `+`
+  line — creation entry remains the FAB; the §3 wording conflict was already
+  flagged in ADR-27. Verification `:app:assembleDebug
+  :app:testDebugUnitTest`.

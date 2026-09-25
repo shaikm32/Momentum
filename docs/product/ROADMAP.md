@@ -80,6 +80,7 @@
   - [x] Pause/Resume/Hard delete; no archive, no daily completion on these screens
   - [x] Predefined icon lock after rename (`habitTemplateId`, Room v4 migration)
   - [x] `ComputeHabitOverviewUseCase` + unit/VM/migration tests
+  - [x] Collapsing hero header on the bundled light/dark Aurora artwork (scroll-driven collapse, ADR-28)
   - [x] Verify: `.\gradlew :app:assembleDebug :app:testDebugUnitTest` green (schema `4.json` exported) — 157 tests, 0 failures
 
 - [ ] **PHASE 12 — Testing and production hardening**
