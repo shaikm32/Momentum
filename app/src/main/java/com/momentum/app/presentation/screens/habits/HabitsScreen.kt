@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,8 +43,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,7 +67,6 @@ import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.HabitIconTile
 import com.momentum.app.presentation.components.MomentumDialog
 import com.momentum.app.presentation.components.MomentumIcons
-import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.glassPress
 import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.momentumViewModel
@@ -77,9 +81,11 @@ import java.time.LocalDate
 
 /**
  * Habits management screen (Phase 2B): Soft Aurora environment matching
- * Home, a title-only header, one continuous list of Active then Paused
- * habits, and a floating Add Habit action above the bottom navigation.
- * Completion lives on Home only.
+ * Home, a collapsing hero header built on the bundled light/dark Aurora
+ * artwork (title + description inside the artwork's lower edge, scroll-driven
+ * collapse into a compact title/description header), one continuous list of
+ * Active then Paused habits, and a floating Add Habit action above the bottom
+ * navigation. Completion lives on Home only.
  */
 @Composable
 fun HabitsRoute(
@@ -92,6 +98,48 @@ fun HabitsRoute(
     var pendingDelete by remember { mutableStateOf<Long?>(null) }
     val reduceMotion = rememberReduceMotion(null)
 
+    // Hero collapse: ONE clamped px source of truth (`collapsePx` ∈
+    // [0, maxCollapsePx]) reported upward as a single progress value.
+    // Down-scroll consumes into collapse before the list scrolls (pre-scroll);
+    // leftover up-scroll at list-top restores it (post-scroll) — plain bounded
+    // arithmetic on the same px value, no Boolean states and no animations, so
+    // drag, fling, and direction reversals stay continuous and deterministic.
+    // The range is measured by HabitsHero as a pure function of its text
+    // block, and is re-clamped into `collapsePx` whenever it changes.
+    val collapsePx = remember { mutableFloatStateOf(0f) }
+    val maxCollapsePx = remember { mutableFloatStateOf(0f) }
+    val heroNestedScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val delta = available.y
+                if (delta >= 0f) return Offset.Zero
+                val consumed = minOf(-delta, maxCollapsePx.floatValue - collapsePx.floatValue)
+                if (consumed <= 0f) return Offset.Zero
+                collapsePx.floatValue = (collapsePx.floatValue + consumed)
+                    .coerceIn(0f, maxCollapsePx.floatValue)
+                return Offset(0f, -consumed)
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                val delta = available.y
+                if (delta <= 0f) return Offset.Zero
+                val restored = minOf(delta, collapsePx.floatValue)
+                if (restored <= 0f) return Offset.Zero
+                collapsePx.floatValue = (collapsePx.floatValue - restored).coerceAtLeast(0f)
+                return Offset(0f, restored)
+            }
+        }
+    }
+    val heroProgress = if (maxCollapsePx.floatValue > 0f) {
+        (collapsePx.floatValue / maxCollapsePx.floatValue).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
     LaunchedEffect(vm) {
         vm.messages.collect { snackbar.showSnackbar(it) }
     }
@@ -102,10 +150,18 @@ fun HabitsRoute(
             animated = !reduceMotion,
             modifier = Modifier.fillMaxSize(),
         )
-        Column(modifier = Modifier.fillMaxSize()) {
-            MomentumTopBar(
-                title = "Habits",
-                subtitle = "Manage the things you're building and reducing.",
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(heroNestedScroll),
+        ) {
+            HabitsHero(
+                progress = heroProgress,
+                reduceMotion = reduceMotion,
+                onCollapseRangePx = { range ->
+                    maxCollapsePx.floatValue = range
+                    if (collapsePx.floatValue > range) collapsePx.floatValue = range
+                },
             )
             if (state.isEmpty) {
                 EmptyState(
@@ -121,6 +177,7 @@ fun HabitsRoute(
                 )
             } else {
                 LazyColumn(
+                    modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(
                         start = MomentumSpacing.screen,
                         end = MomentumSpacing.screen,
