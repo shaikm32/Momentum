@@ -3,6 +3,7 @@ package com.momentum.app.presentation.components
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.momentum.app.domain.model.DarkModeSetting
+import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.LocalMomentumColors
 import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumHeights
@@ -42,6 +44,11 @@ import com.momentum.app.presentation.theme.MomentumTheme
  * Restrained completion toggle (48 dp touch target). Idle: quiet hairline ring;
  * done: solid accent fill. Pops with a spring + haptic on completion; the data
  * state flips immediately — the animation never blocks it.
+ *
+ * [contentDescription] names the *action*, not the widget (DASHBOARD_SPECS
+ * §21), so TalkBack hears "Complete Workout" / "Mark Workout incomplete".
+ * With reduced motion the state still changes visibly (fill, border, icon)
+ * but the pop is skipped.
  */
 @Composable
 fun CompletionButton(
@@ -52,9 +59,12 @@ fun CompletionButton(
 ) {
     val c = LocalMomentumColors.current
     val haptics = LocalHapticFeedback.current
+    val reduceMotion = rememberReduceMotion(null)
     val scale by animateFloatAsState(
         targetValue = if (completed) 1f else 0.94f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        animationSpec = if (reduceMotion) tween(0) else spring(
+            stiffness = Spring.StiffnessMedium,
+        ),
         label = "completionPop",
     )
     Box(

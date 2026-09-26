@@ -3,6 +3,7 @@ package com.momentum.app.presentation.screens.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.momentum.app.AppContainer
+import com.momentum.app.domain.engine.CompletionEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.Reminder
@@ -55,7 +56,10 @@ class HabitDetailViewModel(
         refreshTick,
     ) { activity, completions, reminders, settings, _ ->
         if (activity == null) return@combine HabitDetailUiState.NotFound as HabitDetailUiState
-        val dates = completions.map { it.occurrenceDate.toLocalDate() }.toSet()
+        // Streaks and weekly completion count only *successful* opportunities:
+        // a retained below-target partial is progress, not a completed day.
+        val valuesByDate = completions.associate { it.occurrenceDate.toLocalDate() to it.value }
+        val dates = CompletionEngine.successfulDates(activity, valuesByDate)
         HabitDetailUiState.Success(
             activity = activity,
             overview = container.computeHabitOverview(activity, dates, LocalDate.now(), settings.weekStart),

@@ -3,6 +3,7 @@ package com.momentum.app.presentation.screens.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.momentum.app.AppContainer
+import com.momentum.app.domain.engine.CompletionEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.Category
@@ -52,14 +53,17 @@ class ActivityDetailViewModel(
         refreshTick,
     ) { activity, completions, reminders, categories, _ ->
         if (activity == null) return@combine DetailUiState.NotFound as DetailUiState
-        val dates = completions.map { it.occurrenceDate.toLocalDate() }.toSet()
+        // One completion record per (activity, date); the stored value decides
+        // whether that date was a *successful* opportunity (actual >= target).
+        val valuesByDate = completions.associate { it.occurrenceDate.toLocalDate() to it.value }
+        val dates = CompletionEngine.successfulDates(activity, valuesByDate)
         val today = LocalDate.now()
         DetailUiState.Success(
             activity = activity,
             category = categories.firstOrNull { it.id == activity.categoryId },
             stats = container.computeActivityStats(activity, dates, today),
             reminders = reminders,
-            completedToday = today in dates,
+            completedToday = CompletionEngine.isComplete(activity, valuesByDate[today]),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DetailUiState.Loading)
 

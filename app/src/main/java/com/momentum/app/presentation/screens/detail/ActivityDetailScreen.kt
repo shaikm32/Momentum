@@ -55,6 +55,7 @@ import com.momentum.app.presentation.components.MomentumDivider
 import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.StatCard
+import com.momentum.app.presentation.components.completionActionLabel
 import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.components.recurrenceLabel
 import com.momentum.app.presentation.momentumViewModel
@@ -207,7 +208,11 @@ fun ActivityDetailScreen(
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    CompletionButton(completed = state.completedToday, onToggle = onToggle)
+                    CompletionButton(
+                        completed = state.completedToday,
+                        onToggle = onToggle,
+                        contentDescription = completionActionLabel(activity, state.completedToday),
+                    )
                 }
             }
         }

@@ -2,16 +2,18 @@ package com.momentum.app.presentation.screens.habits
 
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Guards the Habits hero artwork contract: exactly the two bundled Aurora
- * illustrations (`habits_hero_light` / `habits_hero_dark`) back the screen at
- * their native dimensions, their names stay Android-resource-safe (lowercase),
- * and `HabitsHero.kt` consumes them as images with none of the removed
- * procedural-landscape drawing code left behind. Pure file checks — no device
- * or resource loading required.
+ * Guards the shared Momentum hero artwork contract (DECISIONS ADR-30): the two
+ * bundled Aurora illustrations (`habits_hero_light` / `habits_hero_dark`) are
+ * now the **shared** Light/Dark artwork for every major Hero surface, live at
+ * their native dimensions under Android-resource-safe (lowercase) names with no
+ * legacy variants, and the Habits header consumes them through the shared
+ * component with none of the removed procedural-landscape drawing code left
+ * behind. Pure file checks — no device or resource loading required.
  */
 class HabitsHeroAssetsTest {
 
@@ -71,11 +73,16 @@ class HabitsHeroAssetsTest {
     }
 
     @Test
-    fun `HabitsHero renders the supplied artwork and no procedural landscape`() {
+    fun `HabitsHero renders the shared artwork and no procedural landscape`() {
         val code = heroSource()
-        assertTrue("missing light artwork reference", code.contains("R.drawable.habits_hero_light"))
-        assertTrue("missing dark artwork reference", code.contains("R.drawable.habits_hero_dark"))
-        assertTrue("artwork must use a cover crop", code.contains("ContentScale.Crop"))
+        assertTrue(
+            "the Habits header must draw through the shared Momentum hero artwork (ADR-30)",
+            code.contains("MomentumHeroArtwork("),
+        )
+        assertFalse(
+            "screen-specific artwork selection is retired",
+            code.contains("R.drawable"),
+        )
         // The removed Canvas landscape (sky/sun/ridges/lake/shore/trail) may not return.
         listOf(
             "drawPath",
@@ -92,5 +99,22 @@ class HabitsHeroAssetsTest {
         ).forEach { token ->
             assertTrue("procedural artwork token still present: $token", !code.contains(token))
         }
+    }
+
+    @Test
+    fun `the Habits header keeps its own composition`() {
+        val code = heroSource()
+        // ADR-31: the Habits hero is the reference and must not be pulled into
+        // Home's layout — its own dissolve bands, its own (unveiled) treatment.
+        assertTrue(code.contains("private val TopDissolve = 44.dp"))
+        assertTrue(code.contains("private val BottomDissolve = 88.dp"))
+        assertFalse(
+            "Home's readability veil must not leak into the Habits header",
+            code.contains("HeroReadabilityVeil"),
+        )
+        assertFalse(
+            "the Habits header must not gain Home's header/content blocks",
+            code.contains("HeroContent(") || code.contains("HeroHeader("),
+        )
     }
 }

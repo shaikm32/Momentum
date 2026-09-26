@@ -2,8 +2,8 @@ package com.momentum.app.presentation.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -31,9 +30,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.momentum.app.domain.engine.CompletionEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.domain.model.Recurrence
+import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.LocalMomentumColors
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumRadii
@@ -43,8 +44,18 @@ import java.time.LocalDate
 
 /**
  * Compact activity row: icon tile, title, metadata line, streak pill,
- * completion affordance. Completed rows quiet down (reduced alpha + success
- * tile) without collapsing.
+ * completion affordance. Completed rows quiet down (a lower glass fill and the
+ * success-tinted tile) without collapsing and stay fully actionable —
+ * completion can be reversed from this control.
+ *
+ * The row never dims its own text: fading the whole card dropped body-text
+ * contrast below 4.5:1 in the light theme (DASHBOARD_SPECS §21, AGENTS §9), so
+ * "quieter" is expressed through the surface instead of an alpha layer.
+ *
+ * [scheduleLabel] is the card's optional metadata line (Home passes the
+ * configured time and/or target progress; other screens pass the schedule).
+ * An empty label omits the row entirely instead of reserving dead space
+ * (DECISIONS §29). Titles wrap to at most two lines (DECISIONS §28).
  */
 @Composable
 fun ActivityCard(
@@ -57,20 +68,21 @@ fun ActivityCard(
     modifier: Modifier = Modifier,
 ) {
     val c = LocalMomentumColors.current
-    val cardAlpha by animateFloatAsState(
-        targetValue = if (completed) 0.6f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "cardWeight",
-    )
+    val reduceMotion = rememberReduceMotion(null)
     val tileTint by animateColorAsState(
         targetValue = if (completed) c.success else c.primary,
+        animationSpec = if (reduceMotion) tween(0) else spring(
+            stiffness = Spring.StiffnessMediumLow,
+        ),
         label = "tileTint",
     )
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .alpha(cardAlpha)
-            .liquidGlass(RoundedCornerShape(MomentumRadii.card), GlassLevel.CARD)
+            .liquidGlass(
+                RoundedCornerShape(MomentumRadii.card),
+                if (completed) GlassLevel.CONTROL else GlassLevel.CARD,
+            )
             .clickable(onClick = onOpen)
             .padding(MomentumSpacing.row),
         verticalAlignment = Alignment.CenterVertically,
@@ -113,21 +125,27 @@ fun ActivityCard(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = c.textPrimary,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = scheduleLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = c.textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (scheduleLabel.isNotBlank()) {
+                Text(
+                    text = scheduleLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = c.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (streak > 1) {
                 StreakBadge(streak = streak)
             }
         }
-        CompletionButton(completed = completed, onToggle = onToggle)
+        CompletionButton(
+            completed = completed,
+            onToggle = onToggle,
+            contentDescription = completionActionLabel(activity, completed),
+        )
     }
 }
 
@@ -152,9 +170,31 @@ fun formatAmount(value: Double): String =
  * Data exposure only — plain activities (target 1 × no unit) show nothing extra.
  */
 fun targetProgressLabel(activity: Activity, value: Double): String? {
-    if (activity.targetPerOccurrence == 1.0 && activity.unit.isBlank()) return null
+    if (!CompletionEngine.isTargetBased(activity)) return null
     val unit = if (activity.unit.isBlank()) "" else " ${activity.unit}"
     return "${formatAmount(value)}/${formatAmount(activity.targetPerOccurrence)}$unit"
+}
+
+/**
+ * Screen-reader action for the completion control (DASHBOARD_SPECS §21,
+ * DECISIONS §34): the control must announce what a tap *does*, carrying the
+ * activity's own title — "Complete Workout" / "Mark Workout incomplete".
+ *
+ * "Reach a Target" activities open the value dialog rather than flipping
+ * directly, so their label says that instead of promising an instant toggle.
+ * This is label copy only; the completion decision itself always lives in
+ * [CompletionEngine].
+ */
+fun completionActionLabel(activity: Activity, completed: Boolean): String {
+    val title = activity.title
+    return when {
+        CompletionEngine.isTargetBased(activity) && completed ->
+            "Edit today's progress for $title"
+        CompletionEngine.isTargetBased(activity) ->
+            "Enter today's progress for $title"
+        completed -> "Mark $title incomplete"
+        else -> "Complete $title"
+    }
 }
 
 @Preview(name = "ActivityCard light")

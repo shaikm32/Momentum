@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -63,8 +64,15 @@ import com.momentum.app.presentation.theme.isDark
  * UI stays beautiful with blur unavailable.
  */
 enum class GlassLevel(val fillAlpha: Float, val elevation: Dp) {
-    /** Floating layers: hero, nav bar, dialogs, primary buttons. */
+    /** Floating layers: hero, nav bar, primary buttons. */
     HERO(MomentumGlass.heroFill, MomentumGlass.heroElevation),
+
+    /**
+     * Modal dialogs. The fill is opaque — a dialog has to read as a distinct
+     * layer above whatever it covers, so titles, values, input fields and
+     * actions keep their contrast regardless of the content behind them.
+     */
+    DIALOG(MomentumGlass.dialogFill, MomentumGlass.dialogElevation),
 
     /** Standard cards, rows, panels, sheets. */
     CARD(MomentumGlass.cardFill, Dp.Hairline),
@@ -78,6 +86,10 @@ enum class GlassLevel(val fillAlpha: Float, val elevation: Dp) {
  * wash (bright top edge fading into the fill), hairline light border.
  * Shadows stay whisper-quiet (Twilight principle: light comes from the
  * environment, components never glow on their own).
+ *
+ * Solid levels ([GlassLevel.DIALOG]) blend the top-edge streak *into* an
+ * opaque stop instead of painting translucent light over the fill, so the
+ * brightest part of the surface never reveals the layer behind it.
  */
 @Composable
 fun Modifier.liquidGlass(
@@ -86,11 +98,13 @@ fun Modifier.liquidGlass(
 ): Modifier {
     val c = LocalMomentumColors.current
     val dark = c.isDark
+    val solid = level.fillAlpha >= 1f
     val fill = c.surface.copy(alpha = level.fillAlpha)
-    val topLight = if (dark) {
-        Color.White.copy(alpha = MomentumGlass.highlight)
-    } else {
-        Color.White.copy(alpha = 0.55f)
+    val topLight = when {
+        solid && dark -> lerp(c.surface, Color.White, MomentumGlass.highlight)
+        solid -> c.surface
+        dark -> Color.White.copy(alpha = MomentumGlass.highlight)
+        else -> Color.White.copy(alpha = 0.55f)
     }
     val border = if (dark) {
         Color.White.copy(alpha = MomentumGlass.borderDark)

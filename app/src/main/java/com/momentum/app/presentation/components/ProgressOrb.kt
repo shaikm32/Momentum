@@ -29,7 +29,11 @@ import kotlin.math.roundToInt
  * Refined progress ring: thin track, solid accent arc, emphasized number.
  * Compact by default — progress should inform, not dominate. Single efficient
  * Canvas draw; sweep animates with a spring, glow only when [glowEnabled]
- * (disabled under reduced-motion).
+ * (both disabled under reduced-motion via [animate] / [glowEnabled]).
+ *
+ * [showPercent] is turned off when there is nothing eligible to report, so the
+ * ring never implies a percentage that would be misleading
+ * (DASHBOARD_SPECS §7).
  */
 @Composable
 fun ProgressOrb(
@@ -37,13 +41,17 @@ fun ProgressOrb(
     modifier: Modifier = Modifier,
     size: Dp = 96.dp,
     glowEnabled: Boolean = true,
+    animate: Boolean = true,
+    showPercent: Boolean = true,
 ) {
     val c = LocalMomentumColors.current
-    val sweep by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
+    val target = progress.coerceIn(0f, 1f)
+    val animated by animateFloatAsState(
+        targetValue = target,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "orbSweep",
     )
+    val sweep = if (animate) animated else target
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
             val stroke = size.toPx() * 0.075f
@@ -82,12 +90,14 @@ fun ProgressOrb(
                 )
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "${(sweep * 100).roundToInt()}%",
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                color = c.textPrimary,
-            )
+        if (showPercent) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "${(sweep * 100).roundToInt()}%",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+            }
         }
     }
 }

@@ -92,8 +92,15 @@ object MomentumIconSizes {
  * depth. Values are alphas applied to theme slots — never hardcoded colors.
  */
 object MomentumGlass {
-    /** Primary hero surfaces (progress hero, dialogs, nav bar). */
+    /** Primary hero surfaces (progress hero, nav bar). */
     const val heroFill = 0.68f
+
+    /**
+     * Modal dialog fill. **Opaque by design**: a dialog must establish a
+     * strong, readable layer above the content behind it, so its surface never
+     * lets the layer below bleed through into titles, values or input fields.
+     */
+    const val dialogFill = 1.0f
 
     /** Standard cards, rows, panels. */
     const val cardFill = 0.55f
@@ -109,6 +116,14 @@ object MomentumGlass {
 
     /** Top-edge illumination streak. */
     const val highlight = 0.10f
+
+    /**
+     * Window dim behind a modal dialog, de-emphasising the layer it covers.
+     * Compose's `Dialog` draws no scrim of its own (b/159900354), so the dim
+     * is applied to the dialog window explicitly — the dialog surface itself
+     * stays at full theme brightness.
+     */
+    const val dialogScrim = 0.45f
 
     /** Ambient light field opacity over the base background. */
     const val ambientDark = 0.13f

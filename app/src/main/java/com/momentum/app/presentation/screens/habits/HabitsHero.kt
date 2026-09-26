@@ -1,7 +1,5 @@
 package com.momentum.app.presentation.screens.habits
 
-import androidx.annotation.DrawableRes
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,37 +19,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
-import com.momentum.app.R
 import com.momentum.app.domain.model.DarkModeSetting
+import com.momentum.app.presentation.components.MomentumHeroArtwork
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumTheme
 import com.momentum.app.presentation.theme.MomentumThemeColors
-import com.momentum.app.presentation.theme.isDark
 
 /**
  * Collapsing Soft Aurora header for the Habits screen — one cohesive unit:
- * the bundled Aurora illustration (`habits_hero_light` / `habits_hero_dark`)
- * with the title and description anchored inside the artwork's lower edge.
+ * the shared Momentum Aurora illustration (`MomentumHeroArtwork`, ADR-30) with
+ * the title and description anchored inside the artwork's lower edge.
  *
  * Geometry: the hero is a clipped box whose height tracks [progress]
  * (0 = expanded, 1 = collapsed) continuously. The artwork is bottom-anchored
- * ([ContentScale.Crop], [Alignment.BottomCenter]), so the quiet lower third of
+ * (cover-crop, `Alignment.BottomCenter`), so the quiet lower third of
  * the illustration — the same pixels the text sits on at every height — stays
  * pinned under the copy while the crop recedes upward as the box shrinks.
  * There is no re-crop zoom, no re-layout, and no interpolated layout state.
@@ -81,7 +70,6 @@ fun HabitsHero(
     title: String = "Habits",
     description: String = "Manage the things you're building and reducing.",
 ) {
-    val colors = MomentumThemeColors.current
     val p = progress.coerceIn(0f, 1f)
 
     var textBlockPx by remember { mutableIntStateOf(0) }
@@ -104,11 +92,6 @@ fun HabitsHero(
     } else {
         lerp(HeroTextInset, CompactTextInset, p)
     }
-    val artworkRes = if (colors.isDark) {
-        R.drawable.habits_hero_dark
-    } else {
-        R.drawable.habits_hero_light
-    }
 
     Box(
         modifier = modifier
@@ -116,8 +99,9 @@ fun HabitsHero(
             .height(currentHeight)
             .clipToBounds(),
     ) {
-        HabitsHeroArtwork(
-            res = artworkRes,
+        MomentumHeroArtwork(
+            topDissolve = TopDissolve,
+            bottomDissolve = BottomDissolve,
             modifier = Modifier.fillMaxSize(),
         )
         HeroTextBlock(
@@ -166,53 +150,6 @@ private fun HeroTextBlock(
             textAlign = TextAlign.Center,
         )
     }
-}
-
-/**
- * The single hero illustration for the active theme — [res] is either bundled
- * Aurora variant, used as supplied (no tint, no filter, no re-coloring).
- *
- * Bottom-anchored cover-crop keeps the artwork's quiet lower third under the
- * copy at every height; an offscreen [BlendMode.DstIn] alpha mask dissolves
- * the top and bottom edges into the screen background, so the artwork reads
- * as part of the environment instead of a pasted rectangle. The mask color
- * carries no hue — `DstIn` reads only its alpha.
- */
-@Composable
-private fun HabitsHeroArtwork(
-    @DrawableRes res: Int,
-    modifier: Modifier = Modifier,
-) {
-    Image(
-        painter = painterResource(id = res),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        alignment = Alignment.BottomCenter,
-        modifier = modifier
-            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-            .drawWithCache {
-                val h = size.height
-                if (size.width <= 0f || h <= 0f) {
-                    onDrawBehind { }
-                } else {
-                    val topEnd = (TopDissolve.toPx() / h).coerceIn(0.05f, 0.30f)
-                    val bottomStart =
-                        (1f - BottomDissolve.toPx() / h).coerceIn(topEnd + 0.10f, 0.95f)
-                    val dissolve = Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        topEnd to Color.White,
-                        bottomStart to Color.White,
-                        1f to Color.Transparent,
-                        startY = 0f,
-                        endY = h,
-                    )
-                    onDrawWithContent {
-                        drawContent()
-                        drawRect(brush = dissolve, blendMode = BlendMode.DstIn)
-                    }
-                }
-            },
-    )
 }
 
 /** Expanded hero height floor; the hero never starts shorter than this. */
