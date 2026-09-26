@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -109,9 +111,29 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
     // out of the Scaffold content padding; every other route is unchanged.
     val isOnboarding =
         currentDestination?.hierarchy?.any { it.route == Routes.ONBOARDING } == true
+    // Edge-to-edge content (ADR-33): Home and Habits draw their Aurora artwork
+    // to the physical top edge, *behind* the status bar, so the Scaffold's
+    // content inset must not pad them below it — that padding is what left a
+    // bare strip of page background behind the status-bar icons. Every other
+    // route keeps the default insets unchanged and still clears the bar; the
+    // bottom and horizontal halves always survive, so content still clears the
+    // navigation bar (the floating bar handles its own inset in its slot).
+    val drawsBehindStatusBar = currentDestination?.hierarchy?.any {
+        it.route == Routes.TODAY || it.route == Routes.HABITS
+    } == true
+    val defaultContentInsets = ScaffoldDefaults.contentWindowInsets
+    val systemBars = WindowInsets.systemBars
+    val contentWindowInsets = remember(drawsBehindStatusBar, defaultContentInsets, systemBars) {
+        if (drawsBehindStatusBar) {
+            systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
+        } else {
+            defaultContentInsets
+        }
+    }
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            contentWindowInsets = contentWindowInsets,
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = {
                 val showBar = currentDestination?.hierarchy?.any { it.route in TopLevelRoutes } == true
