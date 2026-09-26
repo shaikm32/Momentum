@@ -1,6 +1,7 @@
 package com.momentum.app.domain.usecase
 
 import com.momentum.app.domain.engine.AnalyticsEngine
+import com.momentum.app.domain.engine.CompletionEngine
 import com.momentum.app.domain.engine.StreakEngine
 import com.momentum.app.domain.model.Activity
 import java.time.LocalDate
@@ -10,9 +11,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
- * P2#2: stored completion values must flow through instead of being flattened
- * to 1.0. Presence in the completion map still defines "completed" (and hence
- * streak/analytics membership) — the value only describes *how much*.
+ * Stored completion values must flow through instead of being flattened to
+ * 1.0, and — per DASHBOARD_SPECS §10.2 — the *value* decides completion:
+ * `actual >= target` completes, anything below stays incomplete while the
+ * partial progress is still reported.
  */
 class CompletionValueTest {
 
@@ -46,14 +48,41 @@ class CompletionValueTest {
     }
 
     @Test
-    fun `target with partial completion reports stored value but still completed`() {
+    fun `target with partial completion reports stored value and stays incomplete`() {
         val items = useCase(
             monday,
             listOf(water(target = 8.0, unit = "glasses")),
             mapOf(3L to mapOf(monday to 5.0)),
         )
-        assertTrue(items.single().completed)
+        // Progress 5/8 is retained, but 5 < 8 is NOT a completion.
+        assertFalse(items.single().completed)
         assertEquals(5.0, items.single().completionValue, 0.0)
+    }
+
+    @Test
+    fun `above target completes with the value left intact`() {
+        val items = useCase(
+            monday,
+            listOf(water(target = 8.0, unit = "glasses")),
+            mapOf(3L to mapOf(monday to 10.0)),
+        )
+        assertTrue(items.single().completed)
+        assertEquals(10.0, items.single().completionValue, 0.0)
+    }
+
+    @Test
+    fun `editing 5 to 8 completes and 8 to 5 reverses with the partial retained`() {
+        val activity = water(target = 8.0, unit = "glasses")
+        fun stateAt(value: Double?) = useCase(
+            monday,
+            listOf(activity),
+            if (value == null) emptyMap() else mapOf(3L to mapOf(monday to value)),
+        ).single()
+
+        assertFalse(stateAt(5.0).completed) // 5 → incomplete
+        assertTrue(stateAt(8.0).completed) // 5 → 8 completes
+        assertFalse(stateAt(5.0).completed) // 8 → 5 incomplete again
+        assertEquals(5.0, stateAt(5.0).completionValue, 0.0) // partial survives
     }
 
     @Test
@@ -68,7 +97,7 @@ class CompletionValueTest {
     }
 
     @Test
-    fun `analytics counts partial completions`() {
+    fun `analytics counts successful opportunities`() {
         val scheduled = listOf(monday, monday.plusDays(1))
         val stats = AnalyticsEngine.activityStats(scheduled, setOf(monday))
         assertEquals(0.5, stats.completionRate, 1e-9)
@@ -78,18 +107,18 @@ class CompletionValueTest {
     }
 
     @Test
-    fun `streak counts partial completions`() {
-        // A logged 5/8 keeps the streak exactly like a full completion.
+    fun `streak follows successful opportunities rather than raw records`() {
+        val activity = water(target = 8.0, unit = "glasses")
         val scheduled = listOf(monday, monday.plusDays(1), monday.plusDays(2))
-        val completed = setOf(monday, monday.plusDays(1))
-        // Most recent day (Wed) missed -> current streak 0, but the two logged
-        // days form a longest streak of 2 regardless of their values.
-        assertEquals(0, StreakEngine.currentStreak(scheduled, completed))
-        assertEquals(2, StreakEngine.longestStreak(scheduled, completed))
-        // And when the latest day is also logged, the current streak counts it.
-        assertEquals(
-            3,
-            StreakEngine.currentStreak(scheduled, completed + monday.plusDays(2)),
+        val logged = mapOf(
+            monday to 8.0, // success
+            monday.plusDays(1) to 5.0, // below target → unsuccessful opportunity
+            monday.plusDays(2) to 8.0, // success
         )
+        val successful = CompletionEngine.successfulDates(activity, logged)
+        assertEquals(setOf(monday, monday.plusDays(2)), successful)
+        // Tuesday's partial breaks the run; Wednesday starts a fresh one.
+        assertEquals(1, StreakEngine.currentStreak(scheduled, successful))
+        assertEquals(1, StreakEngine.longestStreak(scheduled, successful))
     }
 }

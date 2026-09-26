@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -81,7 +82,8 @@ class GetTodayScheduleUseCaseTest {
             mapOf(9L to mapOf(monday to 5.0)),
         )
         assertEquals(1, items.size)
-        assertTrue(items[0].completed)
+        // 5/8 is partial progress: retained as the value, incomplete as state.
+        assertFalse(items[0].completed)
         assertEquals(5.0, items[0].completionValue, 0.0)
     }
 
@@ -121,6 +123,9 @@ private class FakeCompletionRepository : CompletionRepository {
     override suspend fun clearAll() {
         store.clear()
     }
+
+    /** Test seam: the stored actual value for one occurrence, if any. */
+    fun value(activityId: Long, occurrenceDateIso: String): Double? = store[activityId to occurrenceDateIso]
 }
 
 class ToggleCompletionUseCaseTest {
@@ -134,5 +139,93 @@ class ToggleCompletionUseCaseTest {
         assertTrue(repo.isCompleted(1, "2026-01-05"))
         assertFalse(toggle(1, date))
         assertFalse(repo.isCompleted(1, "2026-01-05"))
+    }
+}
+
+/**
+ * DASHBOARD_SPECS §10.2 / DECISIONS §14: partial values are retained,
+ * above-target values are not clamped, and editing the actual recalculates
+ * completion in both directions.
+ */
+class SetActualValueUseCaseTest {
+
+    private val monday = LocalDate.of(2026, 1, 5)
+    private val iso = "2026-01-05"
+    private val schedule = GetTodayScheduleUseCase()
+    private val water = Activity(
+        id = 1,
+        title = "Water",
+        startDate = monday,
+        targetPerOccurrence = 8.0,
+        unit = "glasses",
+    )
+
+    private fun todayState(repo: FakeCompletionRepository): TodayItem = schedule(
+        monday,
+        listOf(water),
+        mapOf(1L to mapOf(monday to (repo.value(1, iso) ?: 0.0))),
+    ).single()
+
+    @Test
+    fun `a below-target actual is retained as partial progress`() = runTest {
+        val repo = FakeCompletionRepository()
+        val set = SetActualValueUseCase(repo)
+        set(1, monday, 5.0)
+        assertEquals(5.0, requireNotNull(repo.value(1, iso)), 0.0)
+        val item = todayState(repo)
+        assertFalse(item.completed)
+        assertEquals(5.0, item.completionValue, 0.0)
+    }
+
+    @Test
+    fun `raising the actual to the target completes the activity`() = runTest {
+        val repo = FakeCompletionRepository()
+        val set = SetActualValueUseCase(repo)
+        set(1, monday, 5.0)
+        assertFalse(todayState(repo).completed)
+        set(1, monday, 8.0)
+        assertTrue(todayState(repo).completed)
+        assertEquals(8.0, requireNotNull(repo.value(1, iso)), 0.0)
+    }
+
+    @Test
+    fun `lowering the actual below the target reverses the completion`() = runTest {
+        val repo = FakeCompletionRepository()
+        val set = SetActualValueUseCase(repo)
+        set(1, monday, 8.0)
+        assertTrue(todayState(repo).completed)
+        set(1, monday, 5.0)
+        val item = todayState(repo)
+        assertFalse(item.completed)
+        assertEquals(5.0, item.completionValue, 0.0)
+    }
+
+    @Test
+    fun `above-target actual completes and is never clamped`() = runTest {
+        val repo = FakeCompletionRepository()
+        val set = SetActualValueUseCase(repo)
+        set(1, monday, 10.0)
+        assertEquals(10.0, requireNotNull(repo.value(1, iso)), 0.0)
+        assertTrue(todayState(repo).completed)
+    }
+
+    @Test
+    fun `re-saving the same date updates the row instead of duplicating`() = runTest {
+        val repo = FakeCompletionRepository()
+        val set = SetActualValueUseCase(repo)
+        set(1, monday, 3.0)
+        set(1, monday, 9.0)
+        assertEquals(9.0, requireNotNull(repo.value(1, iso)), 0.0)
+    }
+
+    @Test
+    fun `a non-positive actual clears the record entirely`() = runTest {
+        val repo = FakeCompletionRepository()
+        val set = SetActualValueUseCase(repo)
+        set(1, monday, 8.0)
+        set(1, monday, 0.0)
+        assertFalse(repo.isCompleted(1, iso))
+        assertNull(repo.value(1, iso))
+        assertFalse(todayState(repo).completed)
     }
 }

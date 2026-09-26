@@ -21,6 +21,7 @@ import com.momentum.app.domain.repository.SettingsRepository
 import com.momentum.app.domain.usecase.ComputeActivityStatsUseCase
 import com.momentum.app.domain.usecase.ComputeHabitOverviewUseCase
 import com.momentum.app.domain.usecase.GetTodayScheduleUseCase
+import com.momentum.app.domain.usecase.SetActualValueUseCase
 import com.momentum.app.domain.usecase.ToggleCompletionUseCase
 import com.momentum.app.notification.ReminderScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -84,6 +85,7 @@ class AppContainer(
     val computeActivityStats: ComputeActivityStatsUseCase by lazy { ComputeActivityStatsUseCase() }
     val computeHabitOverview: ComputeHabitOverviewUseCase by lazy { ComputeHabitOverviewUseCase() }
     val toggleCompletion: ToggleCompletionUseCase by lazy { ToggleCompletionUseCase(completionRepository) }
+    val setActualValue: SetActualValueUseCase by lazy { SetActualValueUseCase(completionRepository) }
 
     val reminderScheduler: ReminderScheduler by lazy {
         reminderSchedulerOverride ?: ReminderScheduler.create(context)
