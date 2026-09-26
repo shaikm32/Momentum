@@ -97,35 +97,42 @@ Examples:
 - Good night
 Rationale
 The Home screen should feel connected to the user's current moment.
-7. Dynamic Hero Environment
+7. Theme-Based Hero Environment
 Decision
-Use the same Twilight Journey visual world throughout the day.
-Time changes the environmental lighting and atmosphere rather than
-changing the overall visual identity.
-Time mapping
-05:00–07:59    Dawn
-08:00–16:59    Day
-17:00–18:29    Sunset
-18:30–04:59    Night
-Dawn
-- Soft dawn aurora.
+The Hero environment follows the active application theme (Light or Dark).
+The device clock never selects artwork: the greeting (§6) remains the only
+time-aware element on Home.
+Theme mapping
+Light theme    Light aurora artwork
+Dark theme     Dark aurora artwork
+Light theme
+- Airy aurora.
 - Subtle warm horizon glow.
-Day
-- Brighter daytime aurora.
-- Airy sky.
-- Gentle sunlight.
-Sunset
-- Warm sunset aurora.
-- Richer purple/orange transition.
-Night
+- Bright and calm.
+Dark theme
 - Deep night aurora.
 - Stars.
-- Moon.
 - Soft luminous aurora.
 Important
-The visual family and composition should remain consistent across all
-time states.
-Light and Dark theme variants must be supported.
+The visual family and composition stay identical across both themes —
+only the atmosphere changes.
+Requirements
+- The two bundled illustrations are the shared hero artwork pair: the Home
+  Hero and the Habits header draw from the same Light/Dark set, selected by
+  theme.
+- The artwork is the background of the whole Hero surface — date, greeting,
+  Settings, ring, count and message all sit on it. The Habits header is the
+  reference composition: artwork first, copy above it, no plate.
+- Artwork is decorative background: cover-cropped, bottom-anchored, and full
+  bleed across the Hero, never a strip inside it.
+- Readability is a smooth gradient shaped around the copy, never a blanket
+  scrim: the open band between the greeting and the ring stays Aurora.
+- The only fades are the Hero's own edges — a short blend into the page
+  background above the date, and a blend into the page background below the
+  message.
+- The artwork is at full strength across the Hero so it still reads as
+  Aurora artwork, and body text still clears 4.5:1 in both themes.
+- Reduced-motion preferences freeze the zoom and parallax treatment.
 8. Hero Scroll Behavior
 Decision
 The Hero and today's activity content exist within the same vertical
@@ -404,8 +411,6 @@ At local midnight, the application must reevaluate:
 - Daily completion state.
 - Daily progress.
 - Streaks.
-- Hero time-of-day state.
-The Hero's time-of-day state is also based on local device time.
 26. Habit Detail
 Decision
 Habit details include relevant historical insights.
@@ -526,3 +531,18 @@ When revisiting a decision, record:
 - Date.
 - Impacted documents/components.
 This prevents design drift and undocumented reversals.
+37. Reach a Target Dialog Surface
+Decision
+The Reach a Target dialog sits on an opaque Momentum surface
+(GlassLevel.DIALOG). The layer behind it is pushed back with a window dim
+rather than by darkening the dialog.
+Rationale
+Translucent Hero glass let the Home Hero artwork and activity rows show
+through the dialog, competing with the target value, input, and actions.
+Requirements
+- The dialog surface fill is opaque (>= 0.98) in both Light and Dark themes.
+- The brightest edge of the surface stays opaque as well; highlights are baked
+  into the stop instead of painted translucent over the backdrop.
+- Title, target, input, and actions keep >= 4.5:1 contrast.
+- Only this dialog changes. Other Momentum dialogs keep their current surface
+  until they are reviewed individually.

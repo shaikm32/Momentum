@@ -549,6 +549,14 @@ Primary use:
 
 Avoid confirmation dialogs for routine interactions.
 
+### Surface
+
+Dialogs sit on an opaque Momentum surface, so the screen behind never shows
+through the title, input, or actions. Push the backdrop back with a window
+dim; never darken the dialog (or the whole screen) to create contrast.
+Title, body, input, and actions keep >= 4.5:1 contrast in both Aurora
+environments.
+
 ---
 
 # 25. Feedback

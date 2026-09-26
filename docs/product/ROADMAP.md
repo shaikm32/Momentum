@@ -83,6 +83,30 @@
   - [x] Collapsing hero header on the bundled light/dark Aurora artwork (scroll-driven collapse, ADR-28)
   - [x] Verify: `.\gradlew :app:assembleDebug :app:testDebugUnitTest` green (schema `4.json` exported) — 157 tests, 0 failures
 
+- [x] **PHASE 2C — Home daily tracking & completion** (DASHBOARD_SPECS/DECISIONS; ADR-29, ADR-30)
+  - [x] Single completion rule in `CompletionEngine` + Reach-a-Target entry
+    dialog; reversal recalculates through the same rule
+  - [x] Today scheduling, streaks and midnight re-evaluation (local date source
+    guarded by `HomeLocalDateGuardTest`)
+  - [x] Home sections from `partitionTodayItems`: "Remaining today" /
+    "Completed today", fixed ordering, empty sections hidden, no See All/limit
+  - [x] Collapsing Home Hero on the shared Light/Dark artwork pair
+    (`MomentumHeroArtwork`, ADR-30/31/32; ring hidden when nothing is scheduled;
+    one surface holding date, greeting, Settings, ring, count and message, with
+    the Aurora at full strength from the Hero's top edge and no dead space below
+    the message)
+  - [x] Reach a Target dialog on an opaque `GlassLevel.DIALOG` surface with a
+    window dim behind it (ADR-30)
+  - [x] Section-move animation (`animateItem`), reduced-motion support,
+    contrast-safe completed rows, TalkBack headings + action labels
+  - [x] Quick Add: 56 dp circular `+` above the bottom nav; in-list add row
+    removed
+  - [x] Device pass: visual check of the Home Hero composition (light, dark,
+    scrolled) and the Habits header on an emulator or device — done on an
+    API 35 AVD after the status-bar fix (ADR-33): artwork reaches the physical
+    top edge on both routes in both themes, `connectedDebugAndroidTest` 7/7
+  - [x] Verify: `.\gradlew :app:assembleDebug :app:testDebugUnitTest` green — 250 tests, 0 failures
+
 - [ ] **PHASE 12 — Testing and production hardening**
   - [ ] Full suite green in Android Studio (`assembleDebug` + `testDebugUnitTest`)
   - [ ] Manual pass: onboarding → create → complete → streak → edit → archive →

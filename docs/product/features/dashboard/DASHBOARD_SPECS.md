@@ -39,7 +39,7 @@ The Home screen must allow the user to:
 - Open an activity's details.
 - See progress update immediately after completion.
 - Understand when the entire day is complete.
-- Experience a calm, visually engaging interface that changes naturally throughout the day.
+- Experience a calm, visually engaging interface that adapts to the Light or Dark theme.
 
 Home should feel like a daily command center, not an analytics dashboard.
 
@@ -90,42 +90,54 @@ The header should remain visually lightweight and should not compete with the He
 
 # 6. Home Hero
 The Hero is the primary visual element of Home.
-It communicates:
+It is a single surface containing all of:
+- The date.
+- The greeting.
+- The Settings control.
 - Today's overall progress.
+- The completion count.
 - A short contextual or motivational message.
-- The current time-of-day atmosphere.
 
-The Hero should occupy approximately 35–40% of the initial screen height.
-The Hero uses a soft aurora-inspired visual system combined with time-of-day environmental imagery.
+The Aurora artwork is the background of that entire surface, not a band inside it.
+The Hero begins at the top of the Home scroll surface and ends shortly after the
+motivational message. Its height comes from that content plus the room the
+collapse travels through — never from a percentage of the screen, which would
+only add empty background.
+The Hero uses the shared Momentum hero artwork: one soft aurora-inspired
+illustration per application theme (Light and Dark), drawn as decorative
+background art behind the Hero copy.
 The visual treatment must support both Light and Dark themes.
 
-6.1 Time-of-Day Hero States
-The Hero changes according to the device's local time.
-Dawn — 05:00–07:59
-Visual direction:
-- Soft dawn aurora.
-- Subtle warm horizon glow.
-- Gentle early-morning atmosphere.
-Day — 08:00–16:59
-Visual direction:
-- Brighter daytime aurora.
-- Airy sky.
-- Gentle sunlight.
-- Clear and energetic atmosphere.
-Sunset — 17:00–18:29
-Visual direction:
-- Warm sunset aurora.
-- Richer purple/orange transition.
-- Calm evening atmosphere.
-Night — 18:30–04:59
-Visual direction:
-- Deep night aurora.
-- Stars.
-- Moon.
-- Soft luminous aurora.
+6.1 Theme-Based Hero Artwork
+The Hero artwork is chosen by the active application theme only.
+The device clock never selects artwork: the greeting is the only time-aware
+element on Home, and its message never changes the image.
+- Light theme — the light aurora artwork: airy, warm horizon, gentle glow.
+- Dark theme — the dark aurora artwork: deep night, stars, luminous aurora.
+Both states feel like members of the same visual family: composition,
+hierarchy, and visual language are identical, only the atmosphere differs.
 
-All four states should feel like members of the same visual family.
-The composition, hierarchy, and visual language should remain consistent while the atmosphere changes.
+Artwork rules:
+- The artwork is cover-cropped and bottom-anchored, and fills the whole Hero.
+  It is never inset, never a fixed-height strip, and never a child container
+  sitting under a separate header.
+- The artwork is at full strength across the Hero, from behind the date and
+  greeting down through the motivational message.
+- There must be no band of plain page background above the date: the artwork
+  reaches the Hero's top edge, and any top spacing is taken on top of the
+  artwork rather than above it.
+- There must be no empty region below the motivational message. The Hero ends
+  shortly after it, and the activity section continues out of the fade.
+- A readability gradient may be used only where copy sits, and only as a smooth
+  shape that follows the copy. It must never become a plate that flattens the
+  artwork, and it must be fully transparent at the Hero's top edge: the band is
+  fixed by geometry, never by darkening the Aurora. The Aurora stays plainly
+  visible, including in the open band between the greeting and the ring.
+- The only fade is below the message, where the artwork melts into the page
+  background and the activity section continues.
+- The scrim behind the copy keeps body text at >= 4.5:1 contrast in both themes.
+- The artwork carries no text, badges, or progress of its own.
+- Reduced motion freezes the zoom and parallax treatment.
 
 7. Hero Progress
 
@@ -254,6 +266,11 @@ If the user changes:
 8 → 5
 the activity becomes incomplete again.
 
+The dialog sits on an opaque Momentum surface so the Home Hero and the
+activity rows never show through it. The layer behind is pushed back with a
+window dim instead of by darkening the dialog, and the title, target, input,
+and actions keep >= 4.5:1 contrast in both Light and Dark themes.
+
 11. Completion Animation
 
 When an incomplete activity is successfully completed:
@@ -374,8 +391,6 @@ At local midnight, the application should transition to the new calendar date an
 - Completion state for the new day.
 - Daily progress.
 - Streaks.
-- Hero time-of-day state.
-The time-of-day Hero state is also based on the device's local time.
 
 20. Edge Case Rules
 
@@ -499,7 +514,7 @@ Phase 2C Home is successful when a user can:
 14. Open an activity's details.
 15. Scroll naturally through all today's activities.
 16. Experience the Hero expanding and collapsing smoothly with scrolling.
-17. See the Hero atmosphere change according to local time.
+17. See the greeting change with the time of day while the Hero artwork stays consistent.
 18. Use Home comfortably with Light or Dark theme.
 19. Use Home with accessibility features enabled.
 20. Avoid seeing historical or unrelated analytics on Home.

@@ -589,3 +589,321 @@
   line — creation entry remains the FAB; the §3 wording conflict was already
   flagged in ADR-27. Verification `:app:assembleDebug
   :app:testDebugUnitTest`.
+## ADR-29 - Phase 2C: Home completion, collapsing Hero and Quick Add
+- **Decision:**
+  - **One completion rule, one engine.** `domain/engine/CompletionEngine.kt` is
+    the only definition of "done": `actual >= target`, where target-based
+    activity is derived (`targetPerOccurrence != 1.0 || unit.isNotBlank()`) and
+    a default target with no unit is "Just Mark it Done". Home, detail screens,
+    streaks and analytics all call it; there is no second copy in the UI layer
+    and no `<=` "limit exceeded" branch. Reversal is the same rule evaluated
+    against the new value, so both directions recalculate identically.
+  - **Home derives sections in the domain layer.** `UseCases.kt` exposes
+    `TodaySections` + `partitionTodayItems(items)`; `TodayUiState.Success`
+    carries `sections` and the screen reads `state.remaining` / `state.completed`
+    with derived `progress` / `doneCount` / `totalCount`. The UI never filters
+    or counts completion itself (`HomeSectionsSourceGuardTest`).
+  - **One scroll surface.** Header, Hero and both sections are items of a single
+    `LazyColumn` with `contentPadding` horizontal 0 (the Hero is full-bleed) and
+    per-row `padding(horizontal = screen)`; a clamped `collapsePx` behind a
+    `NestedScrollConnection` drives the Hero, and `Modifier.animateItem` glides
+    rows between sections so a completion relocates rather than disappears
+    (`fadeInSpec`/`placementSpec` are nulled under reduced motion).
+  - **Hero.** `domain/engine/HeroAtmosphere.kt` maps local time to
+    DAWN/DAY/SUNSET/NIGHT (300/480/1020/1110 min) and waits to the next
+    boundary; the four bundled `home_hero_{dawn,day,sunset,night}.webp` are
+    drawn with `ContentScale.Crop` under a `DstIn` edge dissolve, a theme-tinted
+    scrim (no glass plate) for copy readability, and a measured compact height
+    (HabitsHero pattern, no fixed heights). The progress ring and its count are
+    hidden when `totalCount == 0` so an empty day shows no misleading 0%; the
+    artwork is `contentDescription = null`.
+
+    > **Superseded in part by ADR-30.** The `HeroAtmosphere.kt` clock
+    > engine and the four `home_hero_*` illustrations were deleted; the Home
+    > Hero now draws the shared theme-selected artwork pair through
+    > `MomentumHeroArtwork`. The ring, scrim, measured-height and dissolve
+    > decisions in this bullet stand unchanged.
+  - **Completed rows lose contrast, not text.** The first iteration dimmed the
+    whole card with `alpha(0.6)`, which dropped body text to ~2.3:1 against the
+    light theme surface (AGENTS §9 requires 4.5:1). The row now stays at full
+    opacity and "quieter" is expressed with `GlassLevel.CONTROL` (0.45 fill)
+    plus the success-tinted tile; section membership and the TalkBack action
+    label are the non-colour completion signals.
+  - **Accessibility is label-driven.** `completionActionLabel(activity,
+    completed)` names the action with the activity's own title ("Complete
+    Workout" / "Mark Workout incomplete"; target activities say they open the
+    value dialog), both section headers carry `semantics { heading() }`, and
+    `CompletionButton` / `ActivityCard` freeze their micro-interpolations under
+    reduced motion while the state change stays visible.
+  - **Quick Add replaces the in-list add row.** A 56 dp circular glass `+`
+    (`QuickAddFab`, Home-owned) is anchored `BottomEnd` immediately above the
+    bottom navigation and opens the existing `showCreateItem` Habit/Task
+    chooser; the list reserves bottom content padding so the last row scrolls
+    clear of it. The `"+ New activity"` list item was removed so ordering is
+    exactly Hero -> Remaining today -> Completed today. The Scaffold itself
+    gains no `floatingActionButton` - Quick Add belongs to Home only.
+- **Context:** Phase 2C of `docs/product/features/dashboard/DASHBOARD_SPECS.md`
+  against `docs/product/features/dashboard/DECISIONS.md`. The Hero needed the
+  supplied time-of-day illustrations (ADR-28 precedent: product-mandated
+  artwork wins over procedural art), and the row-grouping change had to keep
+  the data-driven state model (§22) while fixing an accessibility defect found
+  during Slice 6. No new dependencies; no networking, DI or module changes.
+- **Consequences:** new/changed sources `CompletionEngine.kt`,
+  `HeroAtmosphere.kt`, `HomeHero.kt`, `TargetEntryDialog.kt`,
+  `TodayViewModel.kt`, `TodayScreen.kt`, `UseCases.kt`, `ActivityCard.kt`,
+  `CompletionButton.kt`, `ActivityDetailScreen.kt`. Unit tests grew 180 -> 239
+  (completion, scheduling + midnight re-evaluation guard, sections, atmosphere,
+  hero assets/scroll surface, motion, Quick Add, accessibility) and the asset
+  contract for the four hero WebPs is asserted as file checks.
+  Verification `:app:assembleDebug :app:testDebugUnitTest` green - 239 tests,
+  0 failures.
+
+## ADR-30 - Phase 2C revision: one theme-selected hero artwork pair, opaque Reach a Target dialog
+- **Decision:**
+  - **One artwork pair, selected by the theme only.**
+    `presentation/components/MomentumHeroArtwork.kt` exposes
+    `momentumHeroArtworkRes(dark: Boolean)` and a single shared
+    `@Composable MomentumHeroArtwork(...)`; both the Home Hero and the Habits
+    header draw from it. Selection maps Light theme -> bundled
+    `habits_hero_light.webp`, Dark theme -> `habits_hero_dark.webp`. The assets
+    keep their original names and native 1024x1536 dimensions so the existing
+    asset contract (`HabitsHeroAssetsTest`) still holds; only call sites
+    changed, so nothing had to be renamed or duplicated.
+  - **The clock is out of the artwork.** `domain/engine/HeroAtmosphere.kt`,
+    `HeroAtmosphereTest` and the four `home_hero_{dawn,day,sunset,night}.webp`
+    files are deleted. Time-aware copy stays where it belongs - the greeting in
+    `TodayViewModel.greeting()`. Nothing in the shared artwork component nor in
+    `HomeHero.kt` reads `LocalTime`, and both are guarded by file checks.
+  - **The component owns the composition.** `ContentScale.Crop`,
+    bottom-anchored alignment (the quiet lower third sits behind copy), an
+    offscreen `DstIn` top/bottom dissolve pinned to the container bounds, and
+    the `zoom` / `parallax` parameters applied *inside* the mask; artwork is
+    `contentDescription = null`. Screens only pass dissolve bands and motion
+    amounts, so Home and Habits cannot drift apart again.
+  - **Home hero composition.** The greeting / time-of-day branch left
+    `HomeHero.kt`; top dissolve is 20 dp and bottom 64 dp so no dead band opens
+    under the greeting; scrim alphas are unchanged (0.86 dark / 0.60 light)
+    because dropping them in the light theme pushes body text below the 4.5:1
+    floor; the header and the hero became one `LazyColumn` item in
+    `TodayScreen.kt`, which is what removes the bare-surface gap.
+    > **Superseded in part by ADR-31.** Sharing one `LazyColumn` item was not
+    > enough: the header was still a separate composable outside the artwork's
+    > Box, and the 0.86/0.60 scrim erased the artwork everywhere it mattered, so
+    > only a thin unscrimmed strip of Aurora survived. The Hero now owns the
+    > header and content itself and the blanket scrim is replaced by a
+    > copy-shaped veil. Artwork selection, the theme-only rule, the dissolve
+    > mechanism and the artwork contract in this bullet stand.
+  - **Reach a Target sits on an opaque surface.** New `GlassLevel.DIALOG`
+    (`MomentumGlass.dialogFill = 1.0f`, `dialogElevation` 16 dp, `dialogScrim`
+    0.45) plus an opaque top-stop branch in `liquidGlass`, so the top-edge
+    streak is baked into `c.surface` (dark) or a white-lerped stop (light)
+    instead of being painted translucent over the backdrop. Compose draws no
+    dialog scrim of its own (b/159900354), so `TargetEntryDialog` dims the
+    window behind it with `FLAG_DIM_BEHIND` +
+    `window.setDimAmount(MomentumGlass.dialogScrim)`, obtained by casting
+    `LocalView.current` to `DialogWindowProvider`. Only this dialog changes;
+    `MomentumDialog` keeps its surface and is flagged for review.
+- **Context:** Phase 2C visual QA on top of ADR-29. Four near-identical dark
+  illustrations meant three quarters of the day showed artwork that did not
+  match the active theme, Home opened with a band of bare surface between the
+  greeting and the art, and the Reach a Target dialog was built on translucent
+  Hero glass so the Home hero showed through the target input. Product
+  direction is one Aurora world in two themes (Light/Dark), not four clock
+  states, so dashboard spec sections 6, 6.1, 10.2 and dashboard decisions 7,
+  25, 37 were rewritten together with the code. No new dependencies, no
+  network, no DI or module change; ADR-28's "product-mandated artwork wins"
+  precedent still holds - the artwork is unified, not replaced. ADR-29's Hero
+  bullet is marked superseded in part rather than edited.
+- **Consequences:** new `presentation/components/MomentumHeroArtwork.kt`;
+  changed `HomeHero.kt`, `HabitsHero.kt`, `TodayScreen.kt`, `LiquidGlass.kt`,
+  `Tokens.kt`, `TargetEntryDialog.kt`; deleted `HeroAtmosphere.kt`,
+  `HeroAtmosphereTest.kt` and the four `home_hero_*` WebPs. No engine logic is
+  left in the hero, so tests are pure file/function checks:
+  `HomeHeroAssetsTest` (6) + `HomeScrollSurfaceTest` (3),
+  `HabitsHeroAssetsTest` (3), `MomentumHeroArtworkTest` (4),
+  `TargetEntryDialogSurfaceTest` (4). Unit tests now 244, 0 failures.
+  Verification `:app:assembleDebug :app:testDebugUnitTest`.
+
+## ADR-31 - Home Hero is one Aurora-backed surface (composition fix)
+- **Decision:**
+  - **The whole Home Hero is one surface.** `HomeHero` now owns *all* of the
+    Hero's foreground — date, greeting, Settings, progress ring, completion
+    count and motivational message — as children of a single clipped `Box`.
+    `TodayScreen` no longer renders a separate `HomeHeader`; it passes
+    `dateLabel`, `greeting` and `onOpenSettings` into the Hero. The artwork is
+    the Box's **first** layer at `Modifier.fillMaxSize()`, so the Aurora is the
+    Hero's background rather than a strip that begins under a header.
+  - **Habits is the reference, and stays untouched.** `HabitsHero` is the
+    already-correct composition (artwork first, copy above it, no plate) and
+    keeps its own 44 dp / 88 dp dissolve bands and its un-veiled treatment.
+    Home gets its own layout configuration inside the same shared artwork
+    component; the two screens are explicitly not forced to share dimensions,
+    and `HabitsHeroAssetsTest` now guards that.
+  - **The blanket veil is gone.** Home previously painted a 0.86 (dark) / 0.60
+    (light) full-width scrim behind the centred content box. Because the
+    artwork survived only in the ~20 dp unscrimmed band at the Hero's top, the
+    screen read as "header -> thin Aurora strip -> plain progress area", and
+    the artwork was technically present while being visually absent. The
+    replacement `HeroReadabilityVeil` is a single vertical gradient tinted with
+    the page background whose stops follow the measured copy: strongest behind
+    the header, dropping to 0.10 in the open band between greeting and ring,
+    back up behind ring/count/message, transparent at the bottom edge. Peaks are
+    asserted to stay <= 0.65 so the artwork can never be flattened again, and
+    `0.86f` is asserted to be absent.
+  - **Fades only at the Hero's own edges.** `TopDissolve` is 20 dp and sits
+    entirely above the header copy (`HeroTopInset` 36 dp), because it is the
+    blend where the artwork meets the page background above the Hero - the same
+    mechanism the reference header uses. Nothing fades between the greeting and
+    the ring. `BottomDissolve` is 72 dp and lands *after* the message
+    (`HeroBottomInset` 72 dp), melting the artwork into the list.
+  - **Hero geometry follows its content.** Compact height is
+    `topInset + header + gap + content + bottomInset` from the two measured
+    blocks, so the Hero is never clipped and dynamic type simply makes it
+    taller; expanded is `max(screen * 0.46 clamped to 340..520 dp,
+    compact + 88 dp)`. The veil's stops are computed from the same measurements
+    plus the Hero's own height, so the readability shape tracks the content
+    exactly instead of being a fixed rectangle. Scroll behaviour, the single
+    `LazyColumn`, the collapse px contract and reduced-motion freezes are
+    unchanged.
+    > **Superseded in part by ADR-32.** The 36 dp top inset, the 20 dp top
+    > ramp and the screen-percentage height floor each produced exactly the
+    > blank band and dead space this ADR was meant to avoid. Home now uses a
+    > 16 dp inset on the artwork, no top ramp, a flush top content padding, one
+    > weighted spacer above the content, and a purely content-driven height.
+    > The one-surface structure, the copy-shaped veil, the scroll behaviour and
+    > the artwork contract in this bullet stand.
+- **Context:** Phase 2C visual QA rejected the first ADR-30 composition. The
+  defect was structural, not tonal: two adjacent regions (a header and a hero)
+  plus a flattening scrim produced a screen whose Aurora read as a small strip
+  instead of a Hero background. Habits had been correct all along precisely
+  because its copy lives *inside* the artwork's Box. No new dependencies, no
+  network, no data or domain changes; the artwork assets, the shared component,
+  ADR-28's "product artwork wins" precedent and the reach-a-target dialog fix
+  (ADR-30) are all untouched.
+- **Consequences:** `HomeHero.kt` rewritten (one Box, three layers, new
+  `HeroHeader` / `HeroContent` / `HeroReadabilityVeil`); `TodayScreen.kt` lost
+  `HomeHeader` and its previews; `MomentumHeroArtwork` unchanged (Home passes its
+  own bands). `build.gradle.kts` is back to its previous state - the layout
+  contract is asserted by an **instrumented** bounds test
+  (`app/src/androidTest/.../HomeHeroCompositionTest.kt`, run with
+  `:app:connectedDebugAndroidTest`) because file checks cannot see geometry, and
+  a JVM Robolectric Compose test was rejected: enabling
+  `isIncludeAndroidResources` loads the real `MomentumApp` and broke six
+  existing database tests. File tests grew to cover the new structure
+  (`HomeHeroAssetsTest` 9, `HomeScrollSurfaceTest` 3, `HabitsHeroAssetsTest` 4);
+  JVM suite 248 tests, 0 failures; `assembleDebug` and
+  `compileDebugAndroidTestKotlin` green with no warnings.
+  **Not verified on a device**: the emulator would not boot in the authoring
+  environment (QEMU stalls before the guest starts under both
+  `swiftshader_indirect` and `guest` GPU modes), so the visual pass in ADR-30's
+  successor checklist is still owed a screenshot review in Android Studio.
+
+## ADR-32 - Home Hero: artwork owns the top edge, Hero ends with its content
+- **Decision:**
+  - **No band above the date.** Home's artwork now starts at full strength on
+    the Hero's own top edge. `TopDissolve` is `0.dp`, `HeroTopInset` dropped
+    from 36 dp to 16 dp, and the scroll surface's top `contentPadding` is
+    `0.dp` so nothing pushes the Hero down from the top of the surface. The
+    inset now costs no Aurora, because it sits *on* the artwork: date, greeting
+    and Settings all sit directly on Aurora. Previously the stack was
+    16 dp padding + 36 dp inset + a 20 dp ramp, which is what produced the
+    blank band above the greeting.
+  - **No void below the message.** The Hero's Column has exactly one weighted
+    spacer and it sits **above** the content block, so the Hero's extra height
+    becomes the open Aurora band between greeting and ring while the message
+    always ends `HeroBottomInset` (40 dp) above the bottom edge.
+    `BottomDissolve` drops 72 dp -> 40 dp to match, so the ramp begins right
+    under the message and the activity section continues straight out of it.
+  - **Height is purely content-driven.** `expanded = compact + CollapseHeadroom`
+    (72 dp); the `screenHeightDp * 0.46` clamp, `ExpandedFloor` and
+    `ExpandedCeiling` are gone. A screen-percentage floor could only ever inflate
+    the Hero with empty background, which is the dead space this ADR removes.
+  - **The veil starts transparent.** `HeroReadabilityVeil`'s first stop is the
+    page background at **zero** alpha, rising to the header strength only where
+    the date begins. The artwork's top edge is therefore untouched - the band is
+    fixed by geometry, not by darkening the Aurora - while the date, greeting,
+    ring, count and message keep their contrast. The content block is located
+    from the Hero's bottom edge (`h - bottomInset - content`), matching the new
+    Column exactly.
+  - **A zero dissolve band is now a supported contract.** `MomentumHeroArtwork`
+    treats `topDissolve = 0.dp` as "no fade on this edge" instead of coercing it
+    to a 5% visible minimum, and builds the ramp stops conditionally. Habits
+    passes 44 dp / 88 dp and is therefore **bit-for-bit unchanged**; this is a
+    per-screen parameter choice, not a change to the reference header, which
+    keeps its own bands, composition, spacing, height and un-veiled treatment.
+- **Context:** ADR-31 made the Home Hero structurally one surface, and the
+  Aurora composition worked, but emulator review found two remaining visual
+  defects: a blank band between the top of the Hero and the artwork, and a large
+  empty region between the message and the activity section. Both came from
+  values rather than architecture - a top inset plus a ramp plus list padding,
+  and a centre-weighted column plus a screen-percentage height floor. No
+  architecture, artwork, asset, Habits, dialog or data change is involved.
+- **Consequences:** `HomeHero.kt` (geometry, constants, veil shape),
+  `TodayScreen.kt` (top `contentPadding` 0), `MomentumHeroArtwork.kt` (honours a
+  zero band). `HomeHeroAssetsTest` 9 -> 10, with the old "copy sits below the
+  top ramp" test replaced by the actual visual contract - no top ramp, small top
+  inset, message above a short bottom ramp, no weighted spacer below the
+  content, no screen-percentage height - plus a new test that the scroll surface
+  keeps the Hero flush; `MomentumHeroArtworkTest` 4 -> 5 for the zero-band
+  contract; `HabitsHeroAssetsTest` still guards the unchanged Habits bands. The
+  instrumented `HomeHeroCompositionTest` grew to 7 tests, adding bounds
+  assertions that the date sits within 32 dp of the artwork's top edge and that
+  no more than 56 dp follows the message. JVM suite 250 tests, 0 failures;
+  `assembleDebug` and `compileDebugAndroidTestKotlin` green with no warnings.
+  Still unverified on a device - see the open ROADMAP item; run
+  `:app:connectedDebugAndroidTest` and screenshot Home in both themes.
+
+
+## ADR-33 - Status bar: the two Hero routes draw behind it, everyone else keeps the inset
+- **Decision:**
+  - **The band was never a scrim.** `enableEdgeToEdge()` was already in place, so
+    the status bar is transparent; what showed through it was `AppBackground`'s
+    dark `backgroundTop`. The gap came from the navigation-level `Scaffold`, whose
+    default `contentWindowInsets` (`ScaffoldDefaults.contentWindowInsets` =
+    `WindowInsets.systemBarsForVisualComponents`) puts the status bar into
+    `innerPadding.top`, and `Modifier.padding(innerPadding)` on the `NavHost`
+    pushed every route below it. Nothing was drawn wrong - the Hero simply never
+    reached the physical top of the window.
+  - **Drop only the top half of that inset, and only for the Hero routes.**
+    `MomentumNavGraph` now narrows the Scaffold's `contentWindowInsets` to
+    `WindowInsets.systemBars.only(Bottom + Horizontal)` for `Routes.TODAY` and
+    `Routes.HABITS` and leaves `ScaffoldDefaults.contentWindowInsets` everywhere
+    else, so non-Hero screens keep their headers clear of the bar and the bottom
+    nav keeps its inset on every route.
+  - **Home is the one screen that gains an inset.** `HomeHero` prepends
+    `topInset = WindowInsets.statusBars + HeroTopInset (16.dp)` to its Column and
+    feeds the same value into `compactHeight` and the veil's `headerStart`, so the
+    foreground is pixel-identical to before (measured: first text row 262 px before
+    and after) while the artwork alone grows by the bar height. ADR-32's claim
+    holds again - the date sits on Aurora, not on page background - because
+    `statusBars` lands *inside* the artwork.
+  - **Habits is untouched.** `HabitsHero.kt` did not change: artwork, 44 dp top
+    dissolve, height, internal spacing, content positioning and composition are
+    exactly as ADR-32 left them. The whole hero moves up by the status-bar height
+    (title row 728 -> 592 px = 136 px = 51.8 dp on the Pixel_7 420 dpi emulator),
+    which is all "artwork owns the top edge" can mean for a screen that does not
+    opt into its own inset.
+  - **No new scrim, dissolve, mask or top padding was added**, and no artwork
+    asset, Hero crop, ring, message, Activity spacing, Target dialog, navigation
+    structure or bottom-nav behaviour changed.
+- **Context:** ADR-32's device pass was left open because the authoring
+  environment's emulator would not boot. With a working AVD (QEMU stalls under
+  `swiftshader_indirect`; `-gpu host` boots) the band reappeared in screenshots:
+  rows 0..~135 px of both Home and Habits were `AppBackground`, because the
+  window edge and the Hero edge were 51.8 dp apart. Status-bar icon appearance
+  was verified correct in both themes - light icons over the dark Aurora, dark
+  icons over the light Aurora, no overlay added.
+- **Consequences:** `MomentumNavGraph.kt` (route-scoped `contentWindowInsets`)
+  and `HomeHero.kt` (status-bar safe inset folded into `topInset`) are the whole
+  diff; `HabitsHero.kt`, `TodayScreen.kt` and the artwork components are
+  unchanged. Verified with four emulator screenshots - Home and Habits in light
+  and dark - plus a scrolled Home (hero collapses with the artwork still filling
+  the top, no band, no overlap). `HomeHeroCompositionTest` 7/7 green on device
+  after two prerequisite fixes: backticked method names were renamed because D8
+  rejects spaces in a `SimpleName` below DEX 040 (minSdk 26), which meant the
+  suite could not even be dexed before this ADR; and the "date within 32 dp of the
+  artwork's top edge" assertion was replaced by the actual edge-to-edge contract -
+  `artwork.top <= 0.dp` and `statusBars <= dateGap <= statusBars + 32.dp` - since
+  the date now legitimately sits `statusBars + HeroTopInset` (67.8 dp on the test
+  device) below the artwork's top. JVM suite 250 tests, 0 failures; `assembleDebug`
+  green. This closes the device pass left open at the end of ADR-32.
