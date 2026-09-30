@@ -2146,7 +2146,11 @@ under **ISSUE-025**.
     comment is not a defect, and R8 has no rule for a package that no longer
     exists. Correcting it is out of scope; report it separately if desired.
   - **5. `design/aurora-concept/**` and `MOMENTUM_CONCEPT_EXPLORATION.md` are
-    RETAINED, untouched.** `ISSUE-024` is **CLOSED** with a *retain* resolution
+    RETAINED, untouched.** *(Verdict as of ADR-46. `design/aurora-concept/**`
+    was subsequently removed from the repository by a later human ruling — see
+    "ADR-46 Correction Note 2"; `MOMENTUM_CONCEPT_EXPLORATION.md` is still
+    present and still retained.)* `ISSUE-024` is **CLOSED** with a *retain*
+    resolution
     and the human's decision named neither artefact.
     `MOMENTUM_CONCEPT_EXPLORATION.md` remains, per ADR-40, the repository's sole
     source of visual truth for concept work, and `ISSUE-025` still cites it.
@@ -2165,7 +2169,8 @@ under **ISSUE-025**.
     `ProtoActivity`, `ProtoCategory`, `ProtoTracking`, `ProtoDirection`) returns
     hits **only** inside `exploration/phase2b/**` itself, inside
     `app/src/debug/**`, and in prose (`ISSUES.md`, `PROJECT_STATUS.md`,
-    `task.md`, `MODERNIZATION_AUDIT.md`, `DECISIONS.md`, and the
+    `task.md`, `MODERNIZATION_AUDIT.md` *(an input working document, since
+    deleted — see "ADR-46 Correction Note 2")*, `DECISIONS.md`, and the
     `proguard-rules.pro` comment). **No production source, no test, no resource,
     no manifest and no Gradle or catalog file references this package.**
     `presentation/theme/DesignSystemPreviews.kt` references
@@ -2295,3 +2300,69 @@ under **ISSUE-025**.
 - **No code, build, Gradle, ProGuard, resource or manifest change accompanies this
   correction.** It is a documentation correction only; the working tree after it
   contains no build-relevant delta.
+
+### ADR-46 Correction Note 2 — deleted input working documents and the removed `design/aurora-concept/` pack (Architect, 2026-09-30)
+
+- **Instrument:** this note is **append-only**. No ADR-40, ADR-41, ADR-42,
+  ADR-43, ADR-45 or ADR-46 text above is rewritten, deleted or restated, and
+  Correction Note 1 is left verbatim. Only two *additive* parenthetical
+  annotations were placed in ADR-46 (§5 and §7), each pointing here, because
+  those two lines would otherwise have read as false current claims. This note
+  supersedes their **provenance framing only**.
+
+- **What changed, and why nothing decided here changes.** Three artefacts that
+  existed at decision time no longer exist. All three were **inputs to decisions
+  that are already permanently recorded in ADRs**, never sources of truth in
+  their own right, so no decision, no rationale and no recorded consequence is
+  affected. Each was removed by explicit human ruling, not by an architecture
+  decision, and no new ADR is created.
+
+- **1. `MODERNIZATION_AUDIT.md` — DELETED (input working document).** It was
+  self-declared *"audit and recommendation only"*. It was an **input** to
+  TASK-011/ADR-41…ADR-46; its conclusions are permanently recorded in those ADRs
+  and in `task.md` §8, which are the authority. Its recorded baseline (AGP
+  8.7.3 / Navigation 2 / no Hilt / 253 tests) is **superseded** by the
+  implemented modernization, committed as `f3fa73c`. Nothing in this file now
+  depends on it. Reference sites: ADR-46 §7 (annotated in place above) and
+  Correction Note 1's "retained artefacts" bullet (superseded by this note).
+
+- **2. `TASTE_MODERNIZATION_TARGET.md` — DELETED (input working document).** It
+  was self-declared *"EXTRACTION ONLY — nothing in this document has been
+  implemented"* and was fully implemented thereafter. `DECISIONS.md` contains
+  **no** reference to it at any point; this entry records that absence as
+  deliberate so a later reader does not treat the deletion as a missing
+  reference.
+
+- **3. `design/aurora-concept/**` — REMOVED from the repository.** This
+  directory existed when ADR-46 was decided and ADR-46 §5 correctly retained it
+  *as of that decision*; it was removed afterwards, which is why §5 now carries
+  the annotation above. Character of the pack, for the historical record: a
+  non-runtime **web font concept pack** (`fonts.css` + seven `.woff2`, Manrope
+  subsets plus one `Material Symbols Rounded` variable font), never referenced
+  by any Kotlin, resource, Gradle, manifest or runtime path. It was **never
+  consumed by the Android application at any point**, so its removal changes no
+  runtime behaviour and no APK content. **Production Aurora is untouched**:
+  `presentation/aurora/MomentumAurora.kt`,
+  `presentation/components/MomentumHeroArtwork.kt`, `HomeHero.kt`,
+  `HabitsHero.kt`, `presentation/theme/Color.kt` and the bundled
+  `res/drawable/habits_hero_light/dark.webp` all remain, unchanged. The
+  canonical status of `ISSUE-024` lives in the Orchestrator-owned `ISSUES.md`
+  and is not restated or edited here.
+
+- **Effect on ADR-46's decisions: none.** The four-direction exploration remains
+  abandoned and deleted in full; no direction is selected and Round 2 does not
+  proceed; `ISSUE-026` remains **CLOSED as resolved-by-removal**;
+  `ISSUE-027` remains **CLOSED as resolved-by-removal**; `ISSUE-025` remains
+  **CLOSED as moot**; `ISSUE-006` remains **OPEN** and still requires a human
+  ruling, still scoped only to production `HomeHero.kt` / `HabitsHero.kt` /
+  `MomentumHeroArtwork.kt`. Of the artefacts named in Correction Note 1's
+  "retained artefacts" enumeration, `docs/phase2b/round1/*.png` and
+  `MOMENTUM_CONCEPT_EXPLORATION.md` **are still present and still retained**;
+  `design/aurora-concept/**` and `MODERNIZATION_AUDIT.md` **no longer exist**.
+  The enumeration is superseded in those two entries only; the sentence's
+  substance about the issues above stands.
+
+- **No code, build, Gradle, ProGuard, resource, manifest or data change
+  accompanies this note.** It is a documentation correction only; the working
+  tree after it contains no build-relevant delta.
+

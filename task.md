@@ -30,12 +30,15 @@
   - **VERIFICATION** — build + unit tests + androidTest compile + targeted runs.
 - Routing: **Orchestrator → Architect → Developer → Reviewer → Orchestrator.**
 - Source of truth:
-  1. The task brief (human requirement, this session).
-  2. `TASTE_MODERNIZATION_TARGET.md` (extracted target from installed skill).
-  3. Installed skill `.opencode/skills/compose-kotlin/` (**compose-kotlin-agent-skills
-     v2.2.0**) — the Android modernization authority.
-  - The `Leonxlnx/taste-skill` entries in `skills-lock.json` are **web skills, NOT
-    the Android authority**. `MODERNIZATION_AUDIT.md` is not authority.
+1. The task brief (human requirement, this session).
+   2. `TASTE_MODERNIZATION_TARGET.md` (extracted target from installed skill) —
+      **since deleted** as an obsolete working document; the decisions it drove
+      are recorded in ADR-41…ADR-46 and §8 below.
+   3. Installed skill `.opencode/skills/compose-kotlin/` (**compose-kotlin-agent-skills
+      v2.2.0**) — the Android modernization authority.
+   - The `Leonxlnx/taste-skill` entries in `skills-lock.json` are **web skills, NOT
+     the Android authority**. `MODERNIZATION_AUDIT.md` (also since deleted) was
+     likewise never authority.
 
 ---
 
@@ -137,7 +140,9 @@ release: isMinifyEnabled = true, isShrinkResources = true
 - `.opencode/skills/compose-kotlin/SKILL.md` (toolchain table, MVI guardrails,
   mandatory defaults) + `skills/android-kotlin-{architecture,compose,testing}/SKILL.md`
   + `references/00,01,04,05,06,07,10,11,13,17,18-*.md`.
-- `TASTE_MODERNIZATION_TARGET.md` §3–§7, §12, §13 (derived migration order).
+- `TASTE_MODERNIZATION_TARGET.md` §§3–7, §12, §13 (derived migration order) —
+  **document since deleted** as an obsolete working extract; the conclusions it
+  fed are recorded in §8 below and in ADR-41…ADR-46.
 - `AGENTS.md` §3–§8, §11, §14, §21 (governance).
 - ADR-40 (`docs/architecture/decisions/DECISIONS.md`) — Phase 2B retention.
 

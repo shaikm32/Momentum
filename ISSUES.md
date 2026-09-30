@@ -42,7 +42,7 @@ This file is not a task log or general project notes file.
 | `ISSUE-021` | OPEN | Medium | Fresh install reports no active theme in the Theme Gallery | TASK-007 | Theme Gallery | Needs human ruling |
 | `ISSUE-022` | OPEN | High | Settings reduce-motion copy promises a whole-app effect it does not deliver | TASK-007 | Settings, motion | Needs human ruling |
 | `ISSUE-023` | CLOSED | Medium | Orchestrator deliverable write grant missing in `opencode.json` | TASK-007 | Multi-agent infrastructure | Fixed + verified |
-| `ISSUE-024` | CLOSED | Low | Unreferenced 5.4 MB design concept pack with no recorded provenance | TASK-007 | Repository governance | Resolved — retained as non-runtime Phase-2 input, provenance limits recorded |
+| `ISSUE-024` | CLOSED | Low | Unreferenced 5.4 MB design concept pack with no recorded provenance | TASK-007 | Repository governance | Resolved — first **retained** as non-runtime Phase-2 input (provenance limits recorded); **final disposition: the pack was REMOVED** — the exploratory concept assets are no longer required. Production Aurora assets untouched |
 | `ISSUE-025` | CLOSED | High | Every colour hex and type `sp` in the Phase 2B Round 1 plan is derived, not quoted — the source document contains none | TASK-009 Architect disclosure | Phase 2B prototypes | **CLOSED as moot** (TASK-014/ADR-46): closure criterion was ratifying tokens *when a direction is selected*; the human ruled all four directions obsolete, so it is unselectable. Disclosure retained as historical record |
 | `ISSUE-026` | CLOSED | Medium | Phase 2B prototype composables will ship in the release APK as unreachable dead code | TASK-009 Architect disclosure | Release build, Phase 2B | **CLOSED as resolved by removal** (TASK-014/ADR-46): the prototypes were deleted. Note the premise was invalidated earlier — the "accepted cost" had already ceased to exist at TASK-011 Phase F, when R8 (`isMinifyEnabled = true`) began stripping the 47 unreachable classes |
 | `ISSUE-027` | CLOSED | Low | B renders `unitLabel` and `unitWord` together, so a row reads "Read 20 pages · p · pages" | TASK-009 Reviewer Finding 11 | Phase 2B prototype | **CLOSED as resolved by removal** (TASK-014/ADR-46): the defect lived only in `InstrumentHome.kt:217-230`, now deleted. Not "fixed" — the subject no longer exists |
@@ -789,6 +789,29 @@ This file is not a task log or general project notes file.
   No ADR number was created: this records the status of an existing non-runtime
   asset directory and takes no architectural decision, so the repository's ADR
   criteria (AGENTS §14.15) are not met.
+
+- **SUPERSEDING DISPOSITION (final state — supersedes the retention resolution
+  above, which is retained above as the historical record of that decision).**
+  The Phase-2 visual concept exploration was subsequently abandoned: the four
+  direction prototypes were deleted (ADR-46 / TASK-014) and the exploration was
+  closed without a direction being selected. `design/aurora-concept/` has now
+  been **REMOVED** from the repository — the exploratory concept assets are no
+  longer required. Final facts:
+  1. `design/aurora-concept/` **does not exist**. Its 8 files (`fonts.css` plus
+     `f1`–`f7` `.woff2`) are no longer present.
+  2. It was **never** consumed by the Android application at any point, so its
+     removal changes no runtime behaviour and no APK content.
+  3. **Production Aurora is untouched**: `MomentumAurora.kt`,
+     `MomentumHeroArtwork.kt`, `HomeHero.kt`, `HabitsHero.kt`, `Color.kt` and the
+     bundled `habits_hero_light/dark.webp` all remain in place and unchanged.
+  4. The document `docs/design/AURORA_CONCEPT_ASSETS.md` is retained and has been
+     corrected to record the removal rather than claim the files still exist.
+  5. The unresolved icon-family conflict (code = Material Icons vs the concept
+     pack's Material **Symbols** Rounded) remains an open product question and is
+     **not** resolved by this removal — the concept pack's evidence is gone, so
+     Q6 in `MOMENTUM_PREMIUM_DESIGN_AUDIT.md` §23 now stands on its own.
+  6. The blanket-`git add -A` hazard recorded in item 7 above no longer applies;
+     the assets are gone rather than merely untracked.
 
 ### ISSUE-025 — Phase 2B Round 1 palette and type scale are derived, not quoted
 
