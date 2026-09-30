@@ -30,15 +30,6 @@ object MomentumSpacing {
     /** 32dp — major section: separation between screen regions. */
     val majorSection = 32.dp
 
-    /** 40dp — large separation. */
-    val large = 40.dp
-
-    /** 48dp — hero: dramatic vertical air around hero elements. */
-    val hero = 48.dp
-
-    /** 64dp — exceptional: reserved, near-empty breathing room. */
-    val exceptional = 64.dp
-
     // Legacy aliases — delegate to the v1 grid (no second source of values).
 
     val item: Dp get() = compact
@@ -79,10 +70,8 @@ object MomentumIconSizes {
 
     // Legacy aliases.
 
-    val small = 18.dp
     val medium: Dp get() = secondary
     val large: Dp get() = primary
-    val hero: Dp get() = prominent
     val tile = 22.dp
 }
 
@@ -121,9 +110,12 @@ object MomentumGlass {
      * Window dim behind a modal dialog, de-emphasising the layer it covers.
      * Compose's `Dialog` draws no scrim of its own (b/159900354), so the dim
      * is applied to the dialog window explicitly — the dialog surface itself
-     * stays at full theme brightness.
+     * stays at full theme brightness. Raised from 0.45f (ADR-30) to 0.72f
+     * (ADR-38): at 0.45 the sheet did not separate from the page behind it,
+     * which is what read as "too transparent" even though the panel is opaque.
+     * Tunable, but not back toward 0.45 without re-checking ISSUE-019.
      */
-    const val dialogScrim = 0.45f
+    const val dialogScrim = 0.72f
 
     /** Ambient light field opacity over the base background. */
     const val ambientDark = 0.13f
@@ -132,12 +124,4 @@ object MomentumGlass {
     /** Soft shadow elevation for floating layers (dialogs, nav, hero). */
     val dialogElevation = 16.dp
     val heroElevation = 12.dp
-
-    /**
-     * True backdrop blur is deliberately NOT used: no reliable cross-device
-     * API exists on our minSdk, and no fragile dependency is worth it.
-     * Depth comes from translucency + highlight + shadow + ambient light,
-     * so every screen stays beautiful with blur unavailable.
-     */
-    val backdropBlur = 0.dp
 }

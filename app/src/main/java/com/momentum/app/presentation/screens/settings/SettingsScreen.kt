@@ -30,10 +30,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.momentum.app.BuildConfig
+import com.momentum.app.R
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.domain.model.WeekStart
 import com.momentum.app.presentation.components.CategoryChip
@@ -43,7 +45,8 @@ import com.momentum.app.presentation.components.MomentumDivider
 import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumSettingRow
 import com.momentum.app.presentation.components.MomentumTopBar
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.resolve
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 import com.momentum.app.presentation.theme.themeById
@@ -54,13 +57,14 @@ fun SettingsRoute(
     onBack: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: SettingsViewModel = momentumViewModel { SettingsViewModel(it) }
+    val vm: SettingsViewModel = hiltViewModel()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(vm) {
         vm.effect.collect { effect ->
             when (effect) {
-                is SettingsEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
+                is SettingsEffect.ShowMessage -> snackbar.showSnackbar(effect.message.resolve(context))
             }
         }
     }
@@ -108,16 +112,16 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            MomentumTopBar(title = "Settings", onBack = onBack)
+            MomentumTopBar(title = stringResource(R.string.settings_title), onBack = onBack)
         }
         item {
-            MomentumSectionHeader(title = "Appearance")
+            MomentumSectionHeader(title = stringResource(R.string.section_appearance))
         }
         item {
             MomentumCard {
                 MomentumSettingRow(
-                    title = "Theme",
-                    supporting = themeById(themeId).name,
+                    title = stringResource(R.string.settings_theme),
+                    supporting = stringResource(themeById(themeId).nameRes),
                     onClick = onOpenThemes,
                     trailing = {
                         Row(
@@ -125,7 +129,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             Text(
-                                "Change",
+                                stringResource(R.string.settings_change),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = c.primary,
                                 fontWeight = FontWeight.SemiBold,
@@ -142,7 +146,7 @@ fun SettingsScreen(
                 MomentumDivider()
                 Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
                     Text(
-                        "Mode",
+                        stringResource(R.string.settings_mode),
                         style = MaterialTheme.typography.titleMedium,
                         color = c.textPrimary,
                     )
@@ -162,8 +166,8 @@ fun SettingsScreen(
                 }
                 MomentumDivider()
                 MomentumSettingRow(
-                    title = "Reduce motion",
-                    supporting = "Calm animations throughout the app",
+                    title = stringResource(R.string.settings_reduce_motion),
+                    supporting = stringResource(R.string.settings_reduce_motion_supporting),
                     trailing = {
                         Switch(
                             checked = reduceMotion == true,
@@ -174,12 +178,12 @@ fun SettingsScreen(
             }
         }
         item {
-            MomentumSectionHeader(title = "Notifications")
+            MomentumSectionHeader(title = stringResource(R.string.section_notifications))
         }
         item {
             MomentumCard {
                 Text(
-                    "Reminders fire on-device. Enable notifications so Momentum can nudge you.",
+                    stringResource(R.string.settings_notifications_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = c.textSecondary,
                 )
@@ -195,18 +199,18 @@ fun SettingsScreen(
                     }
                     runCatching { context.startActivity(intent) }
                 }) {
-                    Text("Open notification settings")
+                    Text(stringResource(R.string.settings_open_notification_settings))
                 }
             }
         }
         item {
-            MomentumSectionHeader(title = "Preferences")
+            MomentumSectionHeader(title = stringResource(R.string.section_preferences))
         }
         item {
             MomentumCard {
                 Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
                     Text(
-                        "Week starts on",
+                        stringResource(R.string.settings_week_starts_on),
                         style = MaterialTheme.typography.titleMedium,
                         color = c.textPrimary,
                     )
@@ -215,13 +219,13 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         CategoryChip(
-                            label = "Monday",
+                            label = stringResource(R.string.week_start_monday),
                             selected = weekStart == WeekStart.MONDAY,
                             onClick = { onWeekStart(WeekStart.MONDAY) },
                             modifier = Modifier.weight(1f),
                         )
                         CategoryChip(
-                            label = "Sunday",
+                            label = stringResource(R.string.week_start_sunday),
                             selected = weekStart == WeekStart.SUNDAY,
                             onClick = { onWeekStart(WeekStart.SUNDAY) },
                             modifier = Modifier.weight(1f),
@@ -230,8 +234,8 @@ fun SettingsScreen(
                 }
                 MomentumDivider()
                 MomentumSettingRow(
-                    title = "Motivational messages",
-                    supporting = "Gentle encouragement on Today",
+                    title = stringResource(R.string.settings_motivational),
+                    supporting = stringResource(R.string.settings_motivational_supporting),
                     trailing = {
                         Switch(checked = motivational, onCheckedChange = onMotivational)
                     },
@@ -239,33 +243,33 @@ fun SettingsScreen(
             }
         }
         item {
-            MomentumSectionHeader(title = "Data & privacy")
+            MomentumSectionHeader(title = stringResource(R.string.section_data_privacy))
         }
         item {
             MomentumCard {
                 Text(
-                    "Everything stays on this device. Clearing deletes all activities, history, and reminders.",
+                    stringResource(R.string.settings_data_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = c.textSecondary,
                 )
                 TextButton(onClick = { confirmClear = true }) {
-                    Text("Clear all local data", color = c.error)
+                    Text(stringResource(R.string.settings_clear_all_local_data), color = c.error)
                 }
             }
         }
         item {
-            MomentumSectionHeader(title = "About")
+            MomentumSectionHeader(title = stringResource(R.string.section_about))
         }
         item {
             MomentumCard {
                 Text(
-                    "Momentum ${BuildConfig.VERSION_NAME}",
+                    stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
                     style = MaterialTheme.typography.titleMedium,
                     color = c.textPrimary,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "Your data stays on your device. No account, no cloud, no tracking — offline by design.",
+                    stringResource(R.string.settings_about_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = c.textSecondary,
                 )
@@ -274,11 +278,11 @@ fun SettingsScreen(
     }
     if (confirmClear) {
         MomentumDialog(
-            title = "Clear everything?",
-            body = "All activities, completion history, and reminders will be deleted. This can't be undone.",
-            confirmLabel = "Clear all",
+            title = stringResource(R.string.dialog_clear_all_title),
+            body = stringResource(R.string.dialog_clear_all_body),
+            confirmLabel = stringResource(R.string.action_clear_all),
             onConfirm = { confirmClear = false; onClearData() },
-            dismissLabel = "Keep my data",
+            dismissLabel = stringResource(R.string.action_keep_my_data),
             onDismiss = { confirmClear = false },
             destructive = true,
         )

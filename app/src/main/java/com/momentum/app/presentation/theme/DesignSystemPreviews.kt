@@ -23,9 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.momentum.app.R
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.presentation.aurora.AuroraBackground
 import com.momentum.app.presentation.aurora.AuroraState
@@ -82,8 +84,12 @@ private fun SurfacesAndTextSample() {
             .padding(MomentumSpacing.screen),
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.section),
     ) {
-        Text("Momentum", style = MaterialTheme.typography.displayLarge, color = c.textPrimary)
-        Text("Calm at rest. Alive in motion.", style = MaterialTheme.typography.bodyLarge, color = c.textSecondary)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayLarge, color = c.textPrimary)
+        Text(
+            stringResource(R.string.ds_tagline),
+            style = MaterialTheme.typography.bodyLarge,
+            color = c.textSecondary,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.compact)) {
             SurfaceSwatch("Canvas", c.background, Modifier.weight(1f))
             SurfaceSwatch("Surface", c.surface, Modifier.weight(1f))
@@ -95,9 +101,9 @@ private fun SurfacesAndTextSample() {
             SurfaceSwatch("Accent", c.accentPrimary, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.compact)) {
-            Text("Primary", style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
-            Text("Secondary", style = MaterialTheme.typography.bodyLarge, color = c.textSecondary)
-            Text("Muted", style = MaterialTheme.typography.bodyLarge, color = c.textMuted)
+            Text(stringResource(R.string.ds_color_primary), style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
+            Text(stringResource(R.string.ds_color_secondary), style = MaterialTheme.typography.bodyLarge, color = c.textSecondary)
+            Text(stringResource(R.string.ds_color_muted), style = MaterialTheme.typography.bodyLarge, color = c.textMuted)
         }
     }
 }
@@ -139,14 +145,14 @@ private fun TypographySample() {
             .padding(MomentumSpacing.screen),
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.compact),
     ) {
-        Text("Display 40/48", style = MaterialTheme.typography.displayLarge, color = c.textPrimary)
-        Text("Headline 28/34", style = MaterialTheme.typography.headlineLarge, color = c.textPrimary)
-        Text("Title 20/26", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
-        Text("Body 16/24 — progress, streaks, and targets read first.", style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
-        Text("Body Small 14/20 — supporting metadata and descriptions.", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
-        Text("Label 13/18", style = MaterialTheme.typography.labelLarge, color = c.textPrimary)
-        Text("Caption 12/16", style = MaterialTheme.typography.labelMedium, color = c.textMuted)
-        Text("21 day streak · 3 / 5 · 82%", style = MaterialTheme.typography.headlineMedium, color = c.accentPrimary)
+        Text(stringResource(R.string.ds_type_display), style = MaterialTheme.typography.displayLarge, color = c.textPrimary)
+        Text(stringResource(R.string.ds_type_headline), style = MaterialTheme.typography.headlineLarge, color = c.textPrimary)
+        Text(stringResource(R.string.ds_type_title), style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
+        Text(stringResource(R.string.ds_type_body), style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
+        Text(stringResource(R.string.ds_type_body_small), style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+        Text(stringResource(R.string.ds_type_label), style = MaterialTheme.typography.labelLarge, color = c.textPrimary)
+        Text(stringResource(R.string.ds_type_caption), style = MaterialTheme.typography.labelMedium, color = c.textMuted)
+        Text(stringResource(R.string.ds_type_sample), style = MaterialTheme.typography.headlineMedium, color = c.accentPrimary)
     }
 }
 
@@ -195,8 +201,11 @@ private fun ControlsSample() {
                 IconLabel(MomentumIcons.settings, "settings")
             }
         }
-        Text("State is never color-only: selection also changes fill and weight.",
-            style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+        Text(
+            stringResource(R.string.ds_state_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = c.textSecondary,
+        )
     }
 }
 
@@ -261,7 +270,7 @@ private fun ShapesSample() {
                 }
             }
         }
-        Text("4dp grid", style = MaterialTheme.typography.labelLarge, color = c.textPrimary)
+        Text(stringResource(R.string.ds_grid), style = MaterialTheme.typography.labelLarge, color = c.textPrimary)
         spacings.forEach { (label, space) ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -276,9 +285,6 @@ private fun ShapesSample() {
                 )
             }
         }
-        Text("Elevation stays quiet: ${MomentumElevation.subtle.value.toInt()} / " +
-            "${MomentumElevation.raised.value.toInt()} / ${MomentumElevation.floating.value.toInt()} dp",
-            style = MaterialTheme.typography.bodySmall, color = c.textMuted)
     }
 }
 
@@ -309,7 +315,7 @@ private fun AuroraStatesSample() {
             .padding(MomentumSpacing.screen),
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.section),
     ) {
-        Text("Aurora states", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
+        Text(stringResource(R.string.ds_aurora_states), style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
         Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.compact)) {
             states.forEach { (state, label) ->
                 AuroraBackground(
@@ -329,9 +335,12 @@ private fun AuroraStatesSample() {
             }
         }
         Text(
-            "Intensity ramps rest → progress → completion → milestone. " +
-                "Motion: fast ${MomentumMotion.fast}ms · standard ${MomentumMotion.standard}ms · " +
-                "emphasis ${MomentumMotion.emphasis}ms · reward ${MomentumMotion.reward}ms",
+            stringResource(
+                R.string.ds_ramp_note,
+                MomentumMotion.fast,
+                MomentumMotion.standard,
+                MomentumMotion.emphasis,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = c.textSecondary,
         )

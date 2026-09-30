@@ -1,38 +1,37 @@
 package com.momentum.app.presentation.navigation
 
-import com.momentum.app.domain.model.HabitIntent
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.serialization.NavKeySerializer
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class RoutesTest {
 
     @Test
-    fun `createHabit route carries the selected intent`() {
-        assertEquals("create/habit/config?intent=BUILD", Routes.createHabit(HabitIntent.BUILD))
-        assertEquals("create/habit/config?intent=REDUCE", Routes.createHabit(HabitIntent.REDUCE))
-    }
-
-    @Test
-    fun `parseHabitIntent selects the correct intent`() {
-        assertEquals(HabitIntent.BUILD, Routes.parseHabitIntent("BUILD"))
-        assertEquals(HabitIntent.REDUCE, Routes.parseHabitIntent("REDUCE"))
-    }
-
-    @Test
-    fun `parseHabitIntent maps legacy AVOID to REDUCE`() {
-        assertEquals(HabitIntent.REDUCE, Routes.parseHabitIntent("AVOID"))
-    }
-
-    @Test
-    fun `parseHabitIntent degrades to BUILD instead of crashing`() {
-        assertEquals(HabitIntent.BUILD, Routes.parseHabitIntent(null))
-        assertEquals(HabitIntent.BUILD, Routes.parseHabitIntent(""))
-        assertEquals(HabitIntent.BUILD, Routes.parseHabitIntent("SOME_FUTURE_INTENT"))
-    }
-
-    @Test
     fun `edit and detail routes carry the activity id`() {
-        assertEquals("edit?activityId=7", Routes.edit(7))
-        assertEquals("detail/9", Routes.detail(9))
+        assertEquals(Routes.Edit(activityId = 7L), Routes.edit(7L))
+        assertEquals(Routes.Detail(activityId = 9L), Routes.detail(9L))
+        assertNotEquals(Routes.Today, Routes.Habits)
+
+        // Typed keys must be @Serializable (ADR-42) — `serializer()` only exists
+        // when the plugin processed the class.
+        val detail = Routes.detail(9L)
+        val encoded = Json.encodeToString(Routes.Detail.serializer(), detail)
+        assertEquals("""{"activityId":9}""", encoded)
+        assertEquals(detail, Json.decodeFromString(Routes.Detail.serializer(), encoded))
+
+        // The Android restore path (process death / config change) round-trips
+        // through NavKeySerializer: FQCN + concrete serializer.
+        val stackKey = Json.encodeToString(NavKeySerializer<NavKey>(), detail)
+        assertEquals(detail, Json.decodeFromString(NavKeySerializer<NavKey>(), stackKey))
+        assertEquals(
+            Routes.Today,
+            Json.decodeFromString(
+                NavKeySerializer<NavKey>(),
+                Json.encodeToString(NavKeySerializer<NavKey>(), Routes.Today),
+            ),
+        )
     }
 }

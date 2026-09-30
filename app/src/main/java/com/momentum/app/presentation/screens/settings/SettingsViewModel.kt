@@ -2,10 +2,17 @@ package com.momentum.app.presentation.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.momentum.app.AppContainer
+import com.momentum.app.R
+import com.momentum.app.data.repository.UserDataReset
 import com.momentum.app.domain.model.AppSettings
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.domain.model.WeekStart
+import com.momentum.app.domain.repository.ReminderRepository
+import com.momentum.app.domain.repository.SettingsRepository
+import com.momentum.app.notification.ReminderScheduler
+import com.momentum.app.presentation.UiText
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -13,15 +20,21 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface SettingsEffect {
-    data class ShowMessage(val message: String) : SettingsEffect
+    data class ShowMessage(val message: UiText) : SettingsEffect
 }
 
-class SettingsViewModel(private val container: AppContainer) : ViewModel() {
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    private val settingsRepository: SettingsRepository,
+    private val reminderRepository: ReminderRepository,
+    private val reminderScheduler: ReminderScheduler,
+    private val userDataReset: UserDataReset,
+) : ViewModel() {
 
     private val effects = Channel<SettingsEffect>(Channel.BUFFERED)
     val effect = effects.receiveAsFlow()
 
-    val settings = container.settingsRepository.observe()
+    val settings = settingsRepository.observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
 
     fun setTheme(id: String) = update { it.copy(themeId = id) }
@@ -34,20 +47,24 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 // Cancel alarms first so nothing fires for deleted rows.
-                container.reminderRepository.enabledAll()
+                reminderRepository.enabledAll()
                     .groupBy { it.activityId }.keys
-                    .forEach { container.reminderScheduler.cancelForActivity(it) }
+                    .forEach { reminderScheduler.cancelForActivity(it) }
                 // Single transaction: never partially cleared (see UserDataReset).
-                container.userDataReset.clearAllUserData()
-                effects.send(SettingsEffect.ShowMessage("All data cleared."))
-            }.onFailure { effects.send(SettingsEffect.ShowMessage("Couldn't clear data — try again.")) }
+                userDataReset.clearAllUserData()
+                effects.send(SettingsEffect.ShowMessage(UiText(R.string.settings_all_data_cleared)))
+            }.onFailure {
+                effects.send(SettingsEffect.ShowMessage(UiText(R.string.error_couldnt_clear_data)))
+            }
         }
     }
 
     private fun update(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
-            runCatching { container.settingsRepository.update(transform) }
-                .onFailure { effects.send(SettingsEffect.ShowMessage("Couldn't save setting.")) }
+            runCatching { settingsRepository.update(transform) }
+                .onFailure {
+                    effects.send(SettingsEffect.ShowMessage(UiText(R.string.error_couldnt_save_setting)))
+                }
         }
     }
 }

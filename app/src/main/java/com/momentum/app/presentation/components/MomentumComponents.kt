@@ -27,11 +27,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.momentum.app.R
 import com.momentum.app.presentation.theme.LocalMomentumColors
 import com.momentum.app.presentation.theme.MomentumHeights
 import com.momentum.app.presentation.theme.MomentumRadii
@@ -66,7 +69,7 @@ fun MomentumTopBar(
     ) {
         if (onBack != null) {
             IconButton(onClick = onBack, modifier = Modifier.size48()) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = c.textPrimary)
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.cd_back), tint = c.textPrimary)
             }
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -114,6 +117,9 @@ fun MomentumSectionHeader(
                     .heightIn(min = MomentumHeights.controlMin)
                     .clip(RoundedCornerShape(MomentumRadii.control))
                     .clickable(role = Role.Button, onClick = onAction)
+                    // One announcement for the row: the label text is the row's
+                    // own label, so merging stops the double read.
+                    .semantics(mergeDescendants = true) {}
                     .padding(horizontal = MomentumSpacing.row, vertical = MomentumSpacing.group),
                 contentAlignment = Alignment.Center,
             ) {
@@ -181,7 +187,13 @@ fun MomentumSettingRow(
         .fillMaxWidth()
         .heightIn(min = 64.dp)
     val clickable = if (onClick != null) {
-        base.clip(RoundedCornerShape(MomentumRadii.control)).clickable(role = Role.Button, onClick = onClick)
+        // `onClick` rows here carry only text (and decorative glyphs) in their
+        // trailing slot, so merging their descendants keeps the whole row a
+        // single announcement. Rows whose trailing slot is itself interactive
+        // (a `Switch`) never reach this branch — they pass `onClick = null`.
+        base.clip(RoundedCornerShape(MomentumRadii.control))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
     } else {
         base
     }

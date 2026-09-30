@@ -1,8 +1,10 @@
 package com.momentum.app.presentation.screens.creation
 
+import androidx.compose.runtime.Immutable
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.momentum.app.AppContainer
+import com.momentum.app.R
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.ActivityType
@@ -11,8 +13,16 @@ import com.momentum.app.domain.model.HabitIntent
 import com.momentum.app.domain.model.Recurrence
 import com.momentum.app.domain.model.ReduceMode
 import com.momentum.app.domain.model.Reminder
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.CategoryRepository
+import com.momentum.app.domain.repository.ReminderRepository
+import com.momentum.app.notification.ReminderScheduler
+import com.momentum.app.presentation.UiText
+import com.momentum.app.presentation.ViewModelArgs
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +55,7 @@ val SupportedUnits = listOf("min", "h", "pages", "times", "glasses", "ml", "L", 
  * preserved untouched so edits never lose data and Habit ↔ Task conversion
  * is impossible (type/intent have no editor in edit mode).
  */
+@Immutable
 data class CreationForm(
     val activityId: Long? = null,
     val isNew: Boolean = true,
@@ -62,7 +73,8 @@ data class CreationForm(
     val templateId: String? = null,
     // ——— What ———
     val title: String = "",
-    val titleError: String? = null,
+    /** Inline validation copy, resolved by the screen (null = no error). */
+    val titleError: UiText? = null,
     val iconKey: String = "spark",
     /** Legacy free-text field: preserved on edit, never edited here (single Notes field per Decision 05). */
     val description: String = "",
@@ -74,7 +86,8 @@ data class CreationForm(
     val buildBinary: Boolean = true,
     val amount: String = "30",
     val unit: String = "",
-    val measureError: String? = null,
+    /** Inline validation copy, resolved by the screen (null = no error). */
+    val measureError: UiText? = null,
     // ——— Habit schedule ———
     val recurrenceChoice: RecurrenceChoice = RecurrenceChoice.DAILY,
     val days: Set<DayOfWeek> = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
@@ -99,7 +112,19 @@ data class CreationForm(
 
 sealed interface CreationEffect {
     data class Saved(val activityId: Long) : CreationEffect
-    data class Error(val message: String) : CreationEffect
+    data class Error(val message: UiText) : CreationEffect
+}
+
+/** MVI events (ADR-44): the flow's four public actions, dispatched via `onEvent`. */
+sealed interface CreationEvent {
+    /** Applies one atomic form mutation (field edits, toggles, pickers). */
+    data class Update(val transform: (CreationForm) -> CreationForm) : CreationEvent
+    /** Switches the top-level intent while creating (Build ↔ Reduce). */
+    data class SelectIntent(val intent: HabitIntent) : CreationEvent
+    /** Applies a template's defaults to the form. */
+    data class SelectTemplate(val template: HabitTemplate) : CreationEvent
+    /** Validates and persists the form. */
+    data object Save : CreationEvent
 }
 
 /**
@@ -120,12 +145,27 @@ internal fun CreationForm.isSubmittable(): Boolean {
     return true
 }
 
-class CreationViewModel(
-    private val container: AppContainer,
-    private val activityId: Long?,
-    private val creationType: ActivityType = ActivityType.HABIT,
-    private val creationIntent: HabitIntent = HabitIntent.BUILD,
+@HiltViewModel
+class CreationViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val activityRepository: ActivityRepository,
+    private val categoryRepository: CategoryRepository,
+    private val reminderRepository: ReminderRepository,
+    private val reminderScheduler: ReminderScheduler,
 ) : ViewModel() {
+
+    /** Row to edit (null = create), via [ViewModelArgs.ACTIVITY_ID]. */
+    private val activityId: Long? = savedStateHandle.get<String>(ViewModelArgs.ACTIVITY_ID)?.toLongOrNull()
+
+    /** Semantic kind of the flow, via [ViewModelArgs.ACTIVITY_TYPE] (default habit). */
+    private val creationType: ActivityType =
+        savedStateHandle.get<String>(ViewModelArgs.ACTIVITY_TYPE)?.let { ActivityType.valueOf(it) }
+            ?: ActivityType.HABIT
+
+    /** Habit intent while creating, via [ViewModelArgs.HABIT_INTENT] (default build). */
+    private val creationIntent: HabitIntent =
+        savedStateHandle.get<String>(ViewModelArgs.HABIT_INTENT)?.let { HabitIntent.valueOf(it) }
+            ?: HabitIntent.BUILD
 
     private val mutableForm = MutableStateFlow(
         CreationForm(
@@ -146,24 +186,36 @@ class CreationViewModel(
     private val effects = Channel<CreationEffect>(Channel.BUFFERED)
     val effect = effects.receiveAsFlow()
 
-    val categories = container.categoryRepository.observeAll()
+    val categories = categoryRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList<Category>())
 
     init {
         if (activityId != null) {
             viewModelScope.launch {
-                val existing = container.activityRepository.getById(activityId)
+                val existing = activityRepository.getById(activityId)
                 if (existing == null) {
-                    effects.send(CreationEffect.Error("Activity not found."))
+                    effects.send(
+                        CreationEffect.Error(UiText(R.string.creation_error_activity_not_found)),
+                    )
                 } else {
-                    val reminders = container.reminderRepository.forActivity(activityId)
+                    val reminders = reminderRepository.forActivity(activityId)
                     mutableForm.update { toForm(existing, reminders.firstOrNull()) }
                 }
             }
         }
     }
 
-    fun update(transform: (CreationForm) -> CreationForm) {
+    /** Single entry point for every user action on this flow (ADR-44). */
+    fun onEvent(event: CreationEvent) {
+        when (event) {
+            is CreationEvent.Update -> update(event.transform)
+            is CreationEvent.SelectIntent -> selectIntent(event.intent)
+            is CreationEvent.SelectTemplate -> selectTemplate(event.template)
+            CreationEvent.Save -> save()
+        }
+    }
+
+    private fun update(transform: (CreationForm) -> CreationForm) {
         mutableForm.update(transform)
     }
 
@@ -172,7 +224,7 @@ class CreationViewModel(
      * selection (the other intent's templates apply) but keeps the typed
      * title/icon/measure so nothing the user entered is lost.
      */
-    fun selectIntent(intent: HabitIntent) {
+    private fun selectIntent(intent: HabitIntent) {
         mutableForm.update {
             it.copy(habitIntent = intent, templateId = null, titleError = null, measureError = null)
         }
@@ -183,7 +235,7 @@ class CreationViewModel(
      * afterwards; Custom clears the name/icon for a free-form habit while
      * keeping any measure the user already typed.
      */
-    fun selectTemplate(template: HabitTemplate) {
+    private fun selectTemplate(template: HabitTemplate) {
         mutableForm.update {
             when {
                 template.isCustom -> it.copy(
@@ -225,15 +277,15 @@ class CreationViewModel(
         }
     }
 
-    fun save() {
+    private fun save() {
         val current = mutableForm.value
         val title = current.title.trim()
         if (title.isEmpty()) {
-            mutableForm.update { it.copy(titleError = "Give it a name.") }
+            mutableForm.update { it.copy(titleError = UiText(R.string.creation_error_title_required)) }
             return
         }
         if (title.length > 120) {
-            mutableForm.update { it.copy(titleError = "Keep it under 120 characters.") }
+            mutableForm.update { it.copy(titleError = UiText(R.string.creation_error_title_too_long)) }
             return
         }
         val isTask = current.activityType == ActivityType.TASK
@@ -242,21 +294,23 @@ class CreationViewModel(
                 (current.habitIntent == HabitIntent.BUILD && !current.buildBinary))
         val parsedAmount = current.amount.toDoubleOrNull()?.takeIf { it > 0 }
         if (needsAmount && parsedAmount == null) {
-            mutableForm.update { it.copy(measureError = "Enter an amount greater than 0.") }
+            mutableForm.update { it.copy(measureError = UiText(R.string.creation_error_amount_required)) }
             return
         }
         if (needsAmount && current.unit.isBlank()) {
-            mutableForm.update { it.copy(measureError = "Pick a unit.") }
+            mutableForm.update { it.copy(measureError = UiText(R.string.creation_error_unit_required)) }
             return
         }
         if (needsAmount && current.unit.trim().length > 24) {
-            mutableForm.update { it.copy(measureError = "Keep the unit short.") }
+            mutableForm.update { it.copy(measureError = UiText(R.string.creation_error_unit_too_long)) }
             return
         }
         // Only habits expose an end date; tasks preserve whatever is stored.
         if (!isTask && current.hasEndDate && current.endDate.isBefore(current.startDate)) {
             viewModelScope.launch {
-                effects.send(CreationEffect.Error("End date can't be before start date."))
+                effects.send(
+                    CreationEffect.Error(UiText(R.string.creation_error_end_before_start)),
+                )
             }
             return
         }
@@ -305,10 +359,10 @@ class CreationViewModel(
                     },
                     priority = current.priority.coerceIn(0, 3),
                     notes = current.notes.trim(),
-                    status = container.activityRepository.getById(activityId ?: -1)?.status
+                    status = activityRepository.getById(activityId ?: -1)?.status
                         ?: ActivityStatus.ACTIVE,
                 )
-                val savedId = container.activityRepository.saveWithReminders(
+                val savedId = activityRepository.saveWithReminders(
                     // v1: a single local reminder per activity (schema supports N; UI adds more later).
                     activity,
                     if (current.reminderEnabled) {
@@ -323,11 +377,11 @@ class CreationViewModel(
                         emptyList()
                     },
                 )
-                container.reminderScheduler.scheduleForActivity(savedId)
+                reminderScheduler.scheduleForActivity(savedId)
                 effects.send(CreationEffect.Saved(savedId))
             } catch (t: Throwable) {
                 mutableForm.update { it.copy(isSaving = false) }
-                effects.send(CreationEffect.Error("Couldn't save — try again."))
+                effects.send(CreationEffect.Error(UiText(R.string.error_couldnt_save)))
             }
         }
     }

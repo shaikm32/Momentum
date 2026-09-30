@@ -38,14 +38,15 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.momentum.app.R
 import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.MomentumDurations
 import com.momentum.app.presentation.theme.MomentumRadii
@@ -67,58 +68,8 @@ import com.momentum.app.presentation.theme.Twilight
  * in [OnboardingBackdrop].
  */
 object OnboardingGlass {
-    /** Panel / tile fill: white 10–18%. */
-    const val fillAlpha = 0.14f
-
-    /** Luminous hairline border: white 30–55%. */
-    const val borderAlpha = 0.42f
-
-    /** Top-edge illumination streak: white 15–25%. */
-    const val highlightAlpha = 0.20f
-
-    /** Cyan accent glow on hero objects: 10–25%. */
-    const val glowAlpha = 0.18f
-
     /** CTA glass: brighter luminous pill. */
-    const val ctaFillAlpha = 0.28f
     const val ctaBorderAlpha = 0.55f
-
-    val tileCorner = 22.dp
-    val panelCorner = 24.dp
-}
-
-/**
- * Base glass treatment: translucent fill, luminous top wash, hairline
- * border, soft shadow. One call site for the whole onboarding language.
- */
-@Composable
-private fun Modifier.onboardingGlass(
-    shape: Shape,
-    fillAlpha: Float = OnboardingGlass.fillAlpha,
-    borderAlpha: Float = OnboardingGlass.borderAlpha,
-    glow: Color? = null,
-): Modifier {
-    val shadowed = if (glow != null) {
-        this.shadow(
-            elevation = 14.dp,
-            shape = shape,
-            ambientColor = Color.Black.copy(alpha = 0.35f),
-            spotColor = glow.copy(alpha = OnboardingGlass.glowAlpha),
-        )
-    } else {
-        this
-    }
-    return shadowed
-        .clip(shape)
-        .background(
-            brush = Brush.verticalGradient(
-                0f to Color.White.copy(alpha = OnboardingGlass.highlightAlpha),
-                0.42f to Color.White.copy(alpha = fillAlpha),
-                1f to Color(0xFFBFE3FF).copy(alpha = fillAlpha * 0.8f),
-            ),
-            shape = shape,
-        )
-        .border(BorderStroke(Dp.Hairline, Color.White.copy(alpha = borderAlpha)), shape)
 }
 
 /**
@@ -241,6 +192,9 @@ fun OnboardingGlassSkipButton(
         label = "skipPress",
     )
     val shape = RoundedCornerShape(MomentumRadii.pill)
+    // Hoisted: the `semantics {}` lambda below is not composable.
+    val skipLabel = stringResource(R.string.action_skip)
+    val skipDescription = stringResource(R.string.cd_skip_onboarding)
     Box(
         modifier = modifier
             .heightIn(min = 48.dp)
@@ -268,15 +222,15 @@ fun OnboardingGlassSkipButton(
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
-                onClickLabel = "Skip",
+                onClickLabel = skipLabel,
                 onClick = onClick,
             )
-            .semantics(mergeDescendants = true) { contentDescription = "Skip onboarding" }
+            .semantics(mergeDescendants = true) { contentDescription = skipDescription }
             .padding(horizontal = 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "Skip",
+            text = skipLabel,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             color = Twilight.Moonlight,

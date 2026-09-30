@@ -1,18 +1,27 @@
 package com.momentum.app.presentation.screens.calendar
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.momentum.app.AppContainer
+import com.momentum.app.R
 import com.momentum.app.domain.engine.RecurrenceEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.WeekStart
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.CompletionRepository
+import com.momentum.app.domain.repository.SettingsRepository
+import com.momentum.app.domain.usecase.GetTodayScheduleUseCase
 import com.momentum.app.domain.usecase.TodayItem
+import com.momentum.app.domain.usecase.ToggleCompletionUseCase
 import com.momentum.app.domain.usecase.toIso
 import com.momentum.app.domain.usecase.toLocalDate
+import com.momentum.app.presentation.UiText
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +33,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class DayCell(
     val date: LocalDate,
     val inMonth: Boolean,
@@ -33,6 +43,7 @@ data class DayCell(
     val fraction: Float = if (scheduled == 0) -1f else completed.toFloat() / scheduled
 }
 
+@Immutable
 data class CalendarUiState(
     val month: YearMonth = YearMonth.now(),
     val today: LocalDate = LocalDate.now(),
@@ -66,18 +77,25 @@ fun gridStartForMonth(month: YearMonth, weekStart: WeekStart): LocalDate {
     return first.minusDays(back.toLong())
 }
 
-class CalendarViewModel(private val container: AppContainer) : ViewModel() {
+@HiltViewModel
+class CalendarViewModel @Inject constructor(
+    private val activityRepository: ActivityRepository,
+    private val completionRepository: CompletionRepository,
+    private val settingsRepository: SettingsRepository,
+    private val toggleCompletion: ToggleCompletionUseCase,
+    private val getTodaySchedule: GetTodayScheduleUseCase,
+) : ViewModel() {
 
     private val monthOffset = MutableStateFlow(0)
     private val selected = MutableStateFlow(LocalDate.now())
 
-    private val messagesChannel = Channel<String>(Channel.BUFFERED)
+    private val messagesChannel = Channel<UiText>(Channel.BUFFERED)
     val messages = messagesChannel.receiveAsFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state = combine(
         monthOffset,
-        container.settingsRepository.observe(),
+        settingsRepository.observe(),
     ) { offset, settings -> offset to settings.weekStart }
         .flatMapLatest { (offset, weekStart) ->
             val month = YearMonth.now().plusMonths(offset.toLong())
@@ -87,8 +105,8 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
             val gridStart = gridStartForMonth(month, weekStart)
             val gridEnd = gridStart.plusDays(41)
             combine(
-                container.activityRepository.observeAll(),
-                container.completionRepository.observeInRange(gridStart.toIso(), gridEnd.toIso()),
+                activityRepository.observeAll(),
+                completionRepository.observeInRange(gridStart.toIso(), gridEnd.toIso()),
                 selected,
             ) { activities, completions, sel ->
                 buildState(month, activities, completions, sel, gridStart, weekStart)
@@ -101,21 +119,21 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
 
     fun goToday() {
         val now = YearMonth.now()
-        monthOffset.value = 0
-        selected.value = LocalDate.now()
+        monthOffset.update { 0 }
+        selected.update { LocalDate.now() }
     }
 
     fun select(date: LocalDate) {
-        selected.value = date
+        selected.update { date }
     }
 
     /** Toggles the selected day's occurrence (never a future-or-past fake). */
     fun toggle(activityId: Long, date: LocalDate) {
         viewModelScope.launch {
             // P2#2: a "done" tap records the full target (8/8), not 1.0.
-            val target = container.activityRepository.getById(activityId)?.targetPerOccurrence ?: 1.0
-            runCatching { container.toggleCompletion(activityId, date, target) }
-                .onFailure { messagesChannel.send("Couldn't save — try again.") }
+            val target = activityRepository.getById(activityId)?.targetPerOccurrence ?: 1.0
+            runCatching { toggleCompletion(activityId, date, target) }
+                .onFailure { messagesChannel.send(UiText(R.string.error_couldnt_save)) }
         }
     }
 
@@ -144,7 +162,7 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
             }
             DayCell(date, date.month == month.month, scheduled, done)
         }
-        val selectedItems = container.getTodaySchedule(sel, live.filter { it.status == ActivityStatus.ACTIVE }, byActivity)
+        val selectedItems = getTodaySchedule(sel, live.filter { it.status == ActivityStatus.ACTIVE }, byActivity)
         return CalendarUiState(
             month = month,
             today = LocalDate.now(),

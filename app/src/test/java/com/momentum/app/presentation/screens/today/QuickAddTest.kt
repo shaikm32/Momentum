@@ -46,10 +46,11 @@ class QuickAddTest {
         )
         assertTrue(code.contains("QuickAddFab("))
         // Both section headers still present and in spec order.
-        assertTrue(count(code, "title = \"Remaining today\"") == 1)
-        assertTrue(count(code, "title = \"Completed today\"") == 1)
+        assertTrue(count(code, "title = stringResource(R.string.today_section_remaining)") == 1)
+        assertTrue(count(code, "title = stringResource(R.string.today_section_completed)") == 1)
         assertTrue(
-            code.indexOf("title = \"Remaining today\"") < code.indexOf("title = \"Completed today\""),
+            code.indexOf("title = stringResource(R.string.today_section_remaining)") <
+                code.indexOf("title = stringResource(R.string.today_section_completed)"),
         )
     }
 
@@ -65,7 +66,10 @@ class QuickAddTest {
     @Test
     fun `Quick Add is a labelled button with a comfortable target`() {
         val code = codeOf(screen)
-        assertTrue("TalkBack must hear the feature name", code.contains("contentDescription = \"Quick Add\""))
+        assertTrue(
+            "TalkBack must hear the feature name",
+            code.contains("contentDescription = stringResource(R.string.cd_quick_add)"),
+        )
         assertTrue("it must be announced as a button", code.contains("role = Role.Button"))
         assertTrue(
             "diameter must clear the 48 dp minimum touch target",

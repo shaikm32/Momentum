@@ -2,17 +2,20 @@ package com.momentum.app.presentation.screens.habits
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.momentum.app.AppContainer
+import app.cash.turbine.test
+import com.momentum.app.TestGraph
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.domain.model.Recurrence
 import com.momentum.app.domain.model.Reminder
+import com.momentum.app.habitsViewModel
 import com.momentum.app.notification.ReminderScheduler
+import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -36,13 +39,13 @@ private class NoopScheduler : ReminderScheduler {
 @RunWith(RobolectricTestRunner::class)
 class HabitsViewModelTest {
 
-    private lateinit var container: AppContainer
+    private lateinit var container: TestGraph
 
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.deleteDatabase("momentum.db")
-        container = AppContainer(context, reminderSchedulerOverride = NoopScheduler())
+        container = TestGraph(context, reminderSchedulerOverride = NoopScheduler())
     }
 
     @After
@@ -84,51 +87,81 @@ class HabitsViewModelTest {
             ),
             emptyList(),
         )
-        val vm = HabitsViewModel(container)
+        val vm = container.habitsViewModel()
         // Initial state has isEmpty=false + empty items; wait for the real emission.
-        val state = vm.state.first { it.isEmpty }
+        val state = awaitState(vm.state) { it.isEmpty }
         assertTrue(state.items.isEmpty())
         assertTrue(state.isEmpty)
     }
 
     @Test
-    fun `shows active habits with metadata row and ordered active before paused`() = runTest {
+    fun `shows active habits with the data its metadata row is built from`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         saveHabit("Paused one", status = ActivityStatus.PAUSED)
         saveHabit("Active target", target = 30.0, unit = "pages", reminder = "21:30")
         saveHabit("Active binary")
 
-        val vm = HabitsViewModel(container)
-        val state = vm.state.first { it.items.size == 3 }
+        val vm = container.habitsViewModel()
+        val state = awaitState(vm.state) { it.items.size == 3 }
 
         assertFalse(state.isEmpty)
         // Same-priority ties break alphabetically after Active-before-Paused.
         assertEquals(listOf("Active binary", "Active target", "Paused one"), state.items.map { it.activity.title })
-        assertEquals("Daily · — · —", state.items[0].metadata)
-        assertEquals("Daily · 30 pages · 21:30", state.items[1].metadata)
+        // The `Frequency · Target · Reminder` line is composed by the screen
+        // (Phase E1b), so the ViewModel hands over the structured inputs only.
+        assertEquals(Recurrence.Daily, state.items[0].activity.recurrence)
+        assertEquals(1.0, state.items[0].activity.targetPerOccurrence, 0.0)
+        assertEquals("", state.items[0].activity.unit)
+        assertEquals(30.0, state.items[1].activity.targetPerOccurrence, 0.0)
+        assertEquals("pages", state.items[1].activity.unit)
         assertNull(state.items[0].reminderTime)
         assertEquals("21:30", state.items[1].reminderTime)
+    }
+
+    @Test
+    fun `the metadata row is composed in the screen from a format resource`() {
+        val screen = File("src/main/java/com/momentum/app/presentation/screens/habits/HabitsScreen.kt")
+            .readText()
+        val strings = File("src/main/res/values/strings.xml").readText()
+        // Three fixed slots so every card stays aligned, joined by a middot.
+        assertTrue(
+            "strings.xml must still carry <string name=\"habits_metadata\">%1\$s · %2\$s · %3\$s</string>",
+            strings.contains("<string name=\"habits_metadata\">%1\$s · %2\$s · %3\$s</string>"),
+        )
+        assertTrue(
+            "the card must read the frequency, target and reminder through one resource",
+            screen.contains("R.string.habits_metadata") &&
+                screen.contains("recurrenceLabel(activity.recurrence)") &&
+                screen.contains("formatAmount(activity.targetPerOccurrence)") &&
+                screen.contains("item.reminderTime"),
+        )
+        val viewModel =
+            File("src/main/java/com/momentum/app/presentation/screens/habits/HabitsViewModel.kt").readText()
+        assertFalse(
+            "the ViewModel must not build the metadata line or call display logic",
+            viewModel.contains("recurrenceLabel") || viewModel.contains("formatAmount"),
+        )
     }
 
     @Test
     fun `pause then resume updates status without deleting`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val id = saveHabit("Go away")
-        val vm = HabitsViewModel(container)
+        val vm = container.habitsViewModel()
         // Wait for a real emission that includes the habit before pausing —
         // the stateIn initial value is empty and would never match PAUSED.
-        vm.state.first { s -> s.items.any { it.activity.id == id } }
+        awaitState(vm.state) { s -> s.items.any { it.activity.id == id } }
 
         vm.pause(id)
         // Room writes land on its query executor; wait for the list state
         // to re-emit with PAUSED (advanceUntilIdle alone can return early).
-        vm.state.first { s ->
+        awaitState(vm.state) { s ->
             s.items.any { it.activity.id == id && it.activity.status == ActivityStatus.PAUSED }
         }
         assertEquals(ActivityStatus.PAUSED, container.activityRepository.getById(id)!!.status)
 
         vm.resume(id)
-        vm.state.first { s ->
+        awaitState(vm.state) { s ->
             s.items.any { it.activity.id == id && it.activity.status == ActivityStatus.ACTIVE }
         }
         assertEquals(ActivityStatus.ACTIVE, container.activityRepository.getById(id)!!.status)
@@ -138,14 +171,31 @@ class HabitsViewModelTest {
     fun `deleteHard removes the habit`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val id = saveHabit("Doomed")
-        val vm = HabitsViewModel(container)
+        val vm = container.habitsViewModel()
         // Land on a real emission that includes the habit first — the
         // stateIn initial value is empty and would satisfy `none` too early.
-        vm.state.first { s -> s.items.any { it.activity.id == id } }
+        awaitState(vm.state) { s -> s.items.any { it.activity.id == id } }
 
         vm.deleteHard(id)
-        vm.state.first { s -> s.items.none { it.activity.id == id } }
+        awaitState(vm.state) { s -> s.items.none { it.activity.id == id } }
 
         assertNull(container.activityRepository.getById(id))
     }
+}
+
+/**
+ * Awaits a [HabitsUiState] matching [predicate] through Turbine (Phase D) —
+ * replaces the hand-rolled `state.first { … }` collection.
+ */
+private suspend fun awaitState(
+    flow: StateFlow<HabitsUiState>,
+    predicate: (HabitsUiState) -> Boolean,
+): HabitsUiState {
+    var matched: HabitsUiState? = null
+    flow.test {
+        var item = awaitItem()
+        while (!predicate(item)) item = awaitItem()
+        matched = item
+    }
+    return requireNotNull(matched) { "state flow completed without a matching emission" }
 }

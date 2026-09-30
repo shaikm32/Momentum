@@ -4,4 +4,411 @@
     <string name="reminder_channel_desc">Gentle nudges for your scheduled activities.</string>
     <string name="reminder_tap_to_open">Tap to view your activity.</string>
     <string name="action_mark_done">Mark done</string>
+
+    <!-- Actions -->
+    <string name="action_archive">Archive</string>
+    <string name="action_archive_supporting">Retire without deleting history</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_change_icon">Change icon</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_clear_all">Clear all</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_create_activity">Create activity</string>
+    <string name="action_create_habit">Create Habit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_delete_permanently">Delete permanently</string>
+    <string name="action_delete_permanently_supporting">Erases history and reminders</string>
+    <string name="action_done">Done</string>
+    <string name="action_edit_habit">Edit Habit</string>
+    <string name="action_get_started">Let\'s Get Started</string>
+    <string name="action_keep">Keep</string>
+    <string name="action_keep_my_data">Keep my data</string>
+    <string name="action_ok">OK</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_pause_supporting">Hide from Today, keep history</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_restore_supporting">Return to active, keep history</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_resume_supporting">Show on Today again</string>
+    <string name="action_save">Save</string>
+    <string name="action_save_changes">Save changes</string>
+    <string name="action_saving">Saving…</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_today">Today</string>
+    <string name="action_try_again">Try again</string>
+
+    <!-- Activities list -->
+    <string name="activities_empty_active">No activities yet</string>
+    <string name="activities_empty_archived">Archive is empty</string>
+    <string name="activities_empty_body">Create something worth showing up for.</string>
+    <string name="activities_empty_paused">Nothing paused</string>
+    <string name="activities_search">Search activities</string>
+    <string name="activities_subtitle_active">%1$d active</string>
+    <string name="activities_subtitle_archived">%1$d archived</string>
+    <string name="activities_subtitle_paused">%1$d paused</string>
+    <string name="activities_title">Activities</string>
+
+    <!-- Creation fields -->
+    <string name="amount_label_limit">Limit</string>
+    <string name="amount_placeholder">e.g. 30</string>
+    <string name="category_all">All</string>
+    <string name="category_none">None</string>
+    <string name="chip_just_mark_done">Just mark it done</string>
+    <string name="chip_reach_target">Reach a target</string>
+    <string name="chip_set_limit">Set a limit</string>
+    <string name="create_item_section">Create item</string>
+    <string name="create_option_habit">Habit</string>
+    <string name="create_option_habit_supporting">Build it consistently, one day at a time</string>
+    <string name="create_option_task">Task</string>
+    <string name="create_option_task_supporting">Get it done, once or on repeat</string>
+    <string name="custom_unit_label">Custom unit</string>
+    <string name="custom_unit_placeholder">Or type your own…</string>
+    <string name="due_at_label">Due at</string>
+    <string name="due_date_label">Due date</string>
+    <string name="due_no_date">No due date</string>
+    <string name="due_no_date_explainer">Shows up today until it\'s done.</string>
+    <string name="due_pick_date">Pick a date</string>
+    <string name="due_section">When is it due?</string>
+    <string name="due_specific_time">Specific time</string>
+    <string name="due_time_supporting">What time it\'s due — separate from the reminder</string>
+    <string name="due_tomorrow">Tomorrow</string>
+    <string name="edit_not_found">Couldn\'t find that item. It may have been deleted.</string>
+    <string name="edit_title">Edit</string>
+    <string name="field_category">Category</string>
+    <string name="field_end_date">End date</string>
+    <string name="field_ends">Ends</string>
+    <string name="field_icon">Icon</string>
+    <string name="field_name">Name</string>
+    <string name="field_name_placeholder">e.g. Read before bed</string>
+    <string name="field_notes">Notes (optional)</string>
+    <string name="field_notes_placeholder">Instructions, context, anything useful…</string>
+    <string name="field_priority">Priority</string>
+    <string name="field_repeat_pattern">Repeat pattern</string>
+    <string name="field_repeats_indefinitely">Repeats indefinitely</string>
+    <string name="field_starts">Starts</string>
+    <string name="field_stops_repeating">Stops repeating</string>
+    <string name="icon_picker_title">Choose icon</string>
+    <string name="icon_art">Art</string>
+    <string name="icon_fitness">Fitness</string>
+    <string name="icon_food">Food</string>
+    <string name="icon_health">Health</string>
+    <string name="icon_home">Home</string>
+    <string name="icon_learning">Learning</string>
+    <string name="icon_list">List</string>
+    <string name="icon_mail">Mail</string>
+    <string name="icon_meds">Medicine</string>
+    <string name="icon_mind">Mind</string>
+    <string name="icon_music">Music</string>
+    <string name="icon_people">People</string>
+    <string name="icon_school">School</string>
+    <string name="icon_sleep">Sleep</string>
+    <string name="icon_spark">Spark</string>
+    <string name="icon_timer">Timer</string>
+    <string name="icon_water">Water</string>
+    <string name="icon_work">Work</string>
+    <string name="habit_config_create">Create habit</string>
+    <string name="intent_build">Build</string>
+    <string name="intent_build_body">Start small and keep going.</string>
+    <string name="intent_reduce">Reduce</string>
+    <string name="intent_reduce_body">Cut back at your own pace.</string>
+    <string name="limit_explainer">Your limit for each occurrence — staying at or below it counts as success.</string>
+    <string name="locked_build_summary">Build habit — just show up daily.</string>
+    <string name="locked_reduce_limit_summary">Reduce habit — stay at or below your limit.</string>
+    <string name="locked_reduce_zero_summary">Reduce habit — zero is the target.</string>
+    <string name="measure_build_section">How will you succeed?</string>
+    <string name="measure_reduce_section">How much do you want to reduce?</string>
+    <string name="pattern_every_n_days">Every N days</string>
+    <string name="pattern_every_n_weeks">Every N weeks</string>
+    <string name="pattern_monthly">Monthly</string>
+    <string name="pattern_once">One-time</string>
+    <string name="pattern_weekly">Weekly</string>
+    <string name="preset_custom">Custom</string>
+    <string name="preset_every_day">Every day</string>
+    <string name="preset_specific_days">Specific days</string>
+    <string name="preset_weekdays">Weekdays</string>
+    <string name="priority_explainer">Higher priority shows first on Today.</string>
+    <string name="priority_high">High</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_normal">Normal</string>
+    <string name="priority_top">Top</string>
+    <string name="reminder_nudge">Nudge me</string>
+    <string name="reminder_supporting_default">On-device notification at your time</string>
+    <string name="reminder_supporting_task">Separate from the due time — when to nudge you</string>
+    <string name="reminder_time_label">Reminder time</string>
+    <string name="repeat_explainer">Repeats from the due date above.</string>
+    <string name="repeat_label">Repeat</string>
+    <string name="repeat_section">Does it repeat?</string>
+    <string name="repeat_supporting_off">One-time — monthly bills and weekly chores can repeat</string>
+    <string name="repeat_supporting_on">Each occurrence is independent — it stays a task</string>
+    <string name="section_what_is_it">What is it?</string>
+    <string name="section_details_optional">Details (optional)</string>
+    <string name="section_reminder">Reminder</string>
+    <string name="section_schedule">When does it happen?</string>
+    <string name="stepper_day_of_month">Day %1$d of the month</string>
+    <string name="stepper_every_days">Every %1$d days</string>
+    <string name="stepper_every_weeks">Every %1$d weeks</string>
+    <string name="task_config_create">Create task</string>
+    <string name="task_subtitle">What do you need to get done?</string>
+    <string name="task_title_edit">Edit task</string>
+    <string name="task_title_new">New task</string>
+    <string name="unit_label">Unit</string>
+    <string name="zero_explainer">Zero is the goal — no daily check-in needed. If a slip happens, log it from Today.</string>
+
+    <!-- Content descriptions -->
+    <string name="badge_streak_days">%1$d-day streak</string>
+    <string name="cd_actions_for_habit">Actions for %1$s</string>
+    <string name="cd_add_activity">Add activity</string>
+    <string name="cd_archive_activity">Archive %1$s</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_complete_activity">Complete %1$s</string>
+    <string name="cd_create_habit">Create habit</string>
+    <string name="cd_create_task">Create task</string>
+    <string name="cd_decrease">Decrease</string>
+    <string name="cd_delete_activity">Delete %1$s</string>
+    <string name="cd_edit_activity">Edit %1$s</string>
+    <string name="cd_edit_habit_icon">Edit habit icon</string>
+    <string name="cd_edit_progress">Edit today\'s progress for %1$s</string>
+    <string name="cd_enter_progress">Enter today\'s progress for %1$s</string>
+    <string name="cd_icon_editable">Icon is editable</string>
+    <string name="cd_increase">Increase</string>
+    <string name="cd_mark_as_done">Mark as done</string>
+    <string name="cd_mark_as_not_done">Mark as not done</string>
+    <string name="cd_mark_incomplete">Mark %1$s incomplete</string>
+    <string name="cd_next_month">Next month</string>
+    <string name="cd_open_calendar_history">Open calendar history</string>
+    <string name="cd_pause_activity">Pause %1$s</string>
+    <string name="cd_previous_month">Previous month</string>
+    <string name="cd_quick_add">Quick Add</string>
+    <string name="cd_restore_activity">Restore %1$s</string>
+    <string name="cd_resume_activity">Resume %1$s</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_skip_onboarding">Skip onboarding</string>
+    <string name="cd_theme_selected">%1$s selected</string>
+
+    <!-- Today -->
+    <string name="today_empty_action">Add an activity</string>
+    <string name="today_empty_body">When you add a habit or task it shows up here. One small step is enough.</string>
+    <string name="today_empty_title">Nothing scheduled today</string>
+    <string name="today_loading">Loading today…</string>
+    <string name="today_section_completed">Completed today</string>
+    <string name="today_section_remaining">Remaining today</string>
+    <string name="hero_progress_count">%1$d of %2$d completed</string>
+    <string name="target_entry_actual">Actual</string>
+    <string name="target_entry_placeholder">e.g. %1$s</string>
+    <string name="target_entry_target">Target</string>
+
+    <!-- Detail screens -->
+    <string name="detail_activity_not_found">Activity not found.</string>
+    <string name="detail_no_occurrences">No scheduled occurrences yet.</string>
+    <string name="detail_row_notes">Notes</string>
+    <string name="detail_row_reminders">Reminders</string>
+    <string name="detail_row_schedule">Schedule</string>
+    <string name="detail_row_target">Target</string>
+    <string name="detail_row_trend">Trend</string>
+    <string name="detail_schedule_from">" · from %1$s"</string>
+    <string name="detail_schedule_to">" to %1$s"</string>
+    <string name="detail_status_completed">Completed</string>
+    <string name="detail_status_not_yet_done">Not yet done</string>
+    <string name="detail_today">Today</string>
+    <string name="dialog_clear_all_body">All activities, completion history, and reminders will be deleted. This can\'t be undone.</string>
+    <string name="dialog_clear_all_title">Clear everything?</string>
+    <string name="dialog_delete_activities_body">History and reminders for this activity are deleted too. Archive keeps history.</string>
+    <string name="dialog_delete_activity_body">Completion history and reminders are deleted too. This can\'t be undone.</string>
+    <string name="dialog_delete_habit_body">This removes the habit and its completion history. This can\'t be undone.</string>
+    <string name="dialog_delete_habit_title">Delete habit permanently?</string>
+    <string name="dialog_delete_permanently_title">Delete permanently?</string>
+    <string name="habit_detail_not_found">Habit not found.</string>
+    <string name="info_no_end_date">No end date</string>
+    <string name="info_row_direction">Direction</string>
+    <string name="info_row_end_date">End date</string>
+    <string name="info_row_start_date">Start date</string>
+    <string name="info_row_tracking">Tracking</string>
+    <string name="loading">Loading…</string>
+    <string name="meta_frequency">Frequency</string>
+    <string name="meta_reminder">Reminder</string>
+    <string name="section_actions">Actions</string>
+    <string name="section_details">Details</string>
+    <string name="section_recent_history">Recent history</string>
+    <string name="section_statistics">Statistics</string>
+    <string name="section_this_week">This Week</string>
+    <string name="stat_best_streak">Best streak</string>
+    <string name="stat_completions">Completions</string>
+    <string name="stat_current_streak">Current streak</string>
+    <string name="stat_last_30_days">Last 30 days</string>
+
+    <!-- Habits -->
+    <string name="habit_menu_delete">Delete Habit</string>
+    <string name="habit_menu_pause">Pause Habit</string>
+    <string name="habit_menu_resume">Resume Habit</string>
+    <string name="habit_section_choose">Choose a habit</string>
+    <string name="habit_section_intent">What do you want to work on?</string>
+    <string name="habit_subtitle_build">Small steps, done daily</string>
+    <string name="habit_subtitle_reduce">Cut back, stay in control</string>
+    <string name="habit_target_just_mark">Just mark it done</string>
+    <string name="habit_target_zero">Zero is the goal</string>
+    <string name="habit_title_edit">Edit habit</string>
+    <string name="habit_title_new">New habit</string>
+    <string name="habit_tracking_completely">Completely</string>
+    <string name="habit_tracking_limit">Limit</string>
+    <string name="habit_tracking_target_amount">Target amount</string>
+    <string name="habit_week_completed">%1$d/%2$d completed</string>
+    <string name="habits_empty_body">Start small — pick one thing you want to build or reduce.</string>
+    <string name="habits_empty_title">No habits yet</string>
+    <string name="habits_subtitle">Manage the things you\'re building and reducing.</string>
+    <string name="habits_title">Habits</string>
+    <string name="status_active">Active</string>
+    <string name="status_paused">Paused</string>
+    <string name="streak_current">%1$d day%2$s streak</string>
+    <string name="streak_longest">Longest: %1$d day%2$s</string>
+    <string name="template_custom">Custom habit</string>
+    <string name="template_exercise">Exercise</string>
+    <string name="template_hydrate">Hydrate</string>
+    <string name="template_learn">Learn</string>
+    <string name="template_meditate">Meditate</string>
+    <string name="template_read">Read</string>
+    <string name="template_screentime">Screen time</string>
+    <string name="template_social_media">Social media</string>
+    <string name="template_spending">Spending</string>
+    <string name="template_sugar">Sugar / junk food</string>
+
+    <!-- Calendar -->
+    <string name="calendar_day_complete">%1$d of %2$d complete</string>
+    <string name="calendar_day_complete_suffix">, %1$d of %2$d complete</string>
+    <string name="calendar_nothing_scheduled">Nothing scheduled.</string>
+
+    <!-- Insights -->
+    <string name="insights_by_category">By category</string>
+    <string name="insights_category_complete">%1$d of %2$d complete</string>
+    <string name="insights_completions_30d">Completions · 30d</string>
+    <string name="insights_delta_down">%1$d pts vs 30-day average</string>
+    <string name="insights_delta_even">Even with your 30-day average</string>
+    <string name="insights_delta_up">+%1$d pts vs 30-day average</string>
+    <string name="insights_empty_body">Complete activities for a few days and your trends will appear here.</string>
+    <string name="insights_empty_title">No data yet</string>
+    <string name="insights_last_7_days">Last 7 days</string>
+    <string name="insights_most_consistent">Most consistent</string>
+    <string name="insights_rate_in_a_row">%1$d%% · %2$d in a row</string>
+    <string name="insights_subtitle">Your consistency at a glance</string>
+    <string name="insights_this_week">This week</string>
+    <string name="insights_title">Insights</string>
+
+    <!-- Settings -->
+    <string name="section_about">About</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="section_data_privacy">Data &amp; privacy</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="section_preferences">Preferences</string>
+    <string name="settings_about_body">Your data stays on your device. No account, no cloud, no tracking — offline by design.</string>
+    <string name="settings_about_version">Momentum %1$s</string>
+    <string name="settings_change">Change</string>
+    <string name="settings_clear_all_local_data">Clear all local data</string>
+    <string name="settings_data_body">Everything stays on this device. Clearing deletes all activities, history, and reminders.</string>
+    <string name="settings_mode">Mode</string>
+    <string name="settings_motivational">Motivational messages</string>
+    <string name="settings_motivational_supporting">Gentle encouragement on Today</string>
+    <string name="settings_notifications_body">Reminders fire on-device. Enable notifications so Momentum can nudge you.</string>
+    <string name="settings_open_notification_settings">Open notification settings</string>
+    <string name="settings_reduce_motion">Reduce motion</string>
+    <string name="settings_reduce_motion_supporting">Calm animations throughout the app</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_week_starts_on">Week starts on</string>
+    <string name="week_start_monday">Monday</string>
+    <string name="week_start_sunday">Sunday</string>
+
+    <!-- Navigation -->
+    <string name="nav_habits">Habits</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_insights">Insights</string>
+    <string name="nav_tasks">Tasks</string>
+    <string name="themes_light_dark">Light · Dark</string>
+    <string name="themes_title">Themes</string>
+    <string name="theme_name_aurora">Aurora</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_1_body">Build healthy habits, track progress and create the life you want.</string>
+    <string name="onboarding_1_headline">A more intentional you.</string>
+    <string name="onboarding_2_body">Habits, routines, tasks, medicines and more, all in one calm and powerful app.</string>
+    <string name="onboarding_2_headline">Track what matters.</string>
+    <string name="onboarding_3_body">Visual progress and insights help you keep going day after day.</string>
+    <string name="onboarding_3_headline">Stay Consistent</string>
+    <string name="onboarding_4_body">Your journey to a brighter tomorrow starts now.</string>
+    <string name="onboarding_4_headline">Ready to build Momentum?</string>
+
+    <!-- Reminders (notification copy) -->
+    <string name="reminder_copy_nudge">Gentle nudge: %s.</string>
+    <string name="reminder_copy_session">Time for your %s session.</string>
+    <string name="reminder_copy_small_win">One small win before the day ends: %s.</string>
+    <string name="reminder_copy_waiting">Your %s is waiting — one small win.</string>
+
+    <!-- Tabs -->
+    <string name="tab_active">Active</string>
+    <string name="tab_archived">Archived</string>
+    <string name="tab_paused">Paused</string>
+
+    <!--
+      ViewModel-produced copy. These are emitted as `UiText` (resource id +
+      format args) and resolved by the screen — the ViewModel never holds the
+      wording, but the screen never spells it either.
+    -->
+    <string name="error_couldnt_clear_data">Couldn\'t clear data — try again.</string>
+    <string name="error_couldnt_delete">Couldn\'t delete — try again.</string>
+    <string name="error_couldnt_save">Couldn\'t save — try again.</string>
+    <string name="error_couldnt_save_setting">Couldn\'t save setting.</string>
+    <string name="error_couldnt_update">Couldn\'t update — try again.</string>
+    <string name="activities_not_scheduled_today">Not scheduled today.</string>
+    <string name="settings_all_data_cleared">All data cleared.</string>
+
+    <!-- Creation validation -->
+    <string name="creation_error_activity_not_found">Activity not found.</string>
+    <string name="creation_error_amount_required">Enter an amount greater than 0.</string>
+    <string name="creation_error_end_before_start">End date can\'t be before start date.</string>
+    <string name="creation_error_title_required">Give it a name.</string>
+    <string name="creation_error_title_too_long">Keep it under 120 characters.</string>
+    <string name="creation_error_unit_required">Pick a unit.</string>
+    <string name="creation_error_unit_too_long">Keep the unit short.</string>
+
+    <!-- Today Hero copy (DECISIONS §5/§6/§9) -->
+    <string name="today_celebrate_all_done">All done — momentum secured.</string>
+    <string name="today_error_load_plan">Couldn\'t load today\'s plan.</string>
+    <string name="today_greeting_afternoon">Good afternoon</string>
+    <string name="today_greeting_evening">Good evening</string>
+    <string name="today_greeting_morning">Good morning</string>
+    <string name="today_greeting_night">Good night</string>
+    <string name="today_message_all_complete">Everything complete. Rest easy.</string>
+    <string name="today_message_building">You\'re building momentum.</string>
+    <string name="today_message_first_win">First win banked. Keep going.</string>
+    <string name="today_message_one_more">One more — finish strong.</string>
+    <string name="today_message_one_small_win">One small win starts everything.</string>
+    <string name="today_message_small_steps">Small steps, unstoppable momentum.</string>
+
+    <!-- Recurrence labels ("Weekly"/"Monthly"/"One-time"/"Weekdays" reuse the
+         pattern_* / preset_* strings above) -->
+    <string name="recurrence_daily">Daily</string>
+    <string name="recurrence_every_n_days">Every %1$d days</string>
+    <string name="recurrence_every_n_weeks">Every %1$d weeks</string>
+
+    <!-- Habits list metadata row -->
+    <string name="habits_metadata">%1$s · %2$s · %3$s</string>
+
+    <!-- Insights -->
+    <string name="insights_uncategorized">Uncategorized</string>
+
+    <!-- Design system previews -->
+    <string name="ds_color_muted">Muted</string>
+    <string name="ds_color_primary">Primary</string>
+    <string name="ds_color_secondary">Secondary</string>
+    <string name="ds_grid">4dp grid</string>
+    <string name="ds_aurora_states">Aurora states</string>
+    <string name="ds_ramp_note">Intensity ramps rest → progress → completion → milestone. Motion: fast %1$dms · standard %2$dms · emphasis %3$dms</string>
+    <string name="ds_state_note">State is never color-only: selection also changes fill and weight.</string>
+    <string name="ds_tagline">Calm at rest. Alive in motion.</string>
+    <string name="ds_type_body">Body 16/24 — progress, streaks, and targets read first.</string>
+    <string name="ds_type_body_small">Body Small 14/20 — supporting metadata and descriptions.</string>
+    <string name="ds_type_caption">Caption 12/16</string>
+    <string name="ds_type_display">Display 40/48</string>
+    <string name="ds_type_headline">Headline 28/34</string>
+    <string name="ds_type_label">Label 13/18</string>
+    <string name="ds_type_sample">21 day streak · 3 / 5 · 82%</string>
+    <string name="ds_type_title">Title 20/26</string>
 </resources>

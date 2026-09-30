@@ -8,16 +8,23 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.momentum.app.MainActivity
-import com.momentum.app.MomentumApp
 import com.momentum.app.R
 import com.momentum.app.domain.model.ActivityStatus
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.ReminderRepository
+import com.momentum.app.domain.usecase.ToggleCompletionUseCase
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.AndroidEntryPoint
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,12 +33,12 @@ import kotlinx.coroutines.withContext
 const val MOMENTUM_CHANNEL_ID = "momentum_reminders"
 const val ACTION_MARK_COMPLETE = "com.momentum.app.MARK_COMPLETE"
 
-/** Friendly, non-aggressive reminder copy pool. */
+/** Friendly, non-aggressive reminder copy pool (resource IDs, resolved at fire time). */
 val ReminderCopy = listOf(
-    "Time for your %s session.",
-    "Your %s is waiting — one small win.",
-    "One small win before the day ends: %s.",
-    "Gentle nudge: %s.",
+    R.string.reminder_copy_session,
+    R.string.reminder_copy_waiting,
+    R.string.reminder_copy_small_win,
+    R.string.reminder_copy_nudge,
 )
 
 fun ensureReminderChannel(context: Context) {
@@ -70,12 +77,17 @@ class ReminderReceiver : BroadcastReceiver() {
 }
 
 /** Builds + posts the notification off the main thread; re-arms the activity's reminders. */
-class FireReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+@HiltWorker
+class FireReminderWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val activityRepository: ActivityRepository,
+    private val reminderScheduler: ReminderScheduler,
+) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val activityId = inputData.getLong(ReminderReceiver.EXTRA_ACTIVITY_ID, -1)
         if (activityId == -1L) return@withContext Result.failure()
-        val container = (applicationContext as MomentumApp).container
-        val activity = runCatching { container.activityRepository.getById(activityId) }.getOrNull()
+        val activity = runCatching { activityRepository.getById(activityId) }.getOrNull()
             ?: return@withContext Result.failure()
         if (activity.status != ActivityStatus.ACTIVE) return@withContext Result.success()
         ensureReminderChannel(applicationContext)
@@ -95,7 +107,7 @@ class FireReminderWorker(context: Context, params: WorkerParameters) : Coroutine
             applicationContext, 20_000 + activityId.toInt(), doneIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val title = ReminderCopy.random().format(activity.title)
+        val title = applicationContext.getString(ReminderCopy.random()).format(activity.title)
         val notification = NotificationCompat.Builder(applicationContext, MOMENTUM_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -111,13 +123,18 @@ class FireReminderWorker(context: Context, params: WorkerParameters) : Coroutine
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
         runCatching { manager?.notify(30_000 + activityId.toInt(), notification) }
         // Re-arm the next occurrence (daily cadence derived from reminder time).
-        runCatching { container.reminderScheduler.scheduleForActivity(activityId) }
+        runCatching { reminderScheduler.scheduleForActivity(activityId) }
         Result.success()
     }
 }
 
 /** "Mark done" notification action: completes today's occurrence, dismisses. */
+@AndroidEntryPoint
 class CompleteActionReceiver : BroadcastReceiver() {
+
+    @Inject
+    lateinit var toggleCompletion: ToggleCompletionUseCase
+
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_MARK_COMPLETE) return
         val activityId = intent.getLongExtra(ReminderReceiver.EXTRA_ACTIVITY_ID, -1)
@@ -125,8 +142,7 @@ class CompleteActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val container = (context.applicationContext as MomentumApp).container
-                container.toggleCompletion(activityId, LocalDate.now())
+                toggleCompletion(activityId, LocalDate.now())
                 val manager = context.getSystemService(NotificationManager::class.java)
                 manager?.cancel(30_000 + activityId.toInt())
             } finally {
@@ -171,12 +187,17 @@ fun shouldResyncOnSystemBroadcast(action: String?): Boolean = action == Intent.A
     action == Intent.ACTION_TIME_CHANGED
 
 /** Re-reads all enabled reminders from Room and re-arms them. Idempotent. */
-class RescheduleWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+@HiltWorker
+class RescheduleWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val reminderRepository: ReminderRepository,
+    private val reminderScheduler: ReminderScheduler,
+) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        val container = (applicationContext as MomentumApp).container
-        val reminders = runCatching { container.reminderRepository.enabledAll() }.getOrDefault(emptyList())
+        val reminders = runCatching { reminderRepository.enabledAll() }.getOrDefault(emptyList())
         reminders.groupBy { it.activityId }.keys.forEach { activityId ->
-            runCatching { container.reminderScheduler.scheduleForActivity(activityId) }
+            runCatching { reminderScheduler.scheduleForActivity(activityId) }
         }
         Result.success()
     }

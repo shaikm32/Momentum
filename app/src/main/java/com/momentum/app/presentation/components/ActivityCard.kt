@@ -25,11 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
+import com.momentum.app.R
 import com.momentum.app.domain.engine.CompletionEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.DarkModeSetting
@@ -149,16 +152,32 @@ fun ActivityCard(
     }
 }
 
-/** Human schedule line for cards/details ("Daily", "Mon · Wed · Fri", "Every 3 days", …). */
-fun recurrenceLabel(recurrence: Recurrence): String = when (recurrence) {    is Recurrence.Once -> "One-time"
-    is Recurrence.Daily -> "Daily"
-    is Recurrence.Weekdays -> "Weekdays"
+/**
+ * Human schedule line for cards/details ("Daily", "Mon · Wed · Fri", "Every 3 days", …).
+ *
+ * A `@Composable` because the wording lives in `strings.xml`: it is display
+ * logic and must only be called from the presentation layer — a ViewModel
+ * passes the [Recurrence] through in its state instead.
+ */
+@Composable
+fun recurrenceLabel(recurrence: Recurrence): String = when (recurrence) {
+    is Recurrence.Once -> stringResource(R.string.pattern_once)
+    is Recurrence.Daily -> stringResource(R.string.recurrence_daily)
+    is Recurrence.Weekdays -> stringResource(R.string.preset_weekdays)
     is Recurrence.SelectedWeekdays -> recurrence.days.sorted()
         .joinToString(" · ") { it.name.lowercase().replaceFirstChar(Char::titlecase).take(3) }
-    is Recurrence.EveryNDays -> if (recurrence.n == 1) "Daily" else "Every ${recurrence.n} days"
-    is Recurrence.Weekly -> "Weekly"
-    is Recurrence.EveryNWeeks -> if (recurrence.n == 1) "Weekly" else "Every ${recurrence.n} weeks"
-    is Recurrence.Monthly -> "Monthly"
+    is Recurrence.EveryNDays -> if (recurrence.n == 1) {
+        stringResource(R.string.recurrence_daily)
+    } else {
+        stringResource(R.string.recurrence_every_n_days, recurrence.n)
+    }
+    is Recurrence.Weekly -> stringResource(R.string.pattern_weekly)
+    is Recurrence.EveryNWeeks -> if (recurrence.n == 1) {
+        stringResource(R.string.pattern_weekly)
+    } else {
+        stringResource(R.string.recurrence_every_n_weeks, recurrence.n)
+    }
+    is Recurrence.Monthly -> stringResource(R.string.pattern_monthly)
 }
 
 /** Compact amount without a trailing ".0" ("8" not "8.0", "2.5" stays). */
@@ -184,18 +203,21 @@ fun targetProgressLabel(activity: Activity, value: Double): String? {
  * directly, so their label says that instead of promising an instant toggle.
  * This is label copy only; the completion decision itself always lives in
  * [CompletionEngine].
+ *
+ * Pure and resource-free (unit-testable); [completionActionLabel] is the
+ * `@Composable` that resolves it for the two call sites.
  */
-fun completionActionLabel(activity: Activity, completed: Boolean): String {
-    val title = activity.title
-    return when {
-        CompletionEngine.isTargetBased(activity) && completed ->
-            "Edit today's progress for $title"
-        CompletionEngine.isTargetBased(activity) ->
-            "Enter today's progress for $title"
-        completed -> "Mark $title incomplete"
-        else -> "Complete $title"
-    }
+@StringRes
+fun completionActionLabelRes(activity: Activity, completed: Boolean): Int = when {
+    CompletionEngine.isTargetBased(activity) && completed -> R.string.cd_edit_progress
+    CompletionEngine.isTargetBased(activity) -> R.string.cd_enter_progress
+    completed -> R.string.cd_mark_incomplete
+    else -> R.string.cd_complete_activity
 }
+
+@Composable
+fun completionActionLabel(activity: Activity, completed: Boolean): String =
+    stringResource(completionActionLabelRes(activity, completed), activity.title)
 
 @Preview(name = "ActivityCard light")
 @Composable

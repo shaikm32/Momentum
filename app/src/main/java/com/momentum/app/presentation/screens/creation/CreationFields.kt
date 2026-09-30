@@ -53,9 +53,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.momentum.app.R
 import com.momentum.app.domain.model.Category
 import com.momentum.app.presentation.components.CategoryChip
 import com.momentum.app.presentation.components.GlassLevel
@@ -66,6 +69,7 @@ import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.glassPress
 import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.components.momentumIcon
+import com.momentum.app.presentation.resolve
 import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumRadii
@@ -204,15 +208,15 @@ internal fun NameAndIconSection(
     showIconEditor: Boolean = true,
 ) {
     var pickerOpen by remember { mutableStateOf(false) }
-    MomentumSectionHeader(title = "What is it?")
+    MomentumSectionHeader(title = stringResource(R.string.section_what_is_it))
     OutlinedTextField(
         value = form.title,
         onValueChange = { v -> onUpdate { it.copy(title = v, titleError = null) } },
-        label = { Text("Name") },
-        placeholder = { Text("e.g. Read before bed") },
+        label = { Text(stringResource(R.string.field_name)) },
+        placeholder = { Text(stringResource(R.string.field_name_placeholder)) },
         singleLine = true,
         isError = form.titleError != null,
-        supportingText = { form.titleError?.let { Text(it) } },
+        supportingText = { form.titleError?.let { Text(it.resolve()) } },
         shape = RoundedCornerShape(MomentumRadii.control),
         colors = glassFieldColors(),
         modifier = Modifier.fillMaxWidth(),
@@ -226,7 +230,7 @@ internal fun NameAndIconSection(
         } else {
             MomentumCard {
                 Text(
-                    "Icon",
+                    stringResource(R.string.field_icon),
                     style = MaterialTheme.typography.titleMedium,
                     color = MomentumThemeColors.current.textPrimary,
                 )
@@ -238,7 +242,7 @@ internal fun NameAndIconSection(
                     MomentumIconOptions.forEach { option ->
                         IconChoice(
                             selected = form.iconKey == option.key,
-                            label = option.label,
+                            label = stringResource(option.labelRes),
                             onClick = { onUpdate { it.copy(iconKey = option.key) } },
                         ) {
                             Icon(
@@ -277,7 +281,9 @@ private fun CompactIconRow(
 ) {
     val c = MomentumThemeColors.current
     val interaction = remember { MutableInteractionSource() }
-    val selectedLabel = MomentumIconOptions.firstOrNull { it.key == iconKey }?.label ?: "Icon"
+    val selectedLabel = MomentumIconOptions.firstOrNull { it.key == iconKey }
+        ?.let { stringResource(it.labelRes) }
+        ?: stringResource(R.string.field_icon)
     MomentumCard {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -288,9 +294,12 @@ private fun CompactIconRow(
                 .clickable(
                     interactionSource = interaction,
                     indication = null,
-                    onClickLabel = "Change icon",
+                    onClickLabel = stringResource(R.string.action_change_icon),
                     onClick = onOpenPicker,
-                ),
+                )
+                // One announcement for the row: the tile glyph is decorative and
+                // the two texts merge into the clickable node.
+                .semantics(mergeDescendants = true) {},
         ) {
             Box(
                 modifier = Modifier
@@ -316,7 +325,7 @@ private fun CompactIconRow(
             ) {
                 Text(selectedLabel, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
                 Text(
-                    "Change icon",
+                    stringResource(R.string.action_change_icon),
                     style = MaterialTheme.typography.bodyMedium,
                     color = c.primary,
                 )
@@ -339,9 +348,9 @@ private fun IconPickerDialog(
         shape = RoundedCornerShape(MomentumRadii.dialog),
         containerColor = c.surface.copy(alpha = 0.95f),
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
-        title = { Text("Choose icon") },
+        title = { Text(stringResource(R.string.icon_picker_title)) },
         text = {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
@@ -350,7 +359,7 @@ private fun IconPickerDialog(
                 MomentumIconOptions.forEach { option ->
                     IconChoice(
                         selected = selectedKey == option.key,
-                        label = option.label,
+                        label = stringResource(option.labelRes),
                         onClick = { onPick(option.key) },
                     ) {
                         Icon(
@@ -380,7 +389,7 @@ internal fun CategorySection(
     if (categories.isEmpty()) return
     MomentumCard {
         Text(
-            "Category",
+            stringResource(R.string.field_category),
             style = MaterialTheme.typography.titleMedium,
             color = MomentumThemeColors.current.textPrimary,
         )
@@ -389,7 +398,7 @@ internal fun CategorySection(
             verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
         ) {
             CategoryChip(
-                label = "None",
+                label = stringResource(R.string.category_none),
                 selected = form.categoryId == null,
                 onClick = { onUpdate { it.copy(categoryId = null) } },
             )
@@ -415,16 +424,21 @@ internal fun PrioritySection(
 ) {
     MomentumCard {
         Text(
-            "Priority",
+            stringResource(R.string.field_priority),
             style = MaterialTheme.typography.titleMedium,
             color = MomentumThemeColors.current.textPrimary,
         )
-        Explainer("Higher priority shows first on Today.")
+        Explainer(stringResource(R.string.priority_explainer))
         Row(
             horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            listOf("Normal", "Medium", "High", "Top").forEachIndexed { p, label ->
+            listOf(
+                stringResource(R.string.priority_normal),
+                stringResource(R.string.priority_medium),
+                stringResource(R.string.priority_high),
+                stringResource(R.string.priority_top),
+            ).forEachIndexed { p, label ->
                 CategoryChip(
                     label = label,
                     selected = form.priority == p,
@@ -444,8 +458,8 @@ internal fun NotesSection(
     OutlinedTextField(
         value = form.notes,
         onValueChange = { v -> onUpdate { it.copy(notes = v) } },
-        label = { Text("Notes (optional)") },
-        placeholder = { Text("Instructions, context, anything useful…") },
+        label = { Text(stringResource(R.string.field_notes)) },
+        placeholder = { Text(stringResource(R.string.field_notes_placeholder)) },
         shape = RoundedCornerShape(MomentumRadii.control),
         colors = glassFieldColors(),
         modifier = Modifier.fillMaxWidth(),
@@ -458,19 +472,19 @@ internal fun ReminderSection(
     form: CreationForm,
     onUpdate: ((CreationForm) -> CreationForm) -> Unit,
     reduceMotion: Boolean,
-    supporting: String = "On-device notification at your time",
+    supporting: String = stringResource(R.string.reminder_supporting_default),
 ) {
-    MomentumSectionHeader(title = "Reminder")
+    MomentumSectionHeader(title = stringResource(R.string.section_reminder))
     MomentumCard {
         LabeledSwitch(
-            label = "Nudge me",
+            label = stringResource(R.string.reminder_nudge),
             supporting = supporting,
             checked = form.reminderEnabled,
             onChange = { checked -> onUpdate { it.copy(reminderEnabled = checked) } },
         )
         Expandable(visible = form.reminderEnabled, reduceMotion = reduceMotion) {
             TimeRow(
-                label = "Reminder time",
+                label = stringResource(R.string.reminder_time_label),
                 time = form.reminderTime,
                 onPick = { t -> onUpdate { it.copy(reminderTime = t) } },
             )
@@ -497,9 +511,14 @@ internal fun ScheduleSection(
     bare: Boolean = false,
 ) {
     if (!bare) {
-        MomentumSectionHeader(title = "When does it happen?")
+        MomentumSectionHeader(title = stringResource(R.string.section_schedule))
     }
-    val presets = listOf("Every day", "Weekdays", "Specific days", "Custom")
+    val presets = listOf(
+        stringResource(R.string.preset_every_day),
+        stringResource(R.string.preset_weekdays),
+        stringResource(R.string.preset_specific_days),
+        stringResource(R.string.preset_custom),
+    )
     val selected = when (form.recurrenceChoice) {
         RecurrenceChoice.DAILY -> 0
         RecurrenceChoice.WEEKDAYS -> 1
@@ -601,8 +620,11 @@ private fun ScheduleBody(
             reduceMotion = reduceMotion,
         ) {
             Stepper(
-                label = "Every ${form.interval} " +
-                    if (form.recurrenceChoice == RecurrenceChoice.EVERY_N_DAYS) "days" else "weeks",
+                label = if (form.recurrenceChoice == RecurrenceChoice.EVERY_N_DAYS) {
+                    stringResource(R.string.stepper_every_days, form.interval)
+                } else {
+                    stringResource(R.string.stepper_every_weeks, form.interval)
+                },
                 value = form.interval,
                 range = 1..30,
                 onChange = { v -> onUpdate { it.copy(interval = v) } },
@@ -613,7 +635,7 @@ private fun ScheduleBody(
             reduceMotion = reduceMotion,
         ) {
             Stepper(
-                label = "Day ${form.dayOfMonth} of the month",
+                label = stringResource(R.string.stepper_day_of_month, form.dayOfMonth),
                 value = form.dayOfMonth,
                 range = 1..31,
                 onChange = { v -> onUpdate { it.copy(dayOfMonth = v) } },
@@ -621,21 +643,22 @@ private fun ScheduleBody(
         }
         if (showAnchorDate) {
             DateRow(
-                label = "Starts",
+                label = stringResource(R.string.field_starts),
                 date = anchorDate,
                 onPick = onAnchorDate,
             )
         }
         if (showEndDate) {
             LabeledSwitch(
-                label = "End date",
-                supporting = if (form.hasEndDate) "Stops repeating" else "Repeats indefinitely",
+                label = stringResource(R.string.field_end_date),
+                supporting = if (form.hasEndDate) stringResource(R.string.field_stops_repeating)
+                else stringResource(R.string.field_repeats_indefinitely),
                 checked = form.hasEndDate,
                 onChange = { checked -> onUpdate { it.copy(hasEndDate = checked) } },
             )
             Expandable(visible = form.hasEndDate, reduceMotion = reduceMotion) {
                 DateRow(
-                    label = "Ends",
+                    label = stringResource(R.string.field_ends),
                     date = form.endDate,
                     onPick = { d -> onUpdate { it.copy(endDate = d) } },
                 )
@@ -652,18 +675,18 @@ internal fun AdvancedRecurrenceRow(
     var expanded by remember { mutableStateOf(false) }
     val c = MomentumThemeColors.current
     val labels = mapOf(
-        RecurrenceChoice.EVERY_N_DAYS to "Every N days",
-        RecurrenceChoice.WEEKLY to "Weekly",
-        RecurrenceChoice.EVERY_N_WEEKS to "Every N weeks",
-        RecurrenceChoice.MONTHLY to "Monthly",
-        RecurrenceChoice.ONCE to "One-time",
+        RecurrenceChoice.EVERY_N_DAYS to stringResource(R.string.pattern_every_n_days),
+        RecurrenceChoice.WEEKLY to stringResource(R.string.pattern_weekly),
+        RecurrenceChoice.EVERY_N_WEEKS to stringResource(R.string.pattern_every_n_weeks),
+        RecurrenceChoice.MONTHLY to stringResource(R.string.pattern_monthly),
+        RecurrenceChoice.ONCE to stringResource(R.string.pattern_once),
     )
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = labels[form.recurrenceChoice] ?: "Every N days",
+            value = labels[form.recurrenceChoice] ?: stringResource(R.string.pattern_every_n_days),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Repeat pattern") },
+            label = { Text(stringResource(R.string.field_repeat_pattern)) },
             shape = RoundedCornerShape(MomentumRadii.control),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
@@ -717,7 +740,7 @@ internal fun Stepper(label: String, value: Int, range: IntRange, onChange: (Int)
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = { onChange((value - 1).coerceIn(range)) }) {
-            Icon(Icons.Rounded.Remove, contentDescription = "Decrease")
+            Icon(Icons.Rounded.Remove, contentDescription = stringResource(R.string.cd_decrease))
         }
         Text(
             "$value",
@@ -725,7 +748,7 @@ internal fun Stepper(label: String, value: Int, range: IntRange, onChange: (Int)
             color = c.textPrimary,
         )
         IconButton(onClick = { onChange((value + 1).coerceIn(range)) }) {
-            Icon(Icons.Rounded.Add, contentDescription = "Increase")
+            Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.cd_increase))
         }
     }
 }
@@ -743,6 +766,8 @@ internal fun DateRow(label: String, date: LocalDate, onPick: (LocalDate) -> Unit
                 GlassLevel.CONTROL,
             )
             .clickable(onClickLabel = label) { open = true }
+            // One announcement for the row: label + value merge into the node.
+            .semantics(mergeDescendants = true) {}
             .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -774,9 +799,11 @@ internal fun DateRow(label: String, date: LocalDate, onPick: (LocalDate) -> Unit
                         onPick(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate())
                     }
                     open = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.action_ok)) }
             },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
         ) {
             DatePicker(state = state)
         }
@@ -797,6 +824,8 @@ internal fun TimeRow(label: String, time: String, onPick: (String) -> Unit) {
                 GlassLevel.CONTROL,
             )
             .clickable(onClickLabel = label) { open = true }
+            // One announcement for the row: label + value merge into the node.
+            .semantics(mergeDescendants = true) {}
             .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -823,9 +852,11 @@ internal fun TimeRow(label: String, time: String, onPick: (String) -> Unit) {
                 TextButton(onClick = {
                     onPick("%02d:%02d".format(state.hour, state.minute))
                     open = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.action_ok)) }
             },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
             text = { TimePicker(state = state) },
         )
     }

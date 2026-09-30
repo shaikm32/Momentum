@@ -23,8 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.momentum.app.R
 import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.MomentumSectionHeader
@@ -68,19 +71,19 @@ private fun CreateItemSheetContent(onPick: (ActivityType) -> Unit) {
             .padding(bottom = MomentumSpacing.screen),
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
-        MomentumSectionHeader(title = "Create item")
+        MomentumSectionHeader(title = stringResource(R.string.create_item_section))
         CreateItemOption(
             icon = Icons.Rounded.Refresh,
-            title = "Habit",
-            supporting = "Build it consistently, one day at a time",
-            onClickLabel = "Create habit",
+            title = stringResource(R.string.create_option_habit),
+            supporting = stringResource(R.string.create_option_habit_supporting),
+            onClickLabel = stringResource(R.string.cd_create_habit),
             onClick = { onPick(ActivityType.HABIT) },
         )
         CreateItemOption(
             icon = Icons.Rounded.CheckCircle,
-            title = "Task",
-            supporting = "Get it done, once or on repeat",
-            onClickLabel = "Create task",
+            title = stringResource(R.string.create_option_task),
+            supporting = stringResource(R.string.create_option_task_supporting),
+            onClickLabel = stringResource(R.string.cd_create_task),
             onClick = { onPick(ActivityType.TASK) },
         )
     }
@@ -104,6 +107,9 @@ private fun CreateItemOption(
                 GlassLevel.CARD,
             )
             .clickable(onClickLabel = onClickLabel, onClick = onClick)
+            // One announcement for the option row: title + supporting copy merge
+            // into the clickable node instead of being read after it.
+            .semantics(mergeDescendants = true) {}
             .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card),

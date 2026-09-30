@@ -45,18 +45,47 @@ class MomentumHeroArtworkTest {
     }
 
     @Test
-    fun `a zero band means no fade on that edge`() {
-        // Home asks for no top ramp at all; Habits passes 44 dp and must keep the
-        // full dissolve profile. The component therefore has to honour 0 as "no
-        // fade" instead of coercing it to a visible minimum.
+    fun `the mask is full strength from the top with no top fade`() {
+        // ADR-39 / §7.7: the profile is α = 1 from the container's top edge and
+        // the only fade is the caller's bottomDissolve. Source-level stop-list
+        // assertion — the JVM unit test cannot rasterize the DstIn mask, so it
+        // pins the exact stops that produce the geometry.
         assertTrue(
-            "a 0.dp band must be honoured as no fade",
-            source.contains("if (topDissolve <= 0.dp)") && source.contains("0f\n                    }"),
+            "the profile must start opaque at the container top",
+            source.contains("0f to Color.White"),
         )
         assertTrue(
-            "the ramp stops are built conditionally so a zero band adds no transparent stop",
-            source.contains("if (topEnd > 0f)"),
+            "the bottom band must start opaque",
+            source.contains("bottomStart to Color.White"),
         )
+        assertTrue(
+            "the single transparent stop must be the terminal 1f stop",
+            source.contains("1f to Color.Transparent") &&
+                source.split("to Color.Transparent").size - 1 == 1,
+        )
+        assertFalse(
+            "a top-fade transparent stop at 0f is back",
+            source.contains("0f to Color.Transparent"),
+        )
+        assertTrue(
+            "topDissolve must remain a parameter (ADR-30 caller contract)",
+            source.contains("topDissolve: Dp"),
+        )
+        assertTrue(
+            "bottom blend bounds must stay at floor 0.10 / ceiling 0.95",
+            source.contains("coerceIn(0.10f, 0.95f)"),
+        )
+    }
+
+    @Test
+    fun `a top fade at the status-bar inset may not return`() {
+        // Regression guard for ISSUE-017 / A4(h): the old implementation read
+        // the status-bar inset and built a topEnd ramp whose transparent stop
+        // at y=0 reproduced the pale band. All of that machinery must stay gone
+        // — the declared top band is absorbed at the window edge (ADR-39).
+        listOf("statusBars", "statusBarTop", "topEnd", "TopDissolveMax").forEach { token ->
+            assertFalse("top-fade machinery is back: $token", source.contains(token))
+        }
     }
 
     @Test

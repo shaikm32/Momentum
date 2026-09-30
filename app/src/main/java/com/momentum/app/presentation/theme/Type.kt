@@ -100,6 +100,25 @@ private val CaptionStyle = TextStyle(
     lineHeight = 16.sp,
 )
 
+/**
+ * Emphasised Body (16/22 600): the Body token's strong variant, used where a
+ * card/streak title needs weight without leaving the type scale.
+ */
+val MomentumBodyStrong = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 16.sp,
+    lineHeight = 22.sp,
+)
+
+/** Lead Body (17/26 400): immersive full-bleed copy that reads a touch larger. */
+val MomentumBodyLead = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.Normal,
+    fontSize = 17.sp,
+    lineHeight = 26.sp,
+)
+
 val MomentumTypography = Typography(
     displayLarge = DisplayStyle,
     displayMedium = DisplayStyle,

@@ -32,10 +32,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.presentation.components.EmptyState
 import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.LiquidGlassIconButton
@@ -46,7 +48,7 @@ import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.StatCard
 import com.momentum.app.presentation.components.momentumIcon
-import com.momentum.app.presentation.momentumViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
@@ -57,7 +59,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun InsightsRoute(onAddActivity: () -> Unit, onOpenCalendar: () -> Unit) {
-    val vm: InsightsViewModel = momentumViewModel { InsightsViewModel(it) }
+    val vm: InsightsViewModel = hiltViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     InsightsScreen(state = state, onAdd = onAddActivity, onOpenCalendar = onOpenCalendar)
 }
@@ -75,13 +77,13 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
     ) {
         item {
             MomentumTopBar(
-                title = "Insights",
-                subtitle = "Your consistency at a glance",
+                title = stringResource(R.string.insights_title),
+                subtitle = stringResource(R.string.insights_subtitle),
                 actions = {
                     // Calendar/history lives inside Insights (§26) — never a tab.
                     LiquidGlassIconButton(
                         icon = Icons.Rounded.CalendarMonth,
-                        contentDescription = "Open calendar history",
+                        contentDescription = stringResource(R.string.cd_open_calendar_history),
                         onClick = onOpenCalendar,
                     )
                 },
@@ -90,9 +92,9 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
         if (state.isEmpty) {
             item {
                 EmptyState(
-                    title = "No data yet",
-                    body = "Complete activities for a few days and your trends will appear here.",
-                    actionLabel = "Create activity",
+                    title = stringResource(R.string.insights_empty_title),
+                    body = stringResource(R.string.insights_empty_body),
+                    actionLabel = stringResource(R.string.action_create_activity),
                     onAction = onAdd,
                     icon = Icons.Rounded.BarChart,
                 )
@@ -103,7 +105,7 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
             MomentumCard(level = GlassLevel.HERO) {
                 val delta = ((state.weekRate - state.monthRate) * 100).roundToInt()
                 Text(
-                    "Last 7 days",
+                    stringResource(R.string.insights_last_7_days),
                     style = MaterialTheme.typography.labelMedium,
                     color = c.textSecondary,
                 )
@@ -114,9 +116,9 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
                 )
                 Text(
                     text = when {
-                        delta > 0 -> "+$delta pts vs 30-day average"
-                        delta < 0 -> "$delta pts vs 30-day average"
-                        else -> "Even with your 30-day average"
+                        delta > 0 -> stringResource(R.string.insights_delta_up, delta)
+                        delta < 0 -> stringResource(R.string.insights_delta_down, delta)
+                        else -> stringResource(R.string.insights_delta_even)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (delta >= 0) c.success else c.warning,
@@ -128,19 +130,19 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
             Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group), modifier = Modifier.fillMaxWidth()) {
                 StatCard(
                     value = "${state.bestStreak}",
-                    label = "Best streak",
+                    label = stringResource(R.string.stat_best_streak),
                     sublabel = state.bestStreakTitle.takeIf { it.isNotBlank() },
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(
                     value = "${state.totalCompletions}",
-                    label = "Completions · 30d",
+                    label = stringResource(R.string.insights_completions_30d),
                     modifier = Modifier.weight(1f),
                 )
             }
         }
         item {
-            MomentumSectionHeader(title = "This week")
+            MomentumSectionHeader(title = stringResource(R.string.insights_this_week))
         }
         item {
             MomentumCard {
@@ -149,7 +151,7 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
         }
         if (state.categories.isNotEmpty()) {
             item {
-                MomentumSectionHeader(title = "By category")
+                MomentumSectionHeader(title = stringResource(R.string.insights_by_category))
             }
             item {
                 MomentumCard {
@@ -157,8 +159,8 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
                         if (index > 0) MomentumDivider(modifier = Modifier.padding(horizontal = 0.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    cat.name,
+                            Text(
+                                cat.name ?: stringResource(R.string.insights_uncategorized),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = c.textPrimary,
                                     modifier = Modifier.weight(1f),
@@ -172,7 +174,7 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
                             }
                             MomentumLinearProgress(progress = cat.rate.toFloat())
                             Text(
-                                "${cat.completed} of ${cat.scheduled} complete",
+                                stringResource(R.string.insights_category_complete, cat.completed, cat.scheduled),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = c.textSecondary,
                             )
@@ -183,7 +185,7 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
         }
         if (state.topActivities.isNotEmpty()) {
             item {
-                MomentumSectionHeader(title = "Most consistent")
+                MomentumSectionHeader(title = stringResource(R.string.insights_most_consistent))
             }
             item {
                 MomentumCard {
@@ -228,7 +230,11 @@ fun InsightsScreen(state: InsightsUiState, onAdd: () -> Unit, onOpenCalendar: ()
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    "${(perf.rate * 100).roundToInt()}% · ${perf.streak} in a row",
+                                    stringResource(
+                                        R.string.insights_rate_in_a_row,
+                                        (perf.rate * 100).roundToInt(),
+                                        perf.streak,
+                                    ),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = c.textSecondary,
                                 )

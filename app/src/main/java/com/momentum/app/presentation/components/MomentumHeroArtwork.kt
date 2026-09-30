@@ -52,15 +52,26 @@ fun momentumHeroArtworkRes(dark: Boolean): Int =
  * recedes upward as the container shrinks. There is no re-layout and no
  * interpolated layout state; height is layout, not flourish.
  *
- * **Edges.** An offscreen `DstIn` alpha profile dissolves [topDissolve] and
- * [bottomDissolve] bands into whatever sits behind the artwork (screen
+ * **Edges (ADR-39, D0 rule 4 re-stated).** An offscreen `DstIn` alpha profile
+ * dissolves [bottomDissolve] into whatever sits behind the artwork (screen
  * background + ambient Aurora), so the artwork never ends on a hard horizontal
- * edge and never leaves a dead band where it is expected to be present. The
- * mask colour carries no hue — `DstIn` reads only its alpha. A band of `0.dp`
- * means "no fade on this edge": the artwork then keeps full strength right up to
- * it, which is what a Hero whose copy starts at its very top edge needs, while
- * a caller that wants the artwork to emerge from the background (Habits) passes
- * a real band and gets the full profile.
+ * edge at the bottom and never leaves a dead band where it is expected to be
+ * present. The mask colour carries no hue — `DstIn` reads only its alpha.
+ * There is **no top fade**: the profile is opaque (α = 1) from the container's
+ * top edge down to the bottom blend. On both Hero routes the container's top
+ * edge *is* the physical window top (ADR-33), so there is no page background
+ * above it to blend into — full-strength artwork behind the transparent bar is
+ * what the product requirements and `DASHBOARD_SPECS.md` §6 lock.
+ *
+ * **`topDissolve` (ADR-39).** The parameter stays for ADR-30's caller contract
+ * (callers pass only band amounts and cannot position the artwork) but
+ * generates **no stop**: it is a *declared* band, absorbed at the window edge
+ * by the full-strength head — Habits' 44.dp means "artwork stays at full
+ * strength through the declared band", never a fade start, a dip depth or an
+ * offset. The status-bar safe area is the foreground copy's job (D0 rule 3 /
+ * ADR-35); the component itself reads no insets. A genuine top fade would be a
+ * new decision (ADR) for a container whose top edge borders page background —
+ * no such caller exists today.
  *
  * **Motion.** [zoom] and [parallax] are decorative, so callers must freeze
  * both at their compact values under reduced motion. They sit *inside* the
@@ -77,10 +88,11 @@ fun MomentumHeroArtwork(
     parallax: Dp = 0.dp,
 ) {
     val dark = LocalMomentumColors.current.isDark
+    // ADR-39: `topDissolve` is deliberately not read here — the declared top
+    // band is absorbed at the window edge by the full-strength head.
     HeroArtworkImage(
         res = momentumHeroArtworkRes(dark),
         alignment = alignment,
-        topDissolve = topDissolve,
         bottomDissolve = bottomDissolve,
         zoom = zoom,
         parallax = parallax,
@@ -88,12 +100,11 @@ fun MomentumHeroArtwork(
     )
 }
 
-/** The bundled illustration for [res], dissolved top and bottom, as supplied. */
+/** The bundled illustration for [res], dissolved at the bottom, as supplied. */
 @Composable
 private fun HeroArtworkImage(
     @DrawableRes res: Int,
     alignment: Alignment,
-    topDissolve: Dp,
     bottomDissolve: Dp,
     zoom: Float,
     parallax: Dp,
@@ -111,26 +122,19 @@ private fun HeroArtworkImage(
                 if (size.width <= 0f || h <= 0f) {
                     onDrawBehind { }
                 } else {
-                    // A zero band means "no fade here": the artwork keeps full
-                    // strength right up to this edge. Callers that want the
-                    // artwork to emerge from the background (Habits) pass a band
-                    // and keep exactly the previous profile.
-                    val topEnd = if (topDissolve <= 0.dp) {
-                        0f
-                    } else {
-                        (topDissolve.toPx() / h).coerceIn(0.02f, 0.30f)
-                    }
+                    // ADR-39 (§7.7): one stop list for every caller — opaque
+                    // (α = 1) from the container's top edge to the bottom
+                    // blend, then the caller's bottom dissolve. No top fade is
+                    // generated from `topDissolve`; the bottom band keeps its
+                    // bounds (floor 0.10, ceiling 0.95) exactly as before.
                     val bottomStart =
-                        (1f - bottomDissolve.toPx() / h).coerceIn(topEnd + 0.10f, 0.95f)
+                        (1f - bottomDissolve.toPx() / h).coerceIn(0.10f, 0.95f)
                     val dissolve = Brush.verticalGradient(
-                        colorStops = buildList {
-                            if (topEnd > 0f) {
-                                add(0f to Color.Transparent)
-                                add(topEnd to Color.White)
-                            }
-                            add(bottomStart to Color.White)
-                            add(1f to Color.Transparent)
-                        }.toTypedArray(),
+                        colorStops = arrayOf(
+                            0f to Color.White,
+                            bottomStart to Color.White,
+                            1f to Color.Transparent,
+                        ),
                         startY = 0f,
                         endY = h,
                     )
@@ -148,7 +152,11 @@ private fun HeroArtworkImage(
     )
 }
 
-/** Top dissolve band: artwork emerges from the screen background. */
+/**
+ * Declared top band: absorbed at the window edge — the artwork stays at full
+ * strength through it and no mask stop is generated from it (ADR-39). Kept in
+ * the signature for the ADR-30 caller contract (callers pass band amounts only).
+ */
 private val DefaultTopDissolve = 44.dp
 
 /** Bottom dissolve band: artwork and content melt into the list below. */

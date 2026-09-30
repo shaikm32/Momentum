@@ -40,11 +40,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.presentation.components.CompletionButton
 import com.momentum.app.presentation.components.GlassLevel
@@ -58,7 +62,9 @@ import com.momentum.app.presentation.components.StatCard
 import com.momentum.app.presentation.components.completionActionLabel
 import com.momentum.app.presentation.components.momentumIcon
 import com.momentum.app.presentation.components.recurrenceLabel
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.ViewModelArgs
+import com.momentum.app.presentation.hiltViewModelWithArgs
+import com.momentum.app.presentation.resolve
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumRadii
@@ -75,24 +81,27 @@ fun ActivityDetailRoute(
     onDeleted: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: ActivityDetailViewModel = momentumViewModel { ActivityDetailViewModel(it, activityId) }
+    val vm: ActivityDetailViewModel = hiltViewModelWithArgs {
+        putString(ViewModelArgs.ACTIVITY_ID, activityId.toString())
+    }
     val state by vm.state.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(vm) {
         vm.effect.collect { effect ->
             when (effect) {
-                is DetailEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
+                is DetailEffect.ShowMessage -> snackbar.showSnackbar(effect.message.resolve(context))
                 is DetailEffect.Deleted -> onDeleted()
             }
         }
     }
     when (val s = state) {
         is DetailUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Loading…", color = MomentumThemeColors.current.textSecondary)
+            Text(stringResource(R.string.loading), color = MomentumThemeColors.current.textSecondary)
         }
         is DetailUiState.NotFound -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Activity not found.", color = MomentumThemeColors.current.textSecondary)
+            Text(stringResource(R.string.detail_activity_not_found), color = MomentumThemeColors.current.textSecondary)
         }
         is DetailUiState.Success -> ActivityDetailScreen(
             state = s,
@@ -108,11 +117,11 @@ fun ActivityDetailRoute(
     }
     if (confirmDelete) {
         MomentumDialog(
-            title = "Delete permanently?",
-            body = "Completion history and reminders are deleted too. This can't be undone.",
-            confirmLabel = "Delete",
+            title = stringResource(R.string.dialog_delete_permanently_title),
+            body = stringResource(R.string.dialog_delete_activity_body),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = { confirmDelete = false; vm.deleteHard() },
-            dismissLabel = "Keep",
+            dismissLabel = stringResource(R.string.action_keep),
             onDismiss = { confirmDelete = false },
             destructive = true,
         )
@@ -154,7 +163,7 @@ fun ActivityDetailScreen(
                 actions = {
                     LiquidGlassIconButton(
                         icon = Icons.Rounded.Edit,
-                        contentDescription = "Edit ${activity.title}",
+                        contentDescription = stringResource(R.string.cd_edit_activity, activity.title),
                         onClick = onEdit,
                     )
                 },
@@ -197,12 +206,16 @@ fun ActivityDetailScreen(
                     }
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            "Today",
+                            stringResource(R.string.detail_today),
                             style = MaterialTheme.typography.labelMedium,
                             color = c.textSecondary,
                         )
                         Text(
-                            if (state.completedToday) "Completed" else "Not yet done",
+                            if (state.completedToday) {
+                                stringResource(R.string.detail_status_completed)
+                            } else {
+                                stringResource(R.string.detail_status_not_yet_done)
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             color = if (state.completedToday) c.success else c.textPrimary,
                             fontWeight = FontWeight.SemiBold,
@@ -217,75 +230,84 @@ fun ActivityDetailScreen(
             }
         }
         item {
-            MomentumSectionHeader(title = "Statistics")
+            MomentumSectionHeader(title = stringResource(R.string.section_statistics))
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group), modifier = Modifier.fillMaxWidth()) {
                     StatCard(
                         value = "${stats.currentStreak}",
-                        label = "Current streak",
+                        label = stringResource(R.string.stat_current_streak),
                         modifier = Modifier.weight(1f),
                     )
                     StatCard(
                         value = "${stats.longestStreak}",
-                        label = "Best streak",
+                        label = stringResource(R.string.stat_best_streak),
                         modifier = Modifier.weight(1f),
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group), modifier = Modifier.fillMaxWidth()) {
                     StatCard(
                         value = "${(stats.completionRate * 100).roundToInt()}%",
-                        label = "Last 30 days",
+                        label = stringResource(R.string.stat_last_30_days),
                         modifier = Modifier.weight(1f),
                     )
                     StatCard(
                         value = "${stats.completedCount}",
-                        label = "Completions",
+                        label = stringResource(R.string.stat_completions),
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
         }
         item {
-            MomentumSectionHeader(title = "Details")
+            MomentumSectionHeader(title = stringResource(R.string.section_details))
         }
         item {
             MomentumCard {
                 DetailRow(
-                    "Schedule",
+                    stringResource(R.string.detail_row_schedule),
                     buildString {
                         append(recurrenceLabel(activity.recurrence))
-                        append(" · from ${activity.startDate.format(DateTimeFormatter.ofPattern("MMM d yyyy"))}")
-                        activity.endDate?.let { append(" to ${it.format(DateTimeFormatter.ofPattern("MMM d yyyy"))}") }
+                        val fmt = DateTimeFormatter.ofPattern("MMM d yyyy")
+                        append(stringResource(R.string.detail_schedule_from, activity.startDate.format(fmt)))
+                        activity.endDate?.let {
+                            append(stringResource(R.string.detail_schedule_to, it.format(fmt)))
+                        }
                     },
                 )
                 MomentumDivider()
                 if (activity.targetPerOccurrence != 1.0 || activity.unit.isNotBlank()) {
-                    DetailRow("Target", "${trimTarget(activity.targetPerOccurrence)} ${activity.unit}".trim())
+                    DetailRow(stringResource(R.string.detail_row_target), "${trimTarget(activity.targetPerOccurrence)} ${activity.unit}".trim())
                     MomentumDivider()
                 }
                 if (state.reminders.isNotEmpty()) {
-                    DetailRow("Reminders", state.reminders.filter { it.enabled }.joinToString { it.timeLocal })
+                    DetailRow(
+                        stringResource(R.string.detail_row_reminders),
+                        state.reminders.filter { it.enabled }.joinToString { it.timeLocal },
+                    )
                     MomentumDivider()
                 }
                 if (activity.notes.isNotBlank()) {
-                    DetailRow("Notes", activity.notes)
+                    DetailRow(stringResource(R.string.detail_row_notes), activity.notes)
                     MomentumDivider()
                 }
-                DetailRow("Trend", state.stats.trend.name.lowercase().replaceFirstChar(Char::titlecase).replace('_', ' '))
+                DetailRow(
+                    stringResource(R.string.detail_row_trend),
+                    state.stats.trend.name.lowercase().replaceFirstChar(Char::titlecase).replace('_', ' '),
+                )
             }
         }
         item {
-            MomentumSectionHeader(title = "Recent history")
+            MomentumSectionHeader(title = stringResource(R.string.section_recent_history))
         }
         item {
             val recent = state.stats.scheduled.takeLast(14).reversed()
             if (recent.isEmpty()) {
-                Text("No scheduled occurrences yet.", color = c.textSecondary)
+                Text(stringResource(R.string.detail_no_occurrences), color = c.textSecondary)
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
-                    items(recent) { date ->
+                    items(recent, key = { it }, contentType = { "historyDay" }) { date ->
                         val done = date in state.stats.completed
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
@@ -330,15 +352,15 @@ fun ActivityDetailScreen(
             }
         }
         item {
-            MomentumSectionHeader(title = "Actions")
+            MomentumSectionHeader(title = stringResource(R.string.section_actions))
         }
         item {
             MomentumCard {
                 if (activity.status == ActivityStatus.ACTIVE) {
                     DetailActionRow(
                         icon = Icons.Rounded.Pause,
-                        label = "Pause",
-                        supporting = "Hide from Today, keep history",
+                        label = stringResource(R.string.action_pause),
+                        supporting = stringResource(R.string.action_pause_supporting),
                         onClick = onPause,
                     )
                     MomentumDivider()
@@ -346,8 +368,8 @@ fun ActivityDetailScreen(
                 if (activity.status == ActivityStatus.PAUSED) {
                     DetailActionRow(
                         icon = Icons.Rounded.PlayArrow,
-                        label = "Resume",
-                        supporting = "Show on Today again",
+                        label = stringResource(R.string.action_resume),
+                        supporting = stringResource(R.string.action_resume_supporting),
                         onClick = onResume,
                     )
                     MomentumDivider()
@@ -355,8 +377,8 @@ fun ActivityDetailScreen(
                 if (activity.status == ActivityStatus.ARCHIVED) {
                     DetailActionRow(
                         icon = Icons.Rounded.Unarchive,
-                        label = "Restore",
-                        supporting = "Return to active, keep history",
+                        label = stringResource(R.string.action_restore),
+                        supporting = stringResource(R.string.action_restore_supporting),
                         onClick = onRestore,
                     )
                     MomentumDivider()
@@ -364,16 +386,16 @@ fun ActivityDetailScreen(
                 if (activity.status != ActivityStatus.ARCHIVED) {
                     DetailActionRow(
                         icon = Icons.Rounded.Archive,
-                        label = "Archive",
-                        supporting = "Retire without deleting history",
+                        label = stringResource(R.string.action_archive),
+                        supporting = stringResource(R.string.action_archive_supporting),
                         onClick = onArchive,
                     )
                     MomentumDivider()
                 }
                 DetailActionRow(
                     icon = Icons.Rounded.Delete,
-                    label = "Delete permanently",
-                    supporting = "Erases history and reminders",
+                    label = stringResource(R.string.action_delete_permanently),
+                    supporting = stringResource(R.string.action_delete_permanently_supporting),
                     destructive = true,
                     onClick = onDelete,
                 )
@@ -396,6 +418,10 @@ private fun DetailActionRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(MomentumRadii.control))
             .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            // One announcement for the action row: label + supporting copy are
+            // merged in, so TalkBack reads the action once instead of reading
+            // the row and then each of its texts.
+            .semantics(mergeDescendants = true) {}
             .padding(
                 horizontal = MomentumSpacing.row,
                 vertical = MomentumSpacing.group,

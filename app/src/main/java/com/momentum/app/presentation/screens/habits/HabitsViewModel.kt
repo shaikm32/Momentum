@@ -1,15 +1,20 @@
 package com.momentum.app.presentation.screens.habits
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.momentum.app.AppContainer
+import com.momentum.app.R
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.domain.model.Reminder
-import com.momentum.app.presentation.components.formatAmount
-import com.momentum.app.presentation.components.recurrenceLabel
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.ReminderRepository
+import com.momentum.app.notification.ReminderScheduler
+import com.momentum.app.presentation.UiText
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,42 +24,41 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** One row on the Habits management list. */
+@Immutable
 data class HabitListItem(
     val activity: Activity,
     /** Enabled reminder `HH:mm`, or null (card shows `—`). */
     val reminderTime: String?,
-    /**
-     * `Frequency · Target · Reminder` metadata with three fixed slots —
-     * missing values render as `—` so every card stays aligned.
-     * No streak/progress/history on list cards.
-     */
-    val metadata: String,
 )
 
+@Immutable
 data class HabitsUiState(
     val items: List<HabitListItem> = emptyList(),
     val isEmpty: Boolean = false,
 )
 
 sealed interface HabitsEffect {
-    data class ShowMessage(val message: String) : HabitsEffect
+    data class ShowMessage(val message: UiText) : HabitsEffect
 }
 
 /**
  * Habits management list (Phase 2B): ACTIVE + PAUSED habits only, ordered
  * Active then Paused (Decision UI §1). No search/filter, no completion.
  */
-class HabitsViewModel(
-    private val container: AppContainer,
+@HiltViewModel
+class HabitsViewModel @Inject constructor(
+    private val activityRepository: ActivityRepository,
+    private val reminderRepository: ReminderRepository,
+    private val reminderScheduler: ReminderScheduler,
 ) : ViewModel() {
 
-    private val messagesChannel = Channel<String>(Channel.BUFFERED)
-    val messages = messagesChannel.receiveAsFlow()
+    private val effects = Channel<HabitsEffect>(Channel.BUFFERED)
+    val effect = effects.receiveAsFlow()
 
     private val refreshTick = MutableStateFlow(0)
 
     val state = combine(
-        container.activityRepository.observeAll(),
+        activityRepository.observeAll(),
         refreshTick,
     ) { activities, _ ->
         val habits = activities
@@ -68,7 +72,7 @@ class HabitsViewModel(
                     .thenBy { it.title.lowercase() },
             )
         val remindersByActivity: Map<Long, List<Reminder>> = habits.associate { habit ->
-            habit.id to runCatching { container.reminderRepository.forActivity(habit.id) }
+            habit.id to runCatching { reminderRepository.forActivity(habit.id) }
                 .getOrDefault(emptyList())
         }
         HabitsUiState(
@@ -79,7 +83,6 @@ class HabitsViewModel(
                 HabitListItem(
                     activity = habit,
                     reminderTime = reminder?.timeLocal,
-                    metadata = habitMetadata(habit, reminder?.timeLocal),
                 )
             },
         )
@@ -91,36 +94,25 @@ class HabitsViewModel(
     fun deleteHard(id: Long) {
         viewModelScope.launch {
             runCatching {
-                container.reminderScheduler.cancelForActivity(id)
-                container.reminderRepository.deleteForActivity(id)
-                container.activityRepository.deleteHard(id)
+                reminderScheduler.cancelForActivity(id)
+                reminderRepository.deleteForActivity(id)
+                activityRepository.deleteHard(id)
                 refreshTick.value += 1
-            }.onFailure { messagesChannel.send("Couldn't delete — try again.") }
+            }.onFailure { effects.send(HabitsEffect.ShowMessage(UiText(R.string.error_couldnt_delete))) }
         }
     }
 
     private fun updateStatus(id: Long, status: ActivityStatus) {
         viewModelScope.launch {
             runCatching {
-                container.activityRepository.setStatus(id, status)
+                activityRepository.setStatus(id, status)
                 if (status != ActivityStatus.ACTIVE) {
-                    container.reminderScheduler.cancelForActivity(id)
+                    reminderScheduler.cancelForActivity(id)
                 } else {
-                    container.reminderScheduler.scheduleForActivity(id)
+                    reminderScheduler.scheduleForActivity(id)
                 }
                 refreshTick.value += 1
-            }.onFailure { messagesChannel.send("Couldn't update — try again.") }
+            }.onFailure { effects.send(HabitsEffect.ShowMessage(UiText(R.string.error_couldnt_update))) }
         }
-    }
-
-    private fun habitMetadata(habit: Activity, reminderTime: String?): String {
-        val frequency = recurrenceLabel(habit.recurrence)
-        val target = if (habit.targetPerOccurrence != 1.0 || habit.unit.isNotBlank()) {
-            "${formatAmount(habit.targetPerOccurrence)} ${habit.unit}".trim()
-        } else {
-            "—"
-        }
-        val reminder = reminderTime ?: "—"
-        return "$frequency · $target · $reminder"
     }
 }

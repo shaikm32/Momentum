@@ -37,13 +37,16 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.domain.usecase.TodayItem
 import com.momentum.app.presentation.aurora.AuroraBackground
 import com.momentum.app.presentation.aurora.AuroraState
@@ -56,8 +59,9 @@ import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.glassPress
 import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.components.targetProgressLabel
-import com.momentum.app.presentation.momentumViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.resolve
 import com.momentum.app.presentation.theme.LocalMomentumColors
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumSpacing
@@ -73,47 +77,50 @@ fun TodayRoute(
     onOpenSettings: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: TodayViewModel = momentumViewModel { TodayViewModel(it) }
+    val vm: TodayViewModel = hiltViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
-    val targetEntry by vm.targetEntry.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
+    // Effects arrive inside a coroutine, where `stringResource` is not
+    // callable — resolve them from the context the screen already holds.
+    val context = LocalContext.current
 
-    LaunchedEffect(Unit) { vm.refresh() }
+    LaunchedEffect(Unit) { vm.onEvent(TodayEvent.Refresh) }
     LaunchedEffect(vm) {
         vm.effect.collect { effect ->
             when (effect) {
                 is TodayEffect.Celebrate -> {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    snackbar.showSnackbar(effect.message)
+                    snackbar.showSnackbar(effect.message.resolve(context))
                 }
-                is TodayEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
+                is TodayEffect.ShowMessage -> snackbar.showSnackbar(effect.message.resolve(context))
             }
         }
     }
     when (val s = state) {
         is TodayUiState.Loading -> TodayLoading()
-        is TodayUiState.Error -> TodayError(s.message, onRetry = { vm.refresh() })
+        is TodayUiState.Error -> TodayError(s.message.resolve(), onRetry = { vm.onEvent(TodayEvent.Refresh) })
         is TodayUiState.Success -> TodayScreen(
             state = s,
             reduceMotion = rememberReduceMotion(s.reduceMotionOverride),
-            onToggle = { vm.onCompletionTap(it) },
+            onToggle = { vm.onEvent(TodayEvent.CompletionTap(it)) },
             onOpen = onOpenActivity,
             onAdd = onAddActivity,
             onOpenSettings = onOpenSettings,
         )
     }
-    // Reach a Target entry â€” the dialog only collects input; completion stays
-    // a domain rule evaluated against the persisted value.
-    targetEntry?.let { entry ->
+    // Reach a Target entry — the dialog only collects input; completion stays
+    // a domain rule evaluated against the persisted value. The dialog rides
+    // the single state stream (ADR-44), so no second collection is needed.
+    state.targetEntry?.let { entry ->
         TargetEntryDialog(
             activityTitle = entry.title,
             target = entry.target,
             unit = entry.unit,
             currentActual = entry.currentActual,
             completed = entry.completed,
-            onConfirm = { vm.saveTargetEntry(entry.activityId, it) },
-            onClear = { vm.clearTargetEntry(entry.activityId) },
-            onDismiss = { vm.dismissTargetEntry() },
+            onConfirm = { vm.onEvent(TodayEvent.SaveTargetEntry(entry.activityId, it)) },
+            onClear = { vm.onEvent(TodayEvent.ClearTargetEntry(entry.activityId)) },
+            onDismiss = { vm.onEvent(TodayEvent.DismissTargetEntry) },
         )
     }
 }
@@ -121,7 +128,7 @@ fun TodayRoute(
 @Composable
 private fun TodayLoading() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Loading todayâ€¦", color = MomentumThemeColors.current.textSecondary)
+        Text(stringResource(R.string.today_loading), color = MomentumThemeColors.current.textSecondary)
     }
 }
 
@@ -135,14 +142,14 @@ private fun TodayError(message: String, onRetry: () -> Unit) {
     ) {
         Text(message, color = c.textSecondary, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(MomentumSpacing.compact))
-        MomentumButton(text = "Try again", onClick = onRetry, secondary = true)
+        MomentumButton(text = stringResource(R.string.action_try_again), onClick = onRetry, secondary = true)
     }
 }
 
 /**
- * Home (Design System Â§13): one job â€” "How am I doing today?" and
+ * Home (Design System §13): one job — "How am I doing today?" and
  * "What do I still need to do today?" Aurora responds to today's state
- * (REST â†’ PROGRESS â†’ COMPLETION), never permanent wallpaper.
+ * (REST → PROGRESS → COMPLETION), never permanent wallpaper.
  */
 @Composable
 fun TodayScreen(
@@ -153,8 +160,8 @@ fun TodayScreen(
     onAdd: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    // Sections are derived from the persisted completion state â€” this screen
-    // never keeps its own copy of "is it done" (DASHBOARD_SPECS Â§22).
+    // Sections are derived from the persisted completion state — this screen
+    // never keeps its own copy of "is it done" (DASHBOARD_SPECS §22).
     val remaining = state.remaining
     val finished = state.completed
     val auroraState = when {
@@ -164,10 +171,10 @@ fun TodayScreen(
         else -> AuroraState.REST
     }
 
-    // Hero collapse (DASHBOARD_SPECS Â§8): ONE clamped px source of truth
-    // (`collapsePx` âˆˆ [0, maxCollapsePx]) reported upward as a single progress
+    // Hero collapse (DASHBOARD_SPECS §8): ONE clamped px source of truth
+    // (`collapsePx` ∈ [0, maxCollapsePx]) reported upward as a single progress
     // value. Down-scroll consumes into collapse before the list scrolls
-    // (pre-scroll); leftover up-scroll at list-top restores it (post-scroll) â€”
+    // (pre-scroll); leftover up-scroll at list-top restores it (post-scroll) —
     // plain bounded arithmetic on the same px value, no Boolean states and no
     // animations, so drag, fling, and direction reversals stay continuous. The
     // range is measured by HomeHero as a pure function of its content block,
@@ -206,10 +213,10 @@ fun TodayScreen(
         0f
     }
 
-    // Section moves (DASHBOARD_SPECS Â§11): completing an activity relocates its
+    // Section moves (DASHBOARD_SPECS §11): completing an activity relocates its
     // row from Remaining to Completed, so the row must glide to its new place
     // instead of vanishing. Null specs switch the animation off entirely under
-    // reduced motion â€” the state change stays instant and unambiguous.
+    // reduced motion — the state change stays instant and unambiguous.
     val motionFade: FiniteAnimationSpec<Float>? =
         if (reduceMotion) null else tween(durationMillis = 220)
     val motionPlace: FiniteAnimationSpec<IntOffset>? =
@@ -250,12 +257,12 @@ fun TodayScreen(
             item {
                 HomeHero(
                     dateLabel = state.dateLabel,
-                    greeting = state.greeting,
+                    greeting = state.greeting.resolve(),
                     onOpenSettings = onOpenSettings,
                     progress = state.progress,
                     doneCount = state.doneCount,
                     totalCount = state.totalCount,
-                    message = state.message,
+                    message = state.message?.resolve().orEmpty(),
                     collapseProgress = heroProgress,
                     reduceMotion = reduceMotion,
                     onCollapseRangePx = { range ->
@@ -265,18 +272,18 @@ fun TodayScreen(
                 )
             }
             if (state.isEmpty) {
-                // Nothing eligible today: both sections hide (Â§13) and the
+                // Nothing eligible today: both sections hide (§13) and the
                 // dedicated No-Activity State carries the screen instead.
                 item {
                     HomeEmptyState(onAdd = onAdd)
                 }
             } else {
                 // Ordering is fixed: every Remaining row precedes every
-                // Completed row; empty sections are never rendered (Â§20).
+                // Completed row; empty sections are never rendered (§20).
                 if (remaining.isNotEmpty()) {
                     item {
                         MomentumSectionHeader(
-                            title = "Remaining today",
+                            title = stringResource(R.string.today_section_remaining),
                             modifier = Modifier
                                 .animateItem(fadeInSpec = motionFade, fadeOutSpec = motionFade)
                                 .semantics { heading() }
@@ -284,7 +291,7 @@ fun TodayScreen(
                         )
                     }
                 }
-                items(remaining, key = { it.activity.id }) { item ->
+                items(remaining, key = { it.activity.id }, contentType = { "todayRow" }) { item ->
                     TodayActivityRow(
                         item = item,
                         completed = false,
@@ -300,7 +307,7 @@ fun TodayScreen(
                 if (finished.isNotEmpty()) {
                     item {
                         MomentumSectionHeader(
-                            title = "Completed today",
+                            title = stringResource(R.string.today_section_completed),
                             modifier = Modifier
                                 .animateItem(fadeInSpec = motionFade, fadeOutSpec = motionFade)
                                 .semantics { heading() }
@@ -308,7 +315,7 @@ fun TodayScreen(
                         )
                     }
                 }
-                items(finished, key = { it.activity.id }) { item ->
+                items(finished, key = { it.activity.id }, contentType = { "todayRow" }) { item ->
                     TodayActivityRow(
                         item = item,
                         completed = true,
@@ -323,7 +330,7 @@ fun TodayScreen(
                 }
             }
         }
-        // Quick Add (Â§14 / DECISIONS Â§20): compact circular `+`, bottom-right,
+        // Quick Add (§14 / DECISIONS §20): compact circular `+`, bottom-right,
         // immediately above the bottom navigation, opening Create Item.
         QuickAddFab(
             onAdd = onAdd,
@@ -334,7 +341,7 @@ fun TodayScreen(
     }
 }
 
-/** Today's list row â€” the shared Activity Row (Â§15), compact action surface. */
+/** Today's list row — the shared Activity Row (§15), compact action surface. */
 @Composable
 private fun TodayActivityRow(
     item: TodayItem,
@@ -355,13 +362,13 @@ private fun TodayActivityRow(
     )
 }
 
-/** Quick Add diameter (Â§14): circular and compact, clear of the 48 dp minimum. */
+/** Quick Add diameter (§14): circular and compact, clear of the 48 dp minimum. */
 private val QuickAddFabSize = 56.dp
 
 /**
- * Quick Add (DASHBOARD_SPECS Â§14, DECISIONS Â§20): a compact circular `+` at the
+ * Quick Add (DASHBOARD_SPECS §14, DECISIONS §20): a compact circular `+` at the
  * bottom-right, immediately above the bottom navigation. It opens Create Item
- * (Habit / Task) directly â€” never a multi-purpose action menu â€” and is the only
+ * (Habit / Task) directly — never a multi-purpose action menu — and is the only
  * add affordance on a populated Home list.
  */
 @Composable
@@ -383,20 +390,20 @@ private fun QuickAddFab(onAdd: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = MomentumIcons.add,
-            contentDescription = "Quick Add",
+            contentDescription = stringResource(R.string.cd_quick_add),
             tint = c.primary,
             modifier = Modifier.size(MomentumIconSizes.large),
         )
     }
 }
 
-/** Calm, useful, action-oriented empty state (Â§3, Â§25): no guilt, no streak-loss language. */
+/** Calm, useful, action-oriented empty state (§3, §25): no guilt, no streak-loss language. */
 @Composable
 private fun HomeEmptyState(onAdd: () -> Unit) {
     EmptyState(
-        title = "Nothing scheduled today",
-        body = "When you add a habit or task it shows up here. One small step is enough.",
-        actionLabel = "Add an activity",
+        title = stringResource(R.string.today_empty_title),
+        body = stringResource(R.string.today_empty_body),
+        actionLabel = stringResource(R.string.today_empty_action),
         onAction = onAdd,
         icon = Icons.Rounded.Star,
         modifier = Modifier.padding(horizontal = MomentumSpacing.screen),
@@ -404,11 +411,11 @@ private fun HomeEmptyState(onAdd: () -> Unit) {
 }
 
 /**
- * Home card metadata (DECISIONS Â§11): the optional configured time plus the
+ * Home card metadata (DECISIONS §11): the optional configured time plus the
  * target progress when applicable. Deliberately no recurrence or activity-type
- * label â€” classification belongs to detail screens, not Home (Â§11 Rejected).
+ * label — classification belongs to detail screens, not Home (§11 Rejected).
  * An activity with neither a time nor a target renders no metadata row at all
- * rather than a placeholder (Â§29).
+ * rather than a placeholder (§29).
  */
 private fun homeMetadataLabel(item: TodayItem): String = buildString {
     item.activity.dueTime?.let { time ->
@@ -420,7 +427,7 @@ private fun homeMetadataLabel(item: TodayItem): String = buildString {
     }
     // Shows live progress: "0/8 glasses", "5/8 glasses" (partial), "8/8 glasses".
     targetProgressLabel(item.activity, item.completionValue)?.let { progress ->
-        if (isNotEmpty()) append(" Â· ")
+        if (isNotEmpty()) append(" · ")
         append(progress)
     }
 }

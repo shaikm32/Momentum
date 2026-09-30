@@ -3,6 +3,8 @@ package com.momentum.app.notification
 import android.app.AlarmManager
 import android.content.Context
 import android.os.Build
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.ReminderRepository
 import java.time.LocalDateTime
 
 /**
@@ -21,21 +23,23 @@ interface ReminderScheduler {
 
     /** Cancel every pending alarm of one activity. Call on archive/delete. */
     suspend fun cancelForActivity(activityId: Long)
-
-    companion object {
-        fun create(context: Context): ReminderScheduler = AlarmReminderScheduler(context)
-    }
 }
 
+/**
+ * Provided by [com.momentum.app.di.SchedulerModule] as a process-wide
+ * singleton (ADR-43). Repositories are constructor-injected — the retired
+ * service-locator lookup is gone.
+ */
 internal class AlarmReminderScheduler(
     private val context: Context,
-    private val gateway: AlarmGateway = RealAlarmGateway(context),
+    private val activityRepository: ActivityRepository,
+    private val reminderRepository: ReminderRepository,
+    private val gateway: AlarmGateway,
 ) : ReminderScheduler {
 
     override suspend fun scheduleForActivity(activityId: Long) {
-        val container = (context.applicationContext as com.momentum.app.MomentumApp).container
-        val activity = container.activityRepository.getById(activityId)
-        val reminders = container.reminderRepository.forActivity(activityId)
+        val activity = activityRepository.getById(activityId)
+        val reminders = reminderRepository.forActivity(activityId)
         syncActivityAlarms(activity, reminders, LocalDateTime.now(), exactAllowed(), gateway)
     }
 

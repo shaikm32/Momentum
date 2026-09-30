@@ -38,14 +38,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.domain.model.Category
 import com.momentum.app.domain.model.DarkModeSetting
@@ -58,9 +63,12 @@ import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.components.momentumIcon
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.ViewModelArgs
+import com.momentum.app.presentation.hiltViewModelWithArgs
 import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.resolve
 import com.momentum.app.presentation.theme.HabitIconAccents
+import com.momentum.app.presentation.theme.MomentumBodyStrong
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
@@ -81,27 +89,30 @@ fun HabitConfigRoute(
     onBack: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: CreationViewModel = momentumViewModel {
-        CreationViewModel(it, activityId, ActivityType.HABIT, intent)
+    val vm: CreationViewModel = hiltViewModelWithArgs {
+        putString(ViewModelArgs.ACTIVITY_ID, activityId?.toString())
+        putString(ViewModelArgs.ACTIVITY_TYPE, ActivityType.HABIT.name)
+        putString(ViewModelArgs.HABIT_INTENT, intent.name)
     }
     val form by vm.form.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(vm) {
         vm.effect.collect { effect ->
             when (effect) {
                 is CreationEffect.Saved -> onSaved(effect.activityId)
-                is CreationEffect.Error -> snackbar.showSnackbar(effect.message)
+                is CreationEffect.Error -> snackbar.showSnackbar(effect.message.resolve(context))
             }
         }
     }
     HabitConfigScreen(
         form = form,
         categories = categories,
-        onUpdate = { vm.update(it) },
-        onSelectIntent = { vm.selectIntent(it) },
-        onSelectTemplate = { vm.selectTemplate(it) },
-        onSave = { vm.save() },
+        onUpdate = { vm.onEvent(CreationEvent.Update(it)) },
+        onSelectIntent = { vm.onEvent(CreationEvent.SelectIntent(it)) },
+        onSelectTemplate = { vm.onEvent(CreationEvent.SelectTemplate(it)) },
+        onSave = { vm.onEvent(CreationEvent.Save) },
         onBack = onBack,
     )
 }
@@ -118,12 +129,13 @@ fun HabitConfigScreen(
 ) {
     val reduceMotion = rememberReduceMotion(null)
     val subtitle = when (form.habitIntent) {
-        HabitIntent.BUILD -> "Small steps, done daily"
-        HabitIntent.REDUCE -> "Cut back, stay in control"
+        HabitIntent.BUILD -> stringResource(R.string.habit_subtitle_build)
+        HabitIntent.REDUCE -> stringResource(R.string.habit_subtitle_reduce)
     }
     Column(modifier = Modifier.fillMaxSize()) {
         MomentumTopBar(
-            title = if (form.isNew) "New habit" else "Edit habit",
+            title = if (form.isNew) stringResource(R.string.habit_title_new)
+            else stringResource(R.string.habit_title_edit),
             subtitle = subtitle,
             onBack = onBack,
         )
@@ -140,7 +152,7 @@ fun HabitConfigScreen(
         ) {
             if (form.isNew) {
                 item {
-                    MomentumSectionHeader(title = "What do you want to work on?")
+                    MomentumSectionHeader(title = stringResource(R.string.habit_section_intent))
                 }
                 item {
                     IntentCards(
@@ -149,7 +161,7 @@ fun HabitConfigScreen(
                     )
                 }
                 item {
-                    MomentumSectionHeader(title = "Choose a habit")
+                    MomentumSectionHeader(title = stringResource(R.string.habit_section_choose))
                 }
                 // Locked 2-column grid: equal-width cards, spacing mirrors the
                 // LazyColumn row gap so columns and rows share one rhythm.
@@ -206,7 +218,7 @@ fun HabitConfigScreen(
                 ReminderSection(form = form, onUpdate = onUpdate, reduceMotion = reduceMotion)
             }
             item {
-                MomentumSectionHeader(title = "Details (optional)")
+                MomentumSectionHeader(title = stringResource(R.string.section_details_optional))
             }
             item {
                 NotesSection(form = form, onUpdate = onUpdate)
@@ -223,9 +235,9 @@ fun HabitConfigScreen(
         }
         CreateCtaBar(
             text = when {
-                form.isSaving -> "Saving…"
-                form.isNew -> "Create habit"
-                else -> "Save changes"
+                form.isSaving -> stringResource(R.string.action_saving)
+                form.isNew -> stringResource(R.string.habit_config_create)
+                else -> stringResource(R.string.action_save_changes)
             },
             enabled = !form.isSaving && form.isSubmittable(),
             onClick = onSave,
@@ -270,7 +282,11 @@ private fun SelectionRing(
                 role = Role.Button,
                 onClickLabel = onClickLabel,
                 onClick = onClick,
-            ),
+            )
+            // One announcement per card: its own texts and decorative accent
+            // badge are merged into the clickable node instead of being read
+            // again after it.
+            .semantics(mergeDescendants = true) {},
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -297,8 +313,8 @@ private fun IntentCards(
         IntentCard(
             icon = Icons.AutoMirrored.Rounded.TrendingUp,
             accent = HabitIconAccents.peach,
-            title = "Build",
-            body = "Start small and keep going.",
+            title = stringResource(R.string.intent_build),
+            body = stringResource(R.string.intent_build_body),
             selected = selected == HabitIntent.BUILD,
             onClick = { onPick(HabitIntent.BUILD) },
             modifier = Modifier
@@ -308,8 +324,8 @@ private fun IntentCards(
         IntentCard(
             icon = Icons.AutoMirrored.Rounded.TrendingDown,
             accent = HabitIconAccents.plum,
-            title = "Reduce",
-            body = "Cut back at your own pace.",
+            title = stringResource(R.string.intent_reduce),
+            body = stringResource(R.string.intent_reduce_body),
             selected = selected == HabitIntent.REDUCE,
             onClick = { onPick(HabitIntent.REDUCE) },
             modifier = Modifier
@@ -356,11 +372,7 @@ private fun IntentCard(
             ) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp,
-                        lineHeight = 22.sp,
-                    ),
+                    style = MomentumBodyStrong,
                     color = c.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -422,17 +434,12 @@ private fun templateAccent(templateId: String): Color = when (templateId) {
 
 /**
  * Presentation-only display labels for the 2×3 picker grid. Shorter than the
- * template `label`/`defaultTitle` values, which stay untouched so selection,
+ * template `defaultTitle` values, which stay untouched literals so selection,
  * pre-filled names, and edit-mode matching keep working unchanged.
  */
-private fun templateDisplayLabel(template: HabitTemplate): String = when (template.id) {
-    "build_read" -> "Read"
-    "build_exercise" -> "Exercise"
-    "build_meditate" -> "Meditate"
-    "build_water" -> "Hydrate"
-    "build_learn" -> "Learn"
-    else -> template.label
-}
+@Composable
+private fun templateDisplayLabel(template: HabitTemplate): String =
+    stringResource(template.labelRes)
 
 /**
  * Compact predefined-habit tile: fixed [TEMPLATE_CARD_HEIGHT] so every card in
@@ -485,12 +492,12 @@ private val TEMPLATE_CARD_HEIGHT = 76.dp
 @Composable
 private fun LockedIntentSummary(form: CreationForm) {
     val text = when (form.habitIntent) {
-        HabitIntent.BUILD -> "Build habit — just show up daily."
+        HabitIntent.BUILD -> stringResource(R.string.locked_build_summary)
         HabitIntent.REDUCE ->
             if (form.reduceMode == ReduceMode.COMPLETE) {
-                "Reduce habit — zero is the target."
+                stringResource(R.string.locked_reduce_zero_summary)
             } else {
-                "Reduce habit — stay at or below your limit."
+                stringResource(R.string.locked_reduce_limit_summary)
             }
     }
     MomentumCard {
@@ -506,45 +513,49 @@ private fun HabitMeasureSection(
 ) {
     when (form.habitIntent) {
         HabitIntent.BUILD -> {
-            MomentumSectionHeader(title = "How will you succeed?")
+            MomentumSectionHeader(title = stringResource(R.string.measure_build_section))
             MomentumCard {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     CategoryChip(
-                        label = "Just mark it done",
+                        label = stringResource(R.string.chip_just_mark_done),
                         selected = form.buildBinary,
                         onClick = { onUpdate { it.copy(buildBinary = true, measureError = null) } },
                         modifier = Modifier.weight(1f),
                     )
                     CategoryChip(
-                        label = "Reach a target",
+                        label = stringResource(R.string.chip_reach_target),
                         selected = !form.buildBinary,
                         onClick = { onUpdate { it.copy(buildBinary = false, measureError = null) } },
                         modifier = Modifier.weight(1f),
                     )
                 }
                 Expandable(visible = !form.buildBinary, reduceMotion = reduceMotion) {
-                    AmountUnitFields(form = form, onUpdate = onUpdate, amountLabel = "Target amount")
+                    AmountUnitFields(
+                        form = form,
+                        onUpdate = onUpdate,
+                        amountLabel = stringResource(R.string.habit_tracking_target_amount),
+                    )
                 }
             }
         }
         HabitIntent.REDUCE -> {
-            MomentumSectionHeader(title = "How much do you want to reduce?")
+            MomentumSectionHeader(title = stringResource(R.string.measure_reduce_section))
             MomentumCard {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     CategoryChip(
-                        label = "Set a limit",
+                        label = stringResource(R.string.chip_set_limit),
                         selected = form.reduceMode == ReduceMode.LIMIT,
                         onClick = { onUpdate { it.copy(reduceMode = ReduceMode.LIMIT, measureError = null) } },
                         modifier = Modifier.weight(1f),
                     )
                     CategoryChip(
-                        label = "Completely",
+                        label = stringResource(R.string.habit_tracking_completely),
                         selected = form.reduceMode == ReduceMode.COMPLETE,
                         onClick = { onUpdate { it.copy(reduceMode = ReduceMode.COMPLETE, measureError = null) } },
                         modifier = Modifier.weight(1f),
@@ -553,22 +564,30 @@ private fun HabitMeasureSection(
             }
             Expandable(visible = form.reduceMode == ReduceMode.LIMIT, reduceMotion = reduceMotion) {
                 MomentumCard {
-                    Explainer("Your limit for each occurrence — staying at or below it counts as success.")
-                    AmountUnitFields(form = form, onUpdate = onUpdate, amountLabel = "Limit")
+                    Explainer(stringResource(R.string.limit_explainer))
+                    AmountUnitFields(
+                        form = form,
+                        onUpdate = onUpdate,
+                        amountLabel = stringResource(R.string.amount_label_limit),
+                    )
                 }
             }
             Expandable(visible = form.reduceMode == ReduceMode.COMPLETE, reduceMotion = reduceMotion) {
                 MomentumCard {
-                    Explainer(
-                        "Zero is the goal — no daily check-in needed. " +
-                            "If a slip happens, log it from Today.",
-                    )
+                    Explainer(stringResource(R.string.zero_explainer))
                 }
             }
         }
     }
     form.measureError?.let {
-        Text(it, style = MaterialTheme.typography.bodySmall, color = MomentumThemeColors.current.error)
+        Text(
+            it.resolve(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MomentumThemeColors.current.error,
+            // The message appears after the tap that caused it, so it is a live
+            // region: without one, TalkBack stays silent on an invalid save.
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
+        )
     }
 }
 
@@ -590,14 +609,18 @@ private fun AmountUnitFields(
             value = form.amount,
             onValueChange = { v -> onUpdate { it.copy(amount = v, measureError = null) } },
             label = { Text(amountLabel) },
-            placeholder = { Text("e.g. 30") },
+            placeholder = { Text(stringResource(R.string.amount_placeholder)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             shape = RoundedCornerShape(MomentumRadii.control),
             colors = glassFieldColors(),
             modifier = Modifier.fillMaxWidth(),
         )
-        Text("Unit", style = MaterialTheme.typography.labelLarge, color = c.textSecondary)
+        Text(
+            stringResource(R.string.unit_label),
+            style = MaterialTheme.typography.labelLarge,
+            color = c.textSecondary,
+        )
         androidx.compose.foundation.layout.FlowRow(
             horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
             verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
@@ -613,8 +636,8 @@ private fun AmountUnitFields(
         OutlinedTextField(
             value = if (form.unit in SupportedUnits) "" else form.unit,
             onValueChange = { v -> onUpdate { it.copy(unit = v, measureError = null) } },
-            label = { Text("Custom unit") },
-            placeholder = { Text("Or type your own…") },
+            label = { Text(stringResource(R.string.custom_unit_label)) },
+            placeholder = { Text(stringResource(R.string.custom_unit_placeholder)) },
             singleLine = true,
             shape = RoundedCornerShape(MomentumRadii.control),
             colors = glassFieldColors(),

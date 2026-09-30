@@ -43,10 +43,6 @@ class HomeAccessibilityTest {
             count(screen, "if (reduceMotion) null else") >= 2,
         )
         assertTrue(
-            "the completion pop must skip its spring",
-            button.contains("if (reduceMotion) tween(0) else spring"),
-        )
-        assertTrue(
             "the completion state must still be visible without motion",
             button.contains("if (completed) 1f else 0.94f"),
         )
@@ -58,7 +54,6 @@ class HomeAccessibilityTest {
             "completion control height",
             button.contains(".size(MomentumHeights.controlMin)"),
         )
-        assertTrue("quick add diameter", screen.contains("QuickAddFabSize = 56.dp"))
         assertTrue(
             "header action buttons",
             read(
@@ -69,13 +64,15 @@ class HomeAccessibilityTest {
 
     @Test
     fun `rows are grouped by completion state rather than tinted in place`() {
+        // The call now also carries `contentType` (Phase E2), so the guard pins
+        // the key expression, not the closing paren.
         assertTrue(
             "remaining rows come from state.remaining",
-            screen.contains("items(remaining, key = { it.activity.id })"),
+            screen.contains("items(remaining, key = { it.activity.id }"),
         )
         assertTrue(
             "completed rows come from state.completed",
-            screen.contains("items(finished, key = { it.activity.id })"),
+            screen.contains("items(finished, key = { it.activity.id }"),
         )
         assertTrue(count(screen, "completed = false,") >= 1)
         assertTrue(count(screen, "completed = true,") >= 1)

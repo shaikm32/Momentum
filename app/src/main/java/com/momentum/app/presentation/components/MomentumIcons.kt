@@ -41,33 +41,38 @@ import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.StringRes
+import com.momentum.app.R
 
 /**
  * Curated icon set keyed by [iconKey]. Keys are stored on activities/categories;
  * unknown keys fall back to [Star] so a bad key can never break the UI.
  * One family (Material Symbols Rounded) at consistent optical scale.
+ *
+ * [labelRes] carries the picker label as a resource id, never a literal: only
+ * composables resolve it, via `stringResource(option.labelRes)`.
  */
-data class MomentumIconOption(val key: String, val label: String)
+data class MomentumIconOption(val key: String, @param:StringRes val labelRes: Int)
 
 val MomentumIconOptions = listOf(
-    MomentumIconOption("spark", "Spark"),
-    MomentumIconOption("health", "Health"),
-    MomentumIconOption("meds", "Medicine"),
-    MomentumIconOption("fitness", "Fitness"),
-    MomentumIconOption("mind", "Mind"),
-    MomentumIconOption("learning", "Learning"),
-    MomentumIconOption("school", "School"),
-    MomentumIconOption("work", "Work"),
-    MomentumIconOption("home", "Home"),
-    MomentumIconOption("food", "Food"),
-    MomentumIconOption("water", "Water"),
-    MomentumIconOption("sleep", "Sleep"),
-    MomentumIconOption("music", "Music"),
-    MomentumIconOption("art", "Art"),
-    MomentumIconOption("mail", "Mail"),
-    MomentumIconOption("people", "People"),
-    MomentumIconOption("timer", "Timer"),
-    MomentumIconOption("list", "List"),
+    MomentumIconOption("spark", R.string.icon_spark),
+    MomentumIconOption("health", R.string.icon_health),
+    MomentumIconOption("meds", R.string.icon_meds),
+    MomentumIconOption("fitness", R.string.icon_fitness),
+    MomentumIconOption("mind", R.string.icon_mind),
+    MomentumIconOption("learning", R.string.icon_learning),
+    MomentumIconOption("school", R.string.icon_school),
+    MomentumIconOption("work", R.string.icon_work),
+    MomentumIconOption("home", R.string.icon_home),
+    MomentumIconOption("food", R.string.icon_food),
+    MomentumIconOption("water", R.string.icon_water),
+    MomentumIconOption("sleep", R.string.icon_sleep),
+    MomentumIconOption("music", R.string.icon_music),
+    MomentumIconOption("art", R.string.icon_art),
+    MomentumIconOption("mail", R.string.icon_mail),
+    MomentumIconOption("people", R.string.icon_people),
+    MomentumIconOption("timer", R.string.icon_timer),
+    MomentumIconOption("list", R.string.icon_list),
 )
 
 @Composable

@@ -28,10 +28,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.momentum.app.R
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.LocalMomentumColors
@@ -55,7 +57,11 @@ fun CompletionButton(
     completed: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    contentDescription: String = if (completed) "Mark as not done" else "Mark as done",
+    contentDescription: String = if (completed) {
+        stringResource(R.string.cd_mark_as_not_done)
+    } else {
+        stringResource(R.string.cd_mark_as_done)
+    },
 ) {
     val c = LocalMomentumColors.current
     val haptics = LocalHapticFeedback.current

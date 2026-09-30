@@ -32,17 +32,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.glassPress
 import com.momentum.app.presentation.components.liquidGlass
-import com.momentum.app.presentation.momentumViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.momentum.app.presentation.screens.settings.SettingsViewModel
 import com.momentum.app.presentation.theme.MomentumTheme
 import com.momentum.app.presentation.theme.MomentumThemeDefinition
@@ -53,7 +56,7 @@ import com.momentum.app.presentation.theme.MomentumSpacing
 
 @Composable
 fun ThemeGalleryRoute(onBack: () -> Unit) {
-    val vm: SettingsViewModel = momentumViewModel { SettingsViewModel(it) }
+    val vm: SettingsViewModel = hiltViewModel()
     val settings by vm.settings.collectAsStateWithLifecycle()
     ThemeGalleryScreen(
         themes = MomentumThemes,
@@ -79,9 +82,9 @@ fun ThemeGalleryScreen(
         verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
     ) {
         item {
-            MomentumTopBar(title = "Themes", onBack = onBack)
+            MomentumTopBar(title = stringResource(R.string.themes_title), onBack = onBack)
         }
-        items(themes, key = { it.id }) { theme ->
+        items(themes, key = { it.id }, contentType = { "themeCard" }) { theme ->
             ThemePreviewCard(
                 theme = theme,
                 selected = theme.id == selectedId,
@@ -127,6 +130,9 @@ fun ThemePreviewCard(
                     haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
                 },
             )
+            // One announcement per theme row: name, light/dark hint and the
+            // selected check merge into the clickable node.
+            .semantics(mergeDescendants = true) {}
             .padding(MomentumSpacing.card),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.card),
@@ -150,11 +156,11 @@ fun ThemePreviewCard(
             }
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(theme.name, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
-            Text("Light · Dark", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+            Text(stringResource(theme.nameRes), style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
+            Text(stringResource(R.string.themes_light_dark), style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         }
         if (selected) {
-            Icon(Icons.Rounded.Check, contentDescription = "${theme.name} selected", tint = c.primary)
+                Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.cd_theme_selected, stringResource(theme.nameRes)), tint = c.primary)
         }
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import com.momentum.app.R
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.formatAmount
@@ -117,7 +119,7 @@ fun TargetEntryDialog(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Target",
+                    text = stringResource(R.string.target_entry_target),
                     style = MaterialTheme.typography.labelLarge,
                     color = c.textSecondary,
                 )
@@ -138,12 +140,21 @@ fun TargetEntryDialog(
                         input = value
                     }
                 },
-                label = { Text("Actual") },
-                placeholder = { Text("e.g. ${formatAmount(target)}") },
+                label = { Text(stringResource(R.string.target_entry_actual)) },
+                placeholder = { Text(stringResource(R.string.target_entry_placeholder, formatAmount(target))) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 shape = RoundedCornerShape(MomentumRadii.control),
-                colors = glassFieldColors(),
+                // ISSUE-019 (ADR-38): the shared glass field's ghost outline
+                // (text ink at 0.25) disappears against the opaque dialog
+                // panel, so the sheet's one editable surface is given a real
+                // semantic outline instead — ink at 0.8 measures ≈ 3.8:1 on the
+                // Light panel and ≈ 6:1 on the Dark one, and focus moves it to
+                // primary. Panel, glass fill, elevation and layout untouched.
+                colors = glassFieldColors().copy(
+                    unfocusedIndicatorColor = c.textSecondary.copy(alpha = 0.8f),
+                    focusedIndicatorColor = c.primary,
+                ),
                 supportingText = {
                     val shown = parsed ?: currentActual
                     Text(
@@ -164,7 +175,7 @@ fun TargetEntryDialog(
                             .weight(1f)
                             .heightIn(min = MomentumHeights.controlMin),
                     ) {
-                        Text("Clear", color = c.textSecondary)
+                        Text(stringResource(R.string.action_clear), color = c.textSecondary)
                     }
                 }
                 TextButton(
@@ -173,7 +184,7 @@ fun TargetEntryDialog(
                         .weight(1f)
                         .heightIn(min = MomentumHeights.controlMin),
                 ) {
-                    Text("Cancel", color = c.textSecondary)
+                    Text(stringResource(R.string.action_cancel), color = c.textSecondary)
                 }
                 TextButton(
                     onClick = { input.trim().toDoubleOrNull()?.let(onConfirm) },
@@ -183,7 +194,7 @@ fun TargetEntryDialog(
                         .heightIn(min = MomentumHeights.controlMin),
                 ) {
                     Text(
-                        text = "Save",
+                        text = stringResource(R.string.action_save),
                         color = if (parsed != null) c.primary else c.textSecondary,
                         fontWeight = FontWeight.SemiBold,
                     )

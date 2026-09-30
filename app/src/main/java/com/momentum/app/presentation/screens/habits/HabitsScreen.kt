@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,6 +58,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.DarkModeSetting
@@ -67,10 +70,13 @@ import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.HabitIconTile
 import com.momentum.app.presentation.components.MomentumDialog
 import com.momentum.app.presentation.components.MomentumIcons
+import com.momentum.app.presentation.components.formatAmount
 import com.momentum.app.presentation.components.glassPress
 import com.momentum.app.presentation.components.liquidGlass
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.components.recurrenceLabel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.resolve
 import com.momentum.app.presentation.theme.MomentumHeights
 import com.momentum.app.presentation.theme.MomentumIconSizes
 import com.momentum.app.presentation.theme.MomentumRadii
@@ -93,7 +99,7 @@ fun HabitsRoute(
     onAddHabit: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: HabitsViewModel = momentumViewModel { HabitsViewModel(it) }
+    val vm: HabitsViewModel = hiltViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<Long?>(null) }
     val reduceMotion = rememberReduceMotion(null)
@@ -140,8 +146,14 @@ fun HabitsRoute(
         0f
     }
 
+    val context = LocalContext.current
+
     LaunchedEffect(vm) {
-        vm.messages.collect { snackbar.showSnackbar(it) }
+        vm.effect.collect { effect ->
+            when (effect) {
+                is HabitsEffect.ShowMessage -> snackbar.showSnackbar(effect.message.resolve(context))
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -165,9 +177,9 @@ fun HabitsRoute(
             )
             if (state.isEmpty) {
                 EmptyState(
-                    title = "No habits yet",
-                    body = "Start small — pick one thing you want to build or reduce.",
-                    actionLabel = "Create Habit",
+                    title = stringResource(R.string.habits_empty_title),
+                    body = stringResource(R.string.habits_empty_body),
+                    actionLabel = stringResource(R.string.action_create_habit),
                     onAction = onAddHabit,
                     icon = Icons.Rounded.Add,
                     modifier = Modifier.padding(
@@ -186,7 +198,7 @@ fun HabitsRoute(
                     ),
                     verticalArrangement = Arrangement.spacedBy(MomentumSpacing.tight),
                 ) {
-                    items(state.items, key = { it.activity.id }) { item ->
+                    items(state.items, key = { it.activity.id }, contentType = { "habitCard" }) { item ->
                         HabitCard(
                             item = item,
                             onOpen = { onOpenHabit(item.activity.id) },
@@ -208,11 +220,11 @@ fun HabitsRoute(
 
     pendingDelete?.let { id ->
         MomentumDialog(
-            title = "Delete habit permanently?",
-            body = "This removes the habit and its completion history. This can't be undone.",
-            confirmLabel = "Delete",
+            title = stringResource(R.string.dialog_delete_habit_title),
+            body = stringResource(R.string.dialog_delete_habit_body),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = { pendingDelete = null; vm.deleteHard(id) },
-            dismissLabel = "Cancel",
+            dismissLabel = stringResource(R.string.action_cancel),
             onDismiss = { pendingDelete = null },
             destructive = true,
         )
@@ -261,7 +273,7 @@ private fun AddHabitFab(
     ) {
         Icon(
             imageVector = MomentumIcons.add,
-            contentDescription = "Create habit",
+            contentDescription = stringResource(R.string.cd_create_habit),
             tint = c.onPrimary,
             modifier = Modifier.size(MomentumIconSizes.prominent),
         )
@@ -285,6 +297,19 @@ private fun HabitCard(
     val activity = item.activity
     val paused = activity.status == ActivityStatus.PAUSED
     var menuOpen by remember { mutableStateOf(false) }
+    // `Frequency · Target · Reminder` with three fixed slots — a missing value
+    // renders as `—` so every card stays aligned. Composed here (not in the
+    // ViewModel) so the display labels stay resolvable from resources.
+    val metadata = stringResource(
+        R.string.habits_metadata,
+        recurrenceLabel(activity.recurrence),
+        if (activity.targetPerOccurrence != 1.0 || activity.unit.isNotBlank()) {
+            "${formatAmount(activity.targetPerOccurrence)} ${activity.unit}".trim()
+        } else {
+            "—"
+        },
+        item.reminderTime ?: "—",
+    )
 
     Row(
         modifier = modifier
@@ -315,7 +340,7 @@ private fun HabitCard(
                 StatusPill(paused = paused)
             }
             Text(
-                text = item.metadata,
+                text = metadata,
                 style = MaterialTheme.typography.bodySmall,
                 color = c.textSecondary,
                 maxLines = 1,
@@ -329,14 +354,14 @@ private fun HabitCard(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = "Actions for ${activity.title}",
+                    contentDescription = stringResource(R.string.cd_actions_for_habit, activity.title),
                     tint = c.textSecondary,
                 )
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 if (paused) {
                     DropdownMenuItem(
-                        text = { Text("Resume Habit") },
+                        text = { Text(stringResource(R.string.habit_menu_resume)) },
                         leadingIcon = {
                             Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = c.primary)
                         },
@@ -344,7 +369,7 @@ private fun HabitCard(
                     )
                 } else {
                     DropdownMenuItem(
-                        text = { Text("Pause Habit") },
+                        text = { Text(stringResource(R.string.habit_menu_pause)) },
                         leadingIcon = {
                             Icon(Icons.Rounded.Pause, contentDescription = null, tint = c.textSecondary)
                         },
@@ -352,7 +377,7 @@ private fun HabitCard(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("Delete Habit", color = c.error) },
+                    text = { Text(stringResource(R.string.habit_menu_delete), color = c.error) },
                     leadingIcon = {
                         Icon(Icons.Rounded.Delete, contentDescription = null, tint = c.error)
                     },
@@ -378,7 +403,7 @@ private fun StatusPill(paused: Boolean) {
                 .background(if (paused) c.warning else c.success),
         )
         Text(
-            text = if (paused) "Paused" else "Active",
+            text = if (paused) stringResource(R.string.status_paused) else stringResource(R.string.status_active),
             style = MaterialTheme.typography.labelMedium,
             color = if (paused) c.warning else c.success,
             fontWeight = FontWeight.Medium,
@@ -402,7 +427,6 @@ private fun HabitsPreviewLight() {
                         status = ActivityStatus.ACTIVE,
                     ),
                     reminderTime = "07:00",
-                    metadata = "Daily · — · 07:00",
                 ),
                 onOpen = {}, onPause = {}, onResume = {}, onDelete = {},
             )
@@ -417,7 +441,6 @@ private fun HabitsPreviewLight() {
                         status = ActivityStatus.PAUSED,
                     ),
                     reminderTime = null,
-                    metadata = "Daily · 60 min · —",
                 ),
                 onOpen = {}, onPause = {}, onResume = {}, onDelete = {},
             )
@@ -442,7 +465,6 @@ private fun HabitsPreviewDark() {
                         status = ActivityStatus.ACTIVE,
                     ),
                     reminderTime = "21:30",
-                    metadata = "Weekdays · 30 pages · 21:30",
                 ),
                 onOpen = {}, onPause = {}, onResume = {}, onDelete = {},
             )

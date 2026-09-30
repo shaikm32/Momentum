@@ -1,5 +1,6 @@
 package com.momentum.app.presentation.components
 
+import com.momentum.app.R
 import com.momentum.app.domain.model.Activity
 import java.io.File
 import java.time.LocalDate
@@ -13,6 +14,10 @@ import org.junit.Test
  * DASHBOARD_SPECS §21 / DECISIONS §34: the completion control announces its
  * *action* with the activity's own title, and "Reach a Target" activities must
  * not promise an instant toggle they do not perform.
+ *
+ * The wording lives in `res/values/strings.xml`; the decision (which label)
+ * stays a pure function, so these tests pin both halves — the mapping here and
+ * the exact English sentence plus its `%1$s` slot in [strings].
  */
 class CompletionLabelTest {
 
@@ -25,30 +30,38 @@ class CompletionLabelTest {
         unit = "glasses",
     )
 
+    private val strings = File("src/main/res/values/strings.xml").readText()
+
+    /** Pins the exact English wording + `%1$s` slot behind a label resource. */
+    private fun assertString(name: String, expected: String) {
+        assertTrue(
+            "strings.xml must still carry <string name=\"$name\">$expected</string>",
+            strings.contains("<string name=\"$name\">$expected</string>"),
+        )
+    }
+
     @Test
     fun `binary incomplete names the completion action`() {
-        assertEquals("Complete Workout", completionActionLabel(binary, completed = false))
+        assertEquals(R.string.cd_complete_activity, completionActionLabelRes(binary, completed = false))
+        assertString("cd_complete_activity", "Complete %1\$s")
     }
 
     @Test
     fun `binary completed names the reversal action`() {
-        assertEquals("Mark Workout incomplete", completionActionLabel(binary, completed = true))
+        assertEquals(R.string.cd_mark_incomplete, completionActionLabelRes(binary, completed = true))
+        assertString("cd_mark_incomplete", "Mark %1\$s incomplete")
     }
 
     @Test
     fun `target incomplete points at the value dialog`() {
-        assertEquals(
-            "Enter today's progress for Drink water",
-            completionActionLabel(target, completed = false),
-        )
+        assertEquals(R.string.cd_enter_progress, completionActionLabelRes(target, completed = false))
+        assertString("cd_enter_progress", "Enter today\\'s progress for %1\$s")
     }
 
     @Test
     fun `target completed points at editing, not toggling`() {
-        assertEquals(
-            "Edit today's progress for Drink water",
-            completionActionLabel(target, completed = true),
-        )
+        assertEquals(R.string.cd_edit_progress, completionActionLabelRes(target, completed = true))
+        assertString("cd_edit_progress", "Edit today\\'s progress for %1\$s")
     }
 
     @Test

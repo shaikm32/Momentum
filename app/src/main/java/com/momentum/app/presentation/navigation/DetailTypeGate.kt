@@ -14,13 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.ActivityType
-import com.momentum.app.presentation.rememberContainer
+import com.momentum.app.presentation.rememberActivityRepository
 import com.momentum.app.presentation.theme.MomentumThemeColors
 
 /**
- * One-shot type gate for `Routes.DETAIL`: loads the row once, then shows
+ * One-shot type gate for `Routes.Detail`: loads the row once, then shows
  * Habit Details for ACTIVE/PAUSED habits or the legacy detail body for
- * tasks/archived habits. Keeps both ViewModels on the same NavBackStackEntry
+ * tasks/archived habits. Keeps both ViewModels on the same navigation entry
  * (Phase 2A lifecycle pattern).
  */
 @Composable
@@ -29,11 +29,11 @@ fun DetailTypeGate(
     onHabit: @Composable () -> Unit,
     onOther: @Composable () -> Unit,
 ) {
-    val container = rememberContainer()
+    val activityRepository = rememberActivityRepository()
     var isHabit by remember(activityId) { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(activityId) {
-        val activity = container.activityRepository.getById(activityId)
+        val activity = activityRepository.getById(activityId)
         isHabit = activity != null &&
             activity.activityType == ActivityType.HABIT &&
             (activity.status == ActivityStatus.ACTIVE || activity.status == ActivityStatus.PAUSED)

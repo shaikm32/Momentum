@@ -1,23 +1,33 @@
 package com.momentum.app.presentation.screens.insights
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.momentum.app.AppContainer
 import com.momentum.app.domain.engine.RecurrenceEngine
 import com.momentum.app.domain.engine.StreakEngine
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.CategoryRepository
+import com.momentum.app.domain.repository.CompletionRepository
 import com.momentum.app.domain.usecase.toIso
 import com.momentum.app.domain.usecase.toLocalDate
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 data class DayRate(val date: LocalDate, val rate: Double, val scheduled: Int)
-data class CategoryPerformance(val name: String, val rate: Double, val completed: Int, val scheduled: Int)
+/**
+ * [name] is the user's own category name (not UI copy); null = no category,
+ * which the screen labels from resources.
+ */
+data class CategoryPerformance(val name: String?, val rate: Double, val completed: Int, val scheduled: Int)
 data class ActivityPerformance(val activity: Activity, val rate: Double, val streak: Int)
 
+@Immutable
 data class InsightsUiState(
     val isEmpty: Boolean = true,
     val weekRate: Double = 0.0,
@@ -30,15 +40,20 @@ data class InsightsUiState(
     val topActivities: List<ActivityPerformance> = emptyList(),
 )
 
-class InsightsViewModel(container: AppContainer) : ViewModel() {
+@HiltViewModel
+class InsightsViewModel @Inject constructor(
+    private val activityRepository: ActivityRepository,
+    private val completionRepository: CompletionRepository,
+    private val categoryRepository: CategoryRepository,
+) : ViewModel() {
 
     val state = run {
         val today = LocalDate.now()
         val from = today.minusDays(60).toIso()
         combine(
-            container.activityRepository.observeAll(),
-            container.completionRepository.observeInRange(from, today.toIso()),
-            container.categoryRepository.observeAll(),
+            activityRepository.observeAll(),
+            completionRepository.observeInRange(from, today.toIso()),
+            categoryRepository.observeAll(),
         ) { activities, completions, categories ->
             buildState(today, activities, completions, categories)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InsightsUiState())
@@ -95,7 +110,10 @@ class InsightsViewModel(container: AppContainer) : ViewModel() {
                 done += s.count { it in c }
             }
             CategoryPerformance(
-                name = catId?.let { names[it] } ?: "Uncategorized",
+                // No category, or one that was deleted while the row is
+                // rendered: either way the screen falls back to its own
+                // resource label. The name is user data, so it stays literal.
+                name = catId?.let { names[it] },
                 rate = if (scheduled == 0) 0.0 else done.toDouble() / scheduled,
                 completed = done,
                 scheduled = scheduled,

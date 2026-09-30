@@ -2,7 +2,10 @@ package com.momentum.app.presentation.screens.creation
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.momentum.app.AppContainer
+import app.cash.turbine.test
+import com.momentum.app.R
+import com.momentum.app.TestGraph
+import com.momentum.app.creationViewModel
 import com.momentum.app.data.local.ActivityEntity
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityType
@@ -10,6 +13,8 @@ import com.momentum.app.domain.model.HabitIntent
 import com.momentum.app.domain.model.Recurrence
 import com.momentum.app.domain.model.ReduceMode
 import com.momentum.app.notification.ReminderScheduler
+import com.momentum.app.presentation.UiText
+import java.io.File
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +50,7 @@ private class ThrowingReminderScheduler : ReminderScheduler {
 
 /**
  * Creation-flow tests through the real persistence path (Robolectric +
- * real AppContainer/Room, mirroring
+ * real Room wiring, mirroring
  * [com.momentum.app.data.local.ActivityHistoryPreservedTest]).
  *
  * Covers the whole guided flow: habit intents (Build/Reduce, with Reduce
@@ -58,17 +63,31 @@ private class ThrowingReminderScheduler : ReminderScheduler {
 @RunWith(RobolectricTestRunner::class)
 class CreationViewModelTest {
 
-    private lateinit var container: AppContainer
+    private lateinit var container: TestGraph
+
+    private val strings = File("src/main/res/values/strings.xml").readText()
+
+    /**
+     * Pins the exact English wording behind a validation resource. Phase E1b
+     * moved the copy out of the ViewModel into `strings.xml`, so the resource
+     * mapping above and the sentence it renders are the two halves of one
+     * contract and both stay asserted.
+     */
+    private fun assertString(name: String, expected: String) {
+        assertTrue(
+            "strings.xml must still carry <string name=\"$name\">$expected</string>",
+            strings.contains("<string name=\"$name\">$expected</string>"),
+        )
+    }
 
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.deleteDatabase("momentum.db")
-        // The real scheduler drives AlarmManager/PendingIntent through the app
-        // container — framework surface these persistence/effect tests must not
-        // depend on. Scheduling logic stays covered by AlarmPlanningTest's
-        // fake-gateway tests.
-        container = AppContainer(context, reminderSchedulerOverride = NoopReminderScheduler())
+        // The real scheduler drives AlarmManager/PendingIntent — a framework
+        // surface these persistence/effect tests must not depend on. Scheduling
+        // logic stays covered by AlarmPlanningTest's fake-gateway tests.
+        container = TestGraph(context, reminderSchedulerOverride = NoopReminderScheduler())
     }
 
     @After
@@ -82,7 +101,7 @@ class CreationViewModelTest {
     fun `build habit creation defaults to HABIT BUILD DAILY binary`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
 
         assertTrue(vm.form.value.isNew)
         assertEquals(ActivityType.HABIT, vm.form.value.activityType)
@@ -95,7 +114,7 @@ class CreationViewModelTest {
     fun `reduce habit creation defaults to REDUCE DAILY`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.REDUCE)
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.REDUCE)
 
         assertEquals(HabitIntent.REDUCE, vm.form.value.habitIntent)
         assertEquals(RecurrenceChoice.DAILY, vm.form.value.recurrenceChoice)
@@ -105,7 +124,7 @@ class CreationViewModelTest {
     fun `reduce habit creation defaults to REDUCE LIMIT mode`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.REDUCE)
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.REDUCE)
 
         assertEquals(HabitIntent.REDUCE, vm.form.value.habitIntent)
         assertEquals(ReduceMode.LIMIT, vm.form.value.reduceMode)
@@ -116,7 +135,7 @@ class CreationViewModelTest {
     fun `task creation defaults to TASK ONCE due today without repeat`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 
-        val vm = CreationViewModel(container, null, ActivityType.TASK)
+        val vm = container.creationViewModel(null, ActivityType.TASK)
 
         assertTrue(vm.form.value.isNew)
         assertEquals(ActivityType.TASK, vm.form.value.activityType)
@@ -133,13 +152,13 @@ class CreationViewModelTest {
     @Test
     fun `saving binary build habit persists BUILD with default target`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update { it.copy(title = "Meditate") }
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Meditate") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        val effect = vm.effect.first()
+        val effect = awaitEffect(vm)
         assertTrue(effect is CreationEffect.Saved)
         val stored = container.activityRepository.getById((effect as CreationEffect.Saved).activityId)!!
         assertEquals("Meditate", stored.title)
@@ -153,14 +172,14 @@ class CreationViewModelTest {
     @Test
     fun `saving target build habit persists amount and unit`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update { it.copy(title = "Read", buildBinary = false, amount = "30", unit = "pages") }
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Read", buildBinary = false, amount = "30", unit = "pages") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository
-            .getById((vm.effect.first() as CreationEffect.Saved).activityId)!!
+            .getById((awaitEffect(vm) as CreationEffect.Saved).activityId)!!
         assertEquals(HabitIntent.BUILD, stored.habitIntent)
         assertEquals(30.0, stored.targetPerOccurrence, 0.0)
         assertEquals("pages", stored.unit)
@@ -169,8 +188,8 @@ class CreationViewModelTest {
     @Test
     fun `saving reduce habit persists REDUCE with limit`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.REDUCE)
-        vm.update {
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.REDUCE)
+        vm.onEvent(CreationEvent.Update {
             it.copy(
                 title = "Social media",
                 amount = "60",
@@ -179,13 +198,13 @@ class CreationViewModelTest {
                 reminderEnabled = true,
                 reminderTime = "21:00",
             )
-        }
+        })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository
-            .getById((vm.effect.first() as CreationEffect.Saved).activityId)!!
+            .getById((awaitEffect(vm) as CreationEffect.Saved).activityId)!!
         assertEquals(ActivityType.HABIT, stored.activityType)
         assertEquals(HabitIntent.REDUCE, stored.habitIntent)
         assertEquals(60.0, stored.targetPerOccurrence, 0.0)
@@ -198,14 +217,14 @@ class CreationViewModelTest {
     @Test
     fun `saving reduce completely habit persists REDUCE with zero target`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.REDUCE)
-        vm.update { it.copy(title = "Smoking", reduceMode = ReduceMode.COMPLETE) }
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.REDUCE)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Smoking", reduceMode = ReduceMode.COMPLETE) })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository
-            .getById((vm.effect.first() as CreationEffect.Saved).activityId)!!
+            .getById((awaitEffect(vm) as CreationEffect.Saved).activityId)!!
         assertEquals(HabitIntent.REDUCE, stored.habitIntent)
         assertEquals(ReduceMode.COMPLETE, stored.reduceMode())
         assertEquals(1.0, stored.targetPerOccurrence, 0.0)
@@ -216,20 +235,20 @@ class CreationViewModelTest {
     @Test
     fun `saving build habit with custom recurrence persists the rule`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update {
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update {
             it.copy(
                 title = "Gym",
                 recurrenceChoice = RecurrenceChoice.CUSTOM_DAYS,
                 days = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
             )
-        }
+        })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository
-            .getById((vm.effect.first() as CreationEffect.Saved).activityId)!!
+            .getById((awaitEffect(vm) as CreationEffect.Saved).activityId)!!
         assertEquals(
             Recurrence.SelectedWeekdays(
                 setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
@@ -243,13 +262,13 @@ class CreationViewModelTest {
     @Test
     fun `saving one-time task persists TASK with due date and no due time`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.TASK)
-        vm.update { it.copy(title = "Pay rent", reminderEnabled = true, reminderTime = "18:30") }
+        val vm = container.creationViewModel(null, ActivityType.TASK)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Pay rent", reminderEnabled = true, reminderTime = "18:30") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        val effect = vm.effect.first()
+        val effect = awaitEffect(vm)
         assertTrue(effect is CreationEffect.Saved)
         val stored = container.activityRepository.getById((effect as CreationEffect.Saved).activityId)!!
         assertEquals(ActivityType.TASK, stored.activityType)
@@ -264,9 +283,9 @@ class CreationViewModelTest {
     @Test
     fun `saving task with due time and repeat persists both`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.TASK)
+        val vm = container.creationViewModel(null, ActivityType.TASK)
         val due = LocalDate.now().plusDays(3)
-        vm.update {
+        vm.onEvent(CreationEvent.Update {
             it.copy(
                 title = "Take car for service",
                 dueOption = DueOption.PICK_DATE,
@@ -277,13 +296,13 @@ class CreationViewModelTest {
                 recurrenceChoice = RecurrenceChoice.MONTHLY,
                 dayOfMonth = 15,
             )
-        }
+        })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository
-            .getById((vm.effect.first() as CreationEffect.Saved).activityId)!!
+            .getById((awaitEffect(vm) as CreationEffect.Saved).activityId)!!
         assertEquals(ActivityType.TASK, stored.activityType)
         assertEquals(due, stored.startDate)
         assertEquals("09:00", stored.dueTime)
@@ -293,13 +312,13 @@ class CreationViewModelTest {
     @Test
     fun `saving without reminder stores no reminder rows`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update { it.copy(title = "No nudge") }
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "No nudge") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        val effect = vm.effect.first() as CreationEffect.Saved
+        val effect = awaitEffect(vm) as CreationEffect.Saved
         assertTrue(container.reminderRepository.forActivity(effect.activityId).isEmpty())
     }
 
@@ -308,52 +327,56 @@ class CreationViewModelTest {
     @Test
     fun `blank title shows inline error and saves nothing`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.TASK)
-        vm.update { it.copy(title = "   ") }
+        val vm = container.creationViewModel(null, ActivityType.TASK)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "   ") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        assertEquals("Give it a name.", vm.form.value.titleError)
+        assertEquals(UiText(R.string.creation_error_title_required), vm.form.value.titleError)
+        assertString("creation_error_title_required", "Give it a name.")
         assertFalse(vm.form.value.isSaving)
     }
 
     @Test
     fun `overlong title shows inline error`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update { it.copy(title = "x".repeat(121)) }
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "x".repeat(121)) })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        assertEquals("Keep it under 120 characters.", vm.form.value.titleError)
+        assertEquals(UiText(R.string.creation_error_title_too_long), vm.form.value.titleError)
+        assertString("creation_error_title_too_long", "Keep it under 120 characters.")
         assertFalse(vm.form.value.isSaving)
     }
 
     @Test
     fun `target build with bad amount shows measure error`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update { it.copy(title = "Read", buildBinary = false, amount = "zero", unit = "pages") }
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Read", buildBinary = false, amount = "zero", unit = "pages") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        assertEquals("Enter an amount greater than 0.", vm.form.value.measureError)
+        assertEquals(UiText(R.string.creation_error_amount_required), vm.form.value.measureError)
+        assertString("creation_error_amount_required", "Enter an amount greater than 0.")
         assertFalse(vm.form.value.isSaving)
     }
 
     @Test
     fun `reduce without unit shows measure error`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.REDUCE)
-        vm.update { it.copy(title = "Sugar", amount = "2", unit = "") }
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.REDUCE)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Sugar", amount = "2", unit = "") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        assertEquals("Pick a unit.", vm.form.value.measureError)
+        assertEquals(UiText(R.string.creation_error_unit_required), vm.form.value.measureError)
+        assertString("creation_error_unit_required", "Pick a unit.")
         assertFalse(vm.form.value.isSaving)
     }
 
@@ -361,20 +384,20 @@ class CreationViewModelTest {
     fun `end before start emits error effect`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val today = LocalDate.of(2026, 1, 5)
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update {
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update {
             it.copy(
                 title = "Bad window",
                 hasEndDate = true,
                 startDate = today,
                 endDate = today.minusDays(1),
             )
-        }
+        })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        assertTrue(vm.effect.first() is CreationEffect.Error)
+        assertTrue(awaitEffect(vm) is CreationEffect.Error)
     }
 
     // ——— CTA enabled state ———
@@ -420,7 +443,7 @@ class CreationViewModelTest {
         )
 
         // Default creation args are HABIT/BUILD — the persisted REDUCE must win.
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Social media" }
         assertEquals(ActivityType.HABIT, vm.form.value.activityType)
         assertEquals(HabitIntent.REDUCE, vm.form.value.habitIntent)
@@ -428,11 +451,11 @@ class CreationViewModelTest {
         assertEquals("60", vm.form.value.amount)
         assertEquals("min", vm.form.value.unit)
 
-        vm.update { it.copy(title = "Less social media") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Less social media") })
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        val effect = vm.effect.first()
+        val effect = awaitEffect(vm)
         assertTrue(effect is CreationEffect.Saved)
         assertEquals(id, (effect as CreationEffect.Saved).activityId)
         val stored = container.activityRepository.getById(id)!!
@@ -451,9 +474,9 @@ class CreationViewModelTest {
     @Test
     fun `build template selection populates defaults`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
 
-        vm.selectTemplate(BuildTemplates.first { it.id == "build_read" })
+        vm.onEvent(CreationEvent.SelectTemplate(BuildTemplates.first { it.id == "build_read" }))
 
         assertEquals("build_read", vm.form.value.templateId)
         assertEquals("Read books", vm.form.value.title)
@@ -466,10 +489,10 @@ class CreationViewModelTest {
     @Test
     fun `reduce template selection populates defaults`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
 
-        vm.selectIntent(HabitIntent.REDUCE)
-        vm.selectTemplate(ReduceTemplates.first { it.id == "reduce_social" })
+        vm.onEvent(CreationEvent.SelectIntent(HabitIntent.REDUCE))
+        vm.onEvent(CreationEvent.SelectTemplate(ReduceTemplates.first { it.id == "reduce_social" }))
 
         assertEquals(HabitIntent.REDUCE, vm.form.value.habitIntent)
         assertEquals("reduce_social", vm.form.value.templateId)
@@ -483,10 +506,10 @@ class CreationViewModelTest {
     @Test
     fun `custom habit selection clears the name for free-form entry`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.selectTemplate(BuildTemplates.first { it.id == "build_read" })
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.SelectTemplate(BuildTemplates.first { it.id == "build_read" }))
 
-        vm.selectTemplate(BuildTemplates.first { it.isCustom })
+        vm.onEvent(CreationEvent.SelectTemplate(BuildTemplates.first { it.isCustom }))
 
         assertEquals(CUSTOM_BUILD_TEMPLATE_ID, vm.form.value.templateId)
         assertEquals("", vm.form.value.title)
@@ -496,10 +519,10 @@ class CreationViewModelTest {
     @Test
     fun `switching intent clears the template selection but keeps typed input`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.selectTemplate(BuildTemplates.first { it.id == "build_read" })
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.SelectTemplate(BuildTemplates.first { it.id == "build_read" }))
 
-        vm.selectIntent(HabitIntent.REDUCE)
+        vm.onEvent(CreationEvent.SelectIntent(HabitIntent.REDUCE))
 
         assertEquals(HabitIntent.REDUCE, vm.form.value.habitIntent)
         assertEquals(null, vm.form.value.templateId)
@@ -521,14 +544,14 @@ class CreationViewModelTest {
             emptyList(),
         )
 
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Social media" }
         assertEquals(HabitIntent.REDUCE, vm.form.value.habitIntent)
         assertEquals(ReduceMode.LIMIT, vm.form.value.reduceMode)
         assertEquals("60", vm.form.value.amount)
         assertEquals("min", vm.form.value.unit)
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository.getById(id)!!
@@ -548,16 +571,16 @@ class CreationViewModelTest {
     @Test
     fun `saving from a predefined template persists habitTemplateId`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = CreationViewModel(container, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.selectTemplate(BuildTemplates.first { it.id == "build_read" })
+        val vm = container.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.SelectTemplate(BuildTemplates.first { it.id == "build_read" }))
         // Rename before save — identity must still be the template id.
-        vm.update { it.copy(title = "Night reading") }
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Night reading") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository
-            .getById((vm.effect.first() as CreationEffect.Saved).activityId)!!
+            .getById((awaitEffect(vm) as CreationEffect.Saved).activityId)!!
         assertEquals("build_read", stored.habitTemplateId)
         assertEquals("Night reading", stored.title)
     }
@@ -577,20 +600,20 @@ class CreationViewModelTest {
             emptyList(),
         )
 
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Read books" }
         // Rename no longer matches matchTemplate(title, icon) — persisted id must win.
-        vm.update { it.copy(title = "Evening pages") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Evening pages") })
+        vm.onEvent(CreationEvent.Save)
         // Await the Saved effect — advanceUntilIdle can return before Room's
         // query executor commits the write.
-        assertTrue(vm.effect.first() is CreationEffect.Saved)
+        assertTrue(awaitEffect(vm) is CreationEffect.Saved)
 
         val stored = container.activityRepository.getById(id)!!
         assertEquals("Evening pages", stored.title)
         assertEquals("build_read", stored.habitTemplateId)
         // Reload: templateId still non-custom → showIconEditor stays false.
-        val reloaded = CreationViewModel(container, id)
+        val reloaded = container.creationViewModel(id)
         reloaded.form.first { it.title == "Evening pages" }
         assertEquals("build_read", reloaded.form.value.templateId)
         assertEquals(
@@ -614,7 +637,7 @@ class CreationViewModelTest {
             emptyList(),
         )
 
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Read books" }
         assertEquals("build_read", vm.form.value.templateId)
     }
@@ -633,16 +656,16 @@ class CreationViewModelTest {
             ),
         )
 
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Smoke-free" }
         assertEquals(HabitIntent.REDUCE, vm.form.value.habitIntent)
         assertEquals(ReduceMode.COMPLETE, vm.form.value.reduceMode)
 
-        vm.update { it.copy(notes = "One day at a time") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(notes = "One day at a time") })
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        val effect = vm.effect.first()
+        val effect = awaitEffect(vm)
         assertTrue(effect is CreationEffect.Saved)
         val stored = container.activityRepository.getById(id)!!
         assertEquals(HabitIntent.REDUCE, stored.habitIntent)
@@ -665,13 +688,13 @@ class CreationViewModelTest {
             emptyList(),
         )
 
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Read" }
         assertFalse(vm.form.value.buildBinary)
         assertEquals("30", vm.form.value.amount)
         assertEquals("pages", vm.form.value.unit)
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository.getById(id)!!
@@ -693,12 +716,12 @@ class CreationViewModelTest {
         )
 
         // A TASK creation seed must not leak into the loaded habit.
-        val vm = CreationViewModel(container, id, ActivityType.TASK)
+        val vm = container.creationViewModel(id, ActivityType.TASK)
         vm.form.first { it.title == "Read" }
         assertEquals(ActivityType.HABIT, vm.form.value.activityType)
 
-        vm.update { it.copy(title = "Read more") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Read more") })
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         assertEquals(ActivityType.HABIT, container.activityRepository.getById(id)!!.activityType)
@@ -721,10 +744,10 @@ class CreationViewModelTest {
         container.completionRepository.complete(id, "2026-01-05", 1.0)
         container.completionRepository.complete(id, "2026-01-06", 0.5)
 
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Run" }
-        vm.update { it.copy(title = "Morning run") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Morning run") })
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository.getById(id)!!
@@ -749,7 +772,7 @@ class CreationViewModelTest {
         )
 
         // Default creation args are HABIT/BUILD — the persisted TASK must win.
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Old task" }
         assertEquals(ActivityType.TASK, vm.form.value.activityType)
         assertEquals(DueOption.PICK_DATE, vm.form.value.dueOption)
@@ -758,11 +781,11 @@ class CreationViewModelTest {
         assertEquals("20:00", vm.form.value.dueTimePicker)
         assertFalse(vm.form.value.repeatEnabled)
 
-        vm.update { it.copy(title = "Renamed task") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Renamed task") })
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        val effect = vm.effect.first()
+        val effect = awaitEffect(vm)
         assertTrue(effect is CreationEffect.Saved)
         assertEquals(id, (effect as CreationEffect.Saved).activityId)
         val stored = container.activityRepository.getById(id)!!
@@ -785,13 +808,13 @@ class CreationViewModelTest {
             emptyList(),
         )
 
-        val vm = CreationViewModel(container, id)
+        val vm = container.creationViewModel(id)
         vm.form.first { it.title == "Pay rent" }
         assertTrue(vm.form.value.repeatEnabled)
         assertEquals(RecurrenceChoice.MONTHLY, vm.form.value.recurrenceChoice)
 
-        vm.update { it.copy(notes = "Transfer on the 1st") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(notes = "Transfer on the 1st") })
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository.getById(id)!!
@@ -814,12 +837,12 @@ class CreationViewModelTest {
             emptyList(),
         )
 
-        val vm = CreationViewModel(container, id, ActivityType.HABIT, HabitIntent.REDUCE)
+        val vm = container.creationViewModel(id, ActivityType.HABIT, HabitIntent.REDUCE)
         vm.form.first { it.title == "Measured task" }
         assertEquals(ActivityType.TASK, vm.form.value.activityType)
 
-        vm.update { it.copy(title = "Measured task v2") }
-        vm.save()
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Measured task v2") })
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
         val stored = container.activityRepository.getById(id)!!
@@ -835,17 +858,28 @@ class CreationViewModelTest {
         // does not fail a save (Room reopens the file on next access), so a
         // throwing scheduler is the deterministic way to exercise save()'s
         // catch path and the isSaving reset. Assertions unchanged.
-        val failing = AppContainer(
+        val failing = TestGraph(
             ApplicationProvider.getApplicationContext(),
             reminderSchedulerOverride = ThrowingReminderScheduler(),
         )
-        val vm = CreationViewModel(failing, null, ActivityType.HABIT, HabitIntent.BUILD)
-        vm.update { it.copy(title = "Doomed") }
+        val vm = failing.creationViewModel(null, ActivityType.HABIT, HabitIntent.BUILD)
+        vm.onEvent(CreationEvent.Update { it.copy(title = "Doomed") })
 
-        vm.save()
+        vm.onEvent(CreationEvent.Save)
         advanceUntilIdle()
 
-        assertTrue(vm.effect.first() is CreationEffect.Error)
+        assertTrue(awaitEffect(vm) is CreationEffect.Error)
         assertFalse(vm.form.value.isSaving)
     }
+}
+
+/**
+ * Awaits the next one-shot effect through Turbine (Phase D) — replaces the
+ * hand-rolled `effect.first()` collection this suite used for every save,
+ * validation-error and edit assertion.
+ */
+private suspend fun awaitEffect(vm: CreationViewModel): CreationEffect {
+    var next: CreationEffect? = null
+    vm.effect.test { next = awaitItem() }
+    return requireNotNull(next) { "effect flow completed without emitting" }
 }

@@ -35,28 +35,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.momentum.app.AppContainer
+import com.momentum.app.R
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.Recurrence
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.SettingsRepository
 import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.theme.MomentumBodyLead
 import com.momentum.app.presentation.theme.MomentumDurations
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.Twilight
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.launch
 
-class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
+@HiltViewModel
+class OnboardingViewModel @Inject constructor(
+    private val settingsRepository: SettingsRepository,
+    private val activityRepository: ActivityRepository,
+) : ViewModel() {
 
     fun finish(seedExamples: Boolean, onDone: () -> Unit) {
         viewModelScope.launch {
             if (seedExamples) seed()
-            container.settingsRepository.update { it.copy(onboardingDone = true) }
+            settingsRepository.update { it.copy(onboardingDone = true) }
             onDone()
         }
     }
@@ -68,36 +77,36 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
             Activity(title = "Read 20 pages", iconKey = "learning", startDate = today, recurrence = Recurrence.Daily, targetPerOccurrence = 20.0, unit = "pages", priority = 1),
             Activity(title = "Evening walk", iconKey = "fitness", startDate = today, recurrence = Recurrence.Daily, priority = 1),
         )
-        runCatching { examples.forEach { container.activityRepository.upsert(it) } }
+        runCatching { examples.forEach { activityRepository.upsert(it) } }
     }
 }
 
 private data class OnboardingPageData(
     val scene: OnboardingScene,
-    val headline: String,
-    val body: String,
+    val headline: Int,
+    val body: Int,
 )
 
 private val Pages = listOf(
     OnboardingPageData(
         scene = OnboardingScene.INTENT,
-        headline = "A more intentional you.",
-        body = "Build healthy habits, track progress and create the life you want.",
+        headline = R.string.onboarding_1_headline,
+        body = R.string.onboarding_1_body,
     ),
     OnboardingPageData(
         scene = OnboardingScene.TRACK,
-        headline = "Track what matters.",
-        body = "Habits, routines, tasks, medicines and more, all in one calm and powerful app.",
+        headline = R.string.onboarding_2_headline,
+        body = R.string.onboarding_2_body,
     ),
     OnboardingPageData(
         scene = OnboardingScene.GROWTH,
-        headline = "Stay Consistent",
-        body = "Visual progress and insights help you keep going day after day.",
+        headline = R.string.onboarding_3_headline,
+        body = R.string.onboarding_3_body,
     ),
     OnboardingPageData(
         scene = OnboardingScene.BEGIN,
-        headline = "Ready to build Momentum?",
-        body = "Your journey to a brighter tomorrow starts now.",
+        headline = R.string.onboarding_4_headline,
+        body = R.string.onboarding_4_body,
     ),
 )
 
@@ -113,7 +122,7 @@ private val Pages = listOf(
  */
 @Composable
 fun OnboardingRoute(onDone: () -> Unit) {
-    val vm: OnboardingViewModel = momentumViewModel { OnboardingViewModel(it) }
+    val vm: OnboardingViewModel = hiltViewModel()
     var page by remember { mutableIntStateOf(0) }
     val reduceMotion = rememberReduceMotion(null)
 
@@ -211,17 +220,13 @@ fun OnboardingRoute(onDone: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
                 ) {
                     Text(
-                        text = Pages[current].headline,
+                        text = stringResource(Pages[current].headline),
                         style = MaterialTheme.typography.displayLarge.copy(shadow = copyShadow),
                         color = Twilight.Moonlight,
                     )
                     Text(
-                        text = Pages[current].body,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontSize = 17.sp,
-                            lineHeight = 26.sp,
-                            shadow = copyShadow,
-                        ),
+                        text = stringResource(Pages[current].body),
+                        style = MomentumBodyLead.copy(shadow = copyShadow),
                         color = Twilight.Moonlight.copy(alpha = 0.88f),
                     )
                 }
@@ -254,7 +259,7 @@ fun OnboardingRoute(onDone: () -> Unit) {
             ) {
                 if (page < Pages.lastIndex) {
                     OnboardingGlassButton(
-                        text = "Continue",
+                        text = stringResource(R.string.action_continue),
                         onClick = { page++ },
                     )
                 } else {
@@ -262,7 +267,7 @@ fun OnboardingRoute(onDone: () -> Unit) {
                     // start" completion path — no demo activities are ever
                     // injected into the user's real data.
                     OnboardingGlassButton(
-                        text = "Let's Get Started",
+                        text = stringResource(R.string.action_get_started),
                         onClick = { vm.finish(false, onDone) },
                     )
                 }

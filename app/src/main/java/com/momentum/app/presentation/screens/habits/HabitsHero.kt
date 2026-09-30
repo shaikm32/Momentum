@@ -3,10 +3,13 @@ package com.momentum.app.presentation.screens.habits
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,12 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import com.momentum.app.R
 import com.momentum.app.domain.model.DarkModeSetting
 import com.momentum.app.presentation.components.MomentumHeroArtwork
 import com.momentum.app.presentation.theme.MomentumSpacing
@@ -67,8 +72,8 @@ fun HabitsHero(
     reduceMotion: Boolean,
     onCollapseRangePx: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    title: String = "Habits",
-    description: String = "Manage the things you're building and reducing.",
+    title: String = stringResource(R.string.habits_title),
+    description: String = stringResource(R.string.habits_subtitle),
 ) {
     val p = progress.coerceIn(0f, 1f)
 
@@ -79,7 +84,15 @@ fun HabitsHero(
     // Reported range is a pure function of the measured text block: it never
     // depends on `p`, so progress cannot feed back into the range that
     // produced it (a range that moved with scroll would jitter mid-drag).
-    val compactHeight = MomentumSpacing.standard + textBlockDp + CompactTextInset
+    //
+    // The status-bar safe inset is part of the compact height because the copy
+    // is bottom-anchored: at `p = 1` the block sits [CompactTextInset] above the
+    // hero's bottom edge, so without the inset the title would come to rest a
+    // couple of dp *behind* the status-bar icons and the camera cutout (the
+    // hero is edge-to-edge, ADR-33, and never scrolls — this is a layout inset,
+    // not a mask). Expanded height is unaffected: [ExpandedFloor] still governs.
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val compactHeight = statusBarTop + MomentumSpacing.standard + textBlockDp + CompactTextInset
     val expandedHeight = maxOf(ExpandedFloor, compactHeight + CollapseHeadroom)
     val currentHeight = lerp(expandedHeight, compactHeight, p)
 

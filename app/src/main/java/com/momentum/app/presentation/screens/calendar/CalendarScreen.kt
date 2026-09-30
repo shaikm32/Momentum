@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.presentation.components.ActivityCard
 import com.momentum.app.presentation.components.GlassLevel
 import com.momentum.app.presentation.components.LiquidGlassIconButton
@@ -51,7 +54,8 @@ import com.momentum.app.presentation.components.MomentumTopBar
 import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.components.recurrenceLabel
 import com.momentum.app.presentation.components.targetProgressLabel
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.resolve
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.momentum.app.presentation.theme.MomentumHeights
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
@@ -66,10 +70,11 @@ fun CalendarRoute(
     onBack: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: CalendarViewModel = momentumViewModel { CalendarViewModel(it) }
+    val vm: CalendarViewModel = hiltViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     LaunchedEffect(vm) {
-        vm.messages.collect { snackbar.showSnackbar(it) }
+        vm.messages.collect { snackbar.showSnackbar(it.resolve(context)) }
     }
     CalendarScreen(
         state = state,
@@ -112,12 +117,12 @@ fun CalendarScreen(
                 actions = {
                     LiquidGlassIconButton(
                         icon = Icons.Rounded.ChevronLeft,
-                        contentDescription = "Previous month",
+                        contentDescription = stringResource(R.string.cd_previous_month),
                         onClick = onPrev,
                     )
                     LiquidGlassIconButton(
                         icon = Icons.Rounded.ChevronRight,
-                        contentDescription = "Next month",
+                        contentDescription = stringResource(R.string.cd_next_month),
                         onClick = onNext,
                     )
                     Box(
@@ -132,7 +137,7 @@ fun CalendarScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            "Today",
+                            stringResource(R.string.action_today),
                             style = MaterialTheme.typography.labelLarge,
                             color = c.primary,
                             fontWeight = FontWeight.SemiBold,
@@ -181,16 +186,16 @@ fun CalendarScreen(
                 ),
             )
             Text(
-                if (state.selectedItems.isEmpty()) "Nothing scheduled."
+                if (state.selectedItems.isEmpty()) stringResource(R.string.calendar_nothing_scheduled)
                 else {
                     val done = state.selectedItems.count { it.completed }
-                    "$done of ${state.selectedItems.size} complete"
+                    stringResource(R.string.calendar_day_complete, done, state.selectedItems.size)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = c.textSecondary,
             )
         }
-        items(state.selectedItems, key = { it.activity.id }) { item ->
+        items(state.selectedItems, key = { it.activity.id }, contentType = { "activityRow" }) { item ->
             ActivityCard(
                 activity = item.activity,
                 completed = item.completed,
@@ -227,7 +232,9 @@ private fun DayDot(
     }
     val description = buildString {
         append(cell.date.format(DateTimeFormatter.ofPattern("MMMM d", Locale.getDefault())))
-        if (cell.scheduled > 0) append(", ${cell.completed} of ${cell.scheduled} complete")
+        if (cell.scheduled > 0) {
+            append(stringResource(R.string.calendar_day_complete_suffix, cell.completed, cell.scheduled))
+        }
     }
     Box(
         modifier = Modifier

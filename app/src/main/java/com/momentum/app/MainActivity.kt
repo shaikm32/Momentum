@@ -9,17 +9,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.domain.model.AppSettings
+import com.momentum.app.domain.repository.ReminderRepository
+import com.momentum.app.domain.repository.SettingsRepository
+import com.momentum.app.notification.ReminderScheduler
 import com.momentum.app.presentation.navigation.MomentumNavGraph
 import com.momentum.app.presentation.theme.MomentumTheme
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val permissionLauncher =
@@ -27,6 +34,15 @@ class MainActivity : ComponentActivity() {
     // MainScope (coroutines-android, no extra dependency) instead of lifecycleScope,
     // which would need lifecycle-runtime-ktx.
     private val scope: CoroutineScope = MainScope()
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var reminderRepository: ReminderRepository
+
+    @Inject
+    lateinit var reminderScheduler: ReminderScheduler
 
     override fun onDestroy() {
         scope.cancel()
@@ -44,10 +60,7 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         val openActivityId = intent.getLongExtra(EXTRA_OPEN_ACTIVITY, -1).takeIf { it != -1L }
         setContent {
-            val container = (application as MomentumApp).container
-            val settings by container.settingsRepository.observe().collectAsState(
-                initial = com.momentum.app.domain.model.AppSettings(),
-            )
+            val settings by settingsRepository.observe().collectAsStateWithLifecycle(AppSettings())
             MomentumTheme(themeId = settings.themeId, darkMode = settings.darkMode) {
                 MomentumNavGraph(
                     onboardingDone = settings.onboardingDone,
@@ -58,9 +71,9 @@ class MainActivity : ComponentActivity() {
         // Re-arm reminders after every launch (cheap, idempotent).
         scope.launch(Dispatchers.IO) {
             runCatching {
-                (application as MomentumApp).container.reminderRepository.enabledAll()
+                reminderRepository.enabledAll()
                     .groupBy { it.activityId }.keys
-                    .forEach { (application as MomentumApp).container.reminderScheduler.scheduleForActivity(it) }
+                    .forEach { reminderScheduler.scheduleForActivity(it) }
             }
         }
     }

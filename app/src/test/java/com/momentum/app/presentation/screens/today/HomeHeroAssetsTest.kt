@@ -34,6 +34,8 @@ class HomeHeroAssetsTest {
         "src/main/java/com/momentum/app/presentation/screens/today/TodayViewModel.kt",
     )
 
+    private val strings = source("src/main/res/values/strings.xml")
+
     /** Reads a `private val <name> = <n>.dp` constant, so tests assert the visual budget. */
     private fun dpConstant(text: String, name: String): Float? =
         Regex("""private val $name = ([0-9.]+)dp""").find(text)?.groupValues?.get(1)?.toFloatOrNull()
@@ -182,11 +184,32 @@ class HomeHeroAssetsTest {
         val topInset = dpConstant(hero, "HeroTopInset")
         val bottomInset = dpConstant(hero, "HeroBottomInset")
         val bottomDissolve = dpConstant(hero, "BottomDissolve")
+        val blendStart = dpConstant(hero, "BottomBlendStart")
+        val blendTail = dpConstant(hero, "BottomBlendTail")
         val headroom = dpConstant(hero, "CollapseHeadroom")
 
         assertTrue("the top inset is missing", topInset != null)
         assertTrue("HeroTopInset must be small, was $topInset", topInset!! <= 24f)
-        assertTrue("the message must end above the bottom ramp", bottomInset!! >= bottomDissolve!!)
+        // task.md §7 (ISSUE-018) deliberately moves the message inset *inside*
+        // the artwork's own 40 dp linear ramp: the inset is now only the copy's
+        // breathing room, and the eased blend owns the last strip down to the
+        // edge. What the contract still protects is that the copy never touches
+        // the edge, that the blend (not the message) reaches it, and that the
+        // blend starts at or above the artwork's own ramp so it takes over
+        // instead of competing with it.
+        assertTrue("the bottom inset is missing", bottomInset != null)
+        assertTrue(
+            "the message must end above the Hero's bottom edge, was $bottomInset",
+            bottomInset!! > 0f,
+        )
+        assertTrue(
+            "the artwork's blend must take over from its own linear ramp",
+            blendStart != null && bottomDissolve != null && blendStart >= bottomDissolve,
+        )
+        assertTrue(
+            "the blend must reach the Hero's edge — no artwork-free strip under the message",
+            blendTail != null && blendTail <= bottomInset,
+        )
         assertTrue(
             "the Hero must not trail dead space below the message, was $bottomInset",
             bottomInset <= 56f,
@@ -235,8 +258,20 @@ class HomeHeroAssetsTest {
     @Test
     fun `the greeting still follows the local clock`() {
         assertTrue("the time-aware greeting must survive", viewModel.contains("LocalTime.now()"))
-        listOf("Good morning", "Good afternoon", "Good evening", "Good night").forEach {
-            assertTrue("greeting missing: $it", viewModel.contains(it))
+        // The wording moved to `strings.xml` (Phase E1b); the clock-driven
+        // choice of greeting stayed in the ViewModel, so it must now name a
+        // resource per time band — and each of those must still read the same.
+        mapOf(
+            "today_greeting_morning" to "Good morning",
+            "today_greeting_afternoon" to "Good afternoon",
+            "today_greeting_evening" to "Good evening",
+            "today_greeting_night" to "Good night",
+        ).forEach { (res, wording) ->
+            assertTrue(
+                "the ViewModel no longer names R.string.$res for a time band",
+                viewModel.contains("R.string.$res"),
+            )
+            assertTrue("wording changed for $res", strings.contains(wording))
         }
     }
 
@@ -326,8 +361,14 @@ class HomeScrollSurfaceTest {
     fun `Home renders both sections with the fixed spec titles`() {
         val code = codeOf(screenSource())
 
-        assertTrue("Remaining today section missing", code.contains("\"Remaining today\""))
-        assertTrue("Completed today section missing", code.contains("\"Completed today\""))
+        assertTrue(
+            "Remaining today section missing",
+            code.contains("stringResource(R.string.today_section_remaining)"),
+        )
+        assertTrue(
+            "Completed today section missing",
+            code.contains("stringResource(R.string.today_section_completed)"),
+        )
         assertFalse("section counts are not part of the spec titles", code.contains("Up next ·"))
         assertFalse("section counts are not part of the spec titles", code.contains("Completed ·"))
         assertTrue("empty sections must be hidden", code.contains("if (remaining.isNotEmpty())"))

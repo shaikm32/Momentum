@@ -1,5 +1,7 @@
 package com.momentum.app.presentation.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseInOut
@@ -36,25 +38,27 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavEntryDecorator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.scene.Scene
+import androidx.navigation3.ui.NavDisplay
+import com.momentum.app.R
 import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.domain.model.HabitIntent
 import com.momentum.app.presentation.components.AppBackground
 import com.momentum.app.presentation.components.LiquidGlassBottomBar
 import com.momentum.app.presentation.components.LiquidGlassTab
 import com.momentum.app.presentation.rememberReduceMotion
-import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.screens.activities.ActivitiesRoute
 import com.momentum.app.presentation.screens.calendar.CalendarRoute
 import com.momentum.app.presentation.screens.creation.EditRoute
@@ -69,11 +73,12 @@ import com.momentum.app.presentation.screens.onboarding.OnboardingRoute
 import com.momentum.app.presentation.screens.settings.SettingsRoute
 import com.momentum.app.presentation.screens.themes.ThemeGalleryRoute
 import com.momentum.app.presentation.screens.today.TodayRoute
-import com.momentum.app.presentation.theme.MomentumThemeColors
+import com.momentum.app.presentation.theme.MomentumSpacing
 
 private data class TopLevelDestination(
-    val route: String,
-    val label: String,
+    val key: NavKey,
+    /** Resolved at the call site with `stringResource(label)`. */
+    val label: Int,
     /** Filled style — shown when the tab is active (§8). */
     val iconFilled: ImageVector,
     /** Outlined style — shown when the tab is inactive (§8). */
@@ -82,35 +87,85 @@ private data class TopLevelDestination(
 
 /** Locked product navigation (Design System v1 §11): Home · Habits · Tasks · Insights. */
 private val Destinations = listOf(
-    TopLevelDestination(Routes.TODAY, "Home", Icons.Rounded.Home, Icons.Outlined.Home),
-    TopLevelDestination(Routes.HABITS, "Habits", Icons.Rounded.Repeat, Icons.Outlined.Repeat),
-    TopLevelDestination(Routes.TASKS, "Tasks", Icons.Rounded.Checklist, Icons.Outlined.Checklist),
-    TopLevelDestination(Routes.INSIGHTS, "Insights", Icons.Rounded.BarChart, Icons.Outlined.BarChart),
+    TopLevelDestination(Routes.Today, R.string.nav_home, Icons.Rounded.Home, Icons.Outlined.Home),
+    TopLevelDestination(Routes.Habits, R.string.nav_habits, Icons.Rounded.Repeat, Icons.Outlined.Repeat),
+    TopLevelDestination(Routes.Tasks, R.string.nav_tasks, Icons.Rounded.Checklist, Icons.Outlined.Checklist),
+    TopLevelDestination(Routes.Insights, R.string.nav_insights, Icons.Rounded.BarChart, Icons.Outlined.BarChart),
 )
 
-private val TopLevelRoutes = Destinations.map { it.route }.toSet()
+/** Nav2 `popBackStack()` — drops the top entry, never emptying the stack (NavDisplay's invariant). */
+private fun NavBackStack<NavKey>.pop() {
+    if (size > 1) removeLastOrNull()
+}
 
 /**
- * Single NavHost: 4 locked bottom-nav tabs (Home, Habits, Tasks, Insights)
+ * Nav2 `popBackStack(Routes.TODAY, inclusive = false)`: drops everything above
+ * Today. When Today is not on the stack Nav2 popped nothing — same here.
+ */
+private fun NavBackStack<NavKey>.popToToday() {
+    if (lastOrNull() == Routes.Today || none { it == Routes.Today }) return
+    while (lastOrNull() != Routes.Today) removeLastOrNull()
+}
+
+/**
+ * Nav2 tab switch, translated one entry at a time:
+ * `navigate(key) { popUpTo(start) { saveState = true }; launchSingleTop = true; restoreState = true }`.
+ * Re-selecting the open tab is a no-op (the old `launchSingleTop`), and the
+ * popped tab's saveable state is kept by
+ * [rememberRetainingSaveableStateHolderNavEntryDecorator] so switching back
+ * restores it exactly like the old `restoreState`.
+ */
+private fun NavBackStack<NavKey>.selectTab(key: NavKey) {
+    if (lastOrNull() == key) return
+    while (size > 1) removeLastOrNull()
+    if (lastOrNull() != key) add(key)
+}
+
+/**
+ * `SaveableStateHolderNavEntryDecorator` with the `removeState` pop-callback
+ * disabled.
+ *
+ * Nav3's stock decorator discards an entry's saveable state the moment it is
+ * popped, while Nav2's bottom-bar contract (`saveState`/`restoreState`) kept a
+ * tab's scroll position across tab switches. Retaining the state keyed by
+ * `contentKey` reproduces those semantics: re-pushing the same key restores it.
+ * ViewModels are *not* retained — `rememberViewModelStoreNavEntryDecorator`
+ * still clears an entry's store on pop, matching Nav2 (popped entries kept
+ * their saved state but lost their ViewModels).
+ */
+@Composable
+private fun rememberRetainingSaveableStateHolderNavEntryDecorator(): NavEntryDecorator<NavKey> {
+    val saveableStateHolder = rememberSaveableStateHolder()
+    return remember(saveableStateHolder) {
+        NavEntryDecorator<NavKey>(onPop = { /* state retained deliberately */ }) { entry ->
+            saveableStateHolder.SaveableStateProvider(entry.contentKey) { entry.Content() }
+        }
+    }
+}
+
+/**
+ * Single NavDisplay: 4 locked bottom-nav tabs (Home, Habits, Tasks, Insights)
  * + secondary routes (Settings from Home's header, Calendar/history from
  * Insights, add/edit/details/themes) without the bar. Onboarding is the start
  * destination until completed (gated by [onboardingDone]).
+ *
+ * One flat [NavBackStack] of `@Serializable` [NavKey]s (ADR-42) replaces the
+ * Nav2 `NavHost`; every entry below behaves exactly as its `composable(...)`
+ * predecessor did.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
-    val navController = rememberNavController()
+    val backStack = rememberNavBackStack(if (onboardingDone) Routes.Today else Routes.Onboarding)
     val snackbar = remember { SnackbarHostState() }
     // Slice 1: + opens the Create Item chooser (Habit / Task), not the editor directly.
     var showCreateItem by remember { mutableStateOf(false) }
     val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
+    val currentKey = backStack.lastOrNull()
     val reduceMotion = rememberReduceMotion(null)
     // Onboarding draws its own full-bleed photographic backdrop, so it opts
     // out of the Scaffold content padding; every other route is unchanged.
-    val isOnboarding =
-        currentDestination?.hierarchy?.any { it.route == Routes.ONBOARDING } == true
+    val isOnboarding = currentKey == Routes.Onboarding
     // Edge-to-edge content (ADR-33): Home and Habits draw their Aurora artwork
     // to the physical top edge, *behind* the status bar, so the Scaffold's
     // content inset must not pad them below it — that padding is what left a
@@ -118,9 +173,7 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
     // route keeps the default insets unchanged and still clears the bar; the
     // bottom and horizontal halves always survive, so content still clears the
     // navigation bar (the floating bar handles its own inset in its slot).
-    val drawsBehindStatusBar = currentDestination?.hierarchy?.any {
-        it.route == Routes.TODAY || it.route == Routes.HABITS
-    } == true
+    val drawsBehindStatusBar = currentKey == Routes.Today || currentKey == Routes.Habits
     val defaultContentInsets = ScaffoldDefaults.contentWindowInsets
     val systemBars = WindowInsets.systemBars
     val contentWindowInsets = remember(drawsBehindStatusBar, defaultContentInsets, systemBars) {
@@ -130,13 +183,27 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
             defaultContentInsets
         }
     }
+    // Soft Aurora crossfade (§32): quick in, quieter out; push, pop and
+    // predictive back all share it (as they did under Nav2, where pop
+    // transitions inherited enter/exit). Reduced motion swaps in plain None so
+    // content never forces an animation on the user.
+    val crossfade: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
+        if (reduceMotion) {
+            ContentTransform(EnterTransition.None, ExitTransition.None)
+        } else {
+            ContentTransform(
+                targetContentEnter = fadeIn(tween(200, easing = EaseOut)),
+                initialContentExit = fadeOut(tween(150, easing = EaseInOut)),
+            )
+        }
+    }
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = contentWindowInsets,
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = {
-                val showBar = currentDestination?.hierarchy?.any { it.route in TopLevelRoutes } == true
+                val showBar = Destinations.any { it.key == currentKey }
                 if (showBar) {
                     // Scaffold expects the bottom bar to handle its own insets
                     // (M3 Scaffold KDoc) — pad by the navigation-bar inset so the
@@ -155,21 +222,11 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
                     ) {
                         LiquidGlassBottomBar {
                             Destinations.forEach { dest ->
-                                val selected =
-                                    currentDestination?.hierarchy?.any { it.route == dest.route } == true
                                 LiquidGlassTab(
-                                    icon = if (selected) dest.iconFilled else dest.iconOutlined,
-                                    label = dest.label,
-                                    selected = selected,
-                                    onClick = {
-                                        navController.navigate(dest.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
+                                    icon = if (currentKey == dest.key) dest.iconFilled else dest.iconOutlined,
+                                    label = stringResource(dest.label),
+                                    selected = currentKey == dest.key,
+                                    onClick = { backStack.selectTab(dest.key) },
                                 )
                             }
                         }
@@ -177,185 +234,157 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
                 }
             },
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = if (onboardingDone) Routes.TODAY else Routes.ONBOARDING,
+            NavDisplay(
+                backStack = backStack,
                 modifier = if (isOnboarding) Modifier else Modifier.padding(innerPadding),
-                // Soft Aurora crossfade (§32): quick in, quieter out; pop
-                // transitions inherit these. Reduced motion swaps in plain
-                // None so content never forces an animation on the user.
-                enterTransition = if (reduceMotion) {
-                    { EnterTransition.None }
-                } else {
-                    { fadeIn(tween(200, easing = EaseOut)) }
-                },
-                exitTransition = if (reduceMotion) {
-                    { ExitTransition.None }
-                } else {
-                    { fadeOut(tween(150, easing = EaseInOut)) }
-                },
-            ) {
-                composable(Routes.ONBOARDING) {
-                    OnboardingRoute(onDone = {
-                        navController.navigate(Routes.TODAY) {
-                            popUpTo(Routes.ONBOARDING) { inclusive = true }
-                        }
-                    })
-                }
-                composable(Routes.TODAY) {
-                    TodayRoute(
-                        onOpenActivity = { navController.navigate(Routes.detail(it)) },
-                        onAddActivity = { showCreateItem = true },
-                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                        snackbar = snackbar,
-                    )
-                }
-                // Habits is the dedicated management screen (Phase 2B / ADR-22
-                // § Current app). Tasks keeps the shared Activities list.
-                composable(Routes.HABITS) {
-                    HabitsRoute(
-                        onOpenHabit = { navController.navigate(Routes.detail(it)) },
-                        onAddHabit = { showCreateItem = true },
-                        snackbar = snackbar,
-                    )
-                }
-                composable(Routes.TASKS) {
-                    ActivitiesRoute(
-                        type = ActivityType.TASK,
-                        title = "Tasks",
-                        onOpenActivity = { navController.navigate(Routes.detail(it)) },
-                        onAddActivity = { showCreateItem = true },
-                        snackbar = snackbar,
-                    )
-                }
-                composable(Routes.INSIGHTS) {
-                    InsightsRoute(
-                        onAddActivity = { showCreateItem = true },
-                        onOpenCalendar = { navController.navigate(Routes.CALENDAR) },
-                    )
-                }
-                // Calendar/history is reached through Insights (§26), never a tab.
-                composable(Routes.CALENDAR) {
-                    CalendarRoute(
-                        onOpenActivity = { navController.navigate(Routes.detail(it)) },
-                        onBack = { navController.popBackStack() },
-                        snackbar = snackbar,
-                    )
-                }
-                composable(Routes.SETTINGS) {
-                    SettingsRoute(
-                        onOpenThemes = { navController.navigate(Routes.THEMES) },
-                        onBack = { navController.popBackStack() },
-                        snackbar = snackbar,
-                    )
-                }
-                composable(Routes.THEMES) {
-                    ThemeGalleryRoute(onBack = { navController.popBackStack() })
-                }
-                // Guided creation: + → Create Item → Habit opens the unified
-                // habit screen (intent cards + templates + details), Task goes
-                // straight to its configuration. Editing reuses the same
-                // config screens via EDIT (kind-appropriate UI, type locked).
-                composable(Routes.CREATE_INTENT) {
-                    HabitConfigRoute(
-                        activityId = null,
-                        intent = HabitIntent.BUILD,
-                        onSaved = { id ->
-                            navController.popBackStack()
-                            navController.navigate(Routes.detail(id))
-                        },
-                        onBack = { navController.popBackStack() },
-                        snackbar = snackbar,
-                    )
-                }
-                composable(
-                    Routes.CREATE_HABIT,
-                    arguments = listOf(
-                        navArgument("intent") {
-                            type = NavType.StringType
-                            defaultValue = HabitIntent.BUILD.name
-                        },
-                    ),
-                ) { entry ->
-                    HabitConfigRoute(
-                        activityId = null,
-                        intent = Routes.parseHabitIntent(entry.arguments?.getString("intent")),
-                        onSaved = { id ->
-                            navController.popBackStack()
-                            navController.navigate(Routes.detail(id))
-                        },
-                        onBack = { navController.popBackStack() },
-                        snackbar = snackbar,
-                    )
-                }
-                composable(Routes.CREATE_TASK) {
-                    TaskConfigRoute(
-                        activityId = null,
-                        onSaved = { id ->
-                            navController.popBackStack()
-                            navController.navigate(Routes.detail(id))
-                        },
-                        onBack = { navController.popBackStack() },
-                        snackbar = snackbar,
-                    )
-                }
-                composable(
-                    Routes.EDIT,
-                    arguments = listOf(navArgument("activityId") { type = NavType.LongType; defaultValue = -1L }),
-                ) { entry ->
-                    val id = entry.arguments?.getLong("activityId")?.takeIf { it != -1L }
-                    if (id != null) {
-                        EditRoute(
-                            activityId = id,
-                            onSaved = { navController.popBackStack() },
-                            onBack = { navController.popBackStack() },
+                onBack = { backStack.pop() },
+                entryDecorators = listOf<NavEntryDecorator<NavKey>>(
+                    // Must stay first: the ViewModel decorator below reads the
+                    // per-entry SavedStateRegistryOwner this one provides.
+                    rememberRetainingSaveableStateHolderNavEntryDecorator(),
+                    rememberViewModelStoreNavEntryDecorator(),
+                ),
+                transitionSpec = crossfade,
+                popTransitionSpec = crossfade,
+                predictivePopTransitionSpec = { crossfade(this) },
+                entryProvider = entryProvider {
+                    entry<Routes.Onboarding> {
+                        OnboardingRoute(onDone = {
+                            // Nav2: navigate(TODAY) { popUpTo(ONBOARDING) { inclusive = true } }
+                            if (backStack.any { it == Routes.Onboarding }) {
+                                backStack.clear()
+                                backStack.add(Routes.Today)
+                            }
+                        })
+                    }
+                    entry<Routes.Today> {
+                        TodayRoute(
+                            onOpenActivity = { backStack.add(Routes.detail(it)) },
+                            onAddActivity = { showCreateItem = true },
+                            onOpenSettings = { backStack.add(Routes.Settings) },
                             snackbar = snackbar,
                         )
-                    } else {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
                     }
-                }
-                composable(
-                    Routes.DETAIL,
-                    arguments = listOf(navArgument("activityId") { type = NavType.LongType }),
-                ) { entry ->
-                    val id = entry.arguments?.getLong("activityId") ?: return@composable
-                    // Type gate: HABIT (ACTIVE/PAUSED) opens Habit Details;
-                    // tasks and archived rows keep the legacy detail body.
-                    DetailTypeGate(
-                        activityId = id,
-                        onHabit = {
-                            HabitDetailRoute(
+                    // Habits is the dedicated management screen (Phase 2B / ADR-22
+                    // § Current app). Tasks keeps the shared Activities list.
+                    entry<Routes.Habits> {
+                        HabitsRoute(
+                            onOpenHabit = { backStack.add(Routes.detail(it)) },
+                            onAddHabit = { showCreateItem = true },
+                            snackbar = snackbar,
+                        )
+                    }
+                    entry<Routes.Tasks> {
+                        ActivitiesRoute(
+                            type = ActivityType.TASK,
+                            title = stringResource(R.string.nav_tasks),
+                            onOpenActivity = { backStack.add(Routes.detail(it)) },
+                            onAddActivity = { showCreateItem = true },
+                            snackbar = snackbar,
+                        )
+                    }
+                    entry<Routes.Insights> {
+                        InsightsRoute(
+                            onAddActivity = { showCreateItem = true },
+                            onOpenCalendar = { backStack.add(Routes.Calendar) },
+                        )
+                    }
+                    // Calendar/history is reached through Insights (§26), never a tab.
+                    entry<Routes.Calendar> {
+                        CalendarRoute(
+                            onOpenActivity = { backStack.add(Routes.detail(it)) },
+                            onBack = { backStack.pop() },
+                            snackbar = snackbar,
+                        )
+                    }
+                    entry<Routes.Settings> {
+                        SettingsRoute(
+                            onOpenThemes = { backStack.add(Routes.Themes) },
+                            onBack = { backStack.pop() },
+                            snackbar = snackbar,
+                        )
+                    }
+                    entry<Routes.Themes> {
+                        ThemeGalleryRoute(onBack = { backStack.pop() })
+                    }
+                    // Guided creation: + → Create Item → Habit opens the unified
+                    // habit screen (intent cards + templates + details), Task goes
+                    // straight to its configuration. Editing reuses the same
+                    // config screens via EDIT (kind-appropriate UI, type locked).
+                    entry<Routes.CreateIntent> {
+                        HabitConfigRoute(
+                            activityId = null,
+                            intent = HabitIntent.BUILD,
+                            onSaved = { id ->
+                                backStack.pop()
+                                backStack.add(Routes.detail(id))
+                            },
+                            onBack = { backStack.pop() },
+                            snackbar = snackbar,
+                        )
+                    }
+                    entry<Routes.CreateTask> {
+                        TaskConfigRoute(
+                            activityId = null,
+                            onSaved = { id ->
+                                backStack.pop()
+                                backStack.add(Routes.detail(id))
+                            },
+                            onBack = { backStack.pop() },
+                            snackbar = snackbar,
+                        )
+                    }
+                    // The old string route defaulted activityId to -1 when the
+                    // argument was absent; a typed key always carries one, so the
+                    // sentinel check only survives for an explicit -1.
+                    entry<Routes.Edit> { key ->
+                        val id = key.activityId.takeIf { it != -1L }
+                        if (id != null) {
+                            EditRoute(
                                 activityId = id,
-                                onBack = { navController.popBackStack() },
-                                onEdit = { navController.navigate(Routes.edit(it)) },
-                                onDeleted = {
-                                    navController.popBackStack(Routes.TODAY, inclusive = false)
-                                },
+                                onSaved = { backStack.pop() },
+                                onBack = { backStack.pop() },
                                 snackbar = snackbar,
                             )
-                        },
-                        onOther = {
-                            ActivityDetailRoute(
-                                activityId = id,
-                                onBack = { navController.popBackStack() },
-                                onEdit = { navController.navigate(Routes.edit(it)) },
-                                onDeleted = {
-                                    navController.popBackStack(Routes.TODAY, inclusive = false)
-                                },
-                                snackbar = snackbar,
-                            )
-                        },
-                    )
-                }
-            }
+                        } else {
+                            LaunchedEffect(Unit) { backStack.pop() }
+                        }
+                    }
+                    entry<Routes.Detail> { key ->
+                        val id = key.activityId
+                        // Type gate: HABIT (ACTIVE/PAUSED) opens Habit Details;
+                        // tasks and archived rows keep the legacy detail body.
+                        DetailTypeGate(
+                            activityId = id,
+                            onHabit = {
+                                HabitDetailRoute(
+                                    activityId = id,
+                                    onBack = { backStack.pop() },
+                                    onEdit = { backStack.add(Routes.edit(it)) },
+                                    onDeleted = { backStack.popToToday() },
+                                    snackbar = snackbar,
+                                )
+                            },
+                            onOther = {
+                                ActivityDetailRoute(
+                                    activityId = id,
+                                    onBack = { backStack.pop() },
+                                    onEdit = { backStack.add(Routes.edit(it)) },
+                                    onDeleted = { backStack.popToToday() },
+                                    snackbar = snackbar,
+                                )
+                            },
+                        )
+                    }
+                },
+            )
             // Deep-open from a reminder notification (MainActivity extra), consumed once
             // so theme changes / recompositions never push duplicate destinations.
             var deepOpenConsumed by remember(openActivityId) { mutableStateOf(false) }
             LaunchedEffect(openActivityId, deepOpenConsumed) {
                 if (openActivityId != null && !deepOpenConsumed) {
                     deepOpenConsumed = true
-                    navController.navigate(Routes.detail(openActivityId))
+                    backStack.add(Routes.detail(openActivityId))
                 }
             }
             if (showCreateItem) {
@@ -365,8 +394,8 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
                     onPick = { type ->
                         showCreateItem = false
                         when (type) {
-                            ActivityType.HABIT -> navController.navigate(Routes.CREATE_INTENT)
-                            ActivityType.TASK -> navController.navigate(Routes.CREATE_TASK)
+                            ActivityType.HABIT -> backStack.add(Routes.CreateIntent)
+                            ActivityType.TASK -> backStack.add(Routes.CreateTask)
                         }
                     },
                 )

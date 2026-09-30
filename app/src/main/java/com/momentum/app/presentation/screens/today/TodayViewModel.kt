@@ -1,16 +1,25 @@
 package com.momentum.app.presentation.screens.today
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.momentum.app.AppContainer
+import com.momentum.app.R
 import com.momentum.app.domain.engine.CompletionEngine
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.AppSettings
+import com.momentum.app.domain.repository.ActivityRepository
+import com.momentum.app.domain.repository.CompletionRepository
+import com.momentum.app.domain.repository.SettingsRepository
+import com.momentum.app.domain.usecase.GetTodayScheduleUseCase
+import com.momentum.app.domain.usecase.SetActualValueUseCase
+import com.momentum.app.domain.usecase.ToggleCompletionUseCase
 import com.momentum.app.domain.usecase.TodayItem
 import com.momentum.app.domain.usecase.TodaySections
 import com.momentum.app.domain.usecase.partitionTodayItems
 import com.momentum.app.domain.usecase.toIso
 import com.momentum.app.domain.usecase.toLocalDate
+import com.momentum.app.presentation.UiText
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
@@ -18,35 +27,50 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 sealed interface TodayUiState {
-    data object Loading : TodayUiState
+    /**
+     * Open **Reach a Target** dialog (null = none), folded into the single
+     * state stream as a combine source so the screen collects ONE
+     * `StateFlow<TodayUiState>` (ADR-44). Transient UI state only — the
+     * authoritative completion state stays in Room.
+     */
+    val targetEntry: TargetEntryState?
+
+    data object Loading : TodayUiState {
+        override val targetEntry: TargetEntryState? get() = null
+    }
     /**
      * Derived view of today (DASHBOARD_SPECS §22): eligibility → completion →
      * sections → Hero progress. [sections] is the only completion-derived
      * state the UI reads; there is no second completion flag in Compose.
      */
+    @Immutable
     data class Success(
         val date: LocalDate,
         val dateLabel: String,
-        val greeting: String,
+        /** Time-of-day greeting, resolved by the screen (DECISIONS §6). */
+        val greeting: UiText,
         val sections: TodaySections,
-        val message: String,
+        /** Null = the Hero says nothing at all (see [messageFor]). */
+        val message: UiText?,
         /** Null = follow the system animator setting (resolved in the composable). */
         val reduceMotionOverride: Boolean?,
+        override val targetEntry: TargetEntryState? = null,
     ) : TodayUiState {
         val remaining: List<TodayItem> get() = sections.remaining
         val completed: List<TodayItem> get() = sections.completed
@@ -56,12 +80,28 @@ sealed interface TodayUiState {
         val isEmpty: Boolean get() = sections.isEmpty
         val allComplete: Boolean get() = sections.allComplete
     }
-    data class Error(val message: String) : TodayUiState
+    data class Error(val message: UiText) : TodayUiState {
+        override val targetEntry: TargetEntryState? get() = null
+    }
 }
 
 sealed interface TodayEffect {
-    data class Celebrate(val message: String) : TodayEffect
-    data class ShowMessage(val message: String) : TodayEffect
+    data class Celebrate(val message: UiText) : TodayEffect
+    data class ShowMessage(val message: UiText) : TodayEffect
+}
+
+/** MVI events (ADR-44): the screen's five public actions, dispatched via `onEvent`. */
+sealed interface TodayEvent {
+    /** Re-derives today's plan: initial load, error retry, explicit refresh. */
+    data object Refresh : TodayEvent
+    /** Completion control tap — completes, or opens the target-entry dialog. */
+    data class CompletionTap(val activityId: Long) : TodayEvent
+    /** Persists the entered actual value from the target-entry dialog. */
+    data class SaveTargetEntry(val activityId: Long, val actual: Double) : TodayEvent
+    /** Explicit reversal from the dialog: drops today's record. */
+    data class ClearTargetEntry(val activityId: Long) : TodayEvent
+    /** Closes the target-entry dialog without writing. */
+    data object DismissTargetEntry : TodayEvent
 }
 
 /**
@@ -79,15 +119,23 @@ data class TargetEntryState(
 )
 
 /** Hero experience: what matters today, wired to the real repository. */
-class TodayViewModel(private val container: AppContainer) : ViewModel() {
+@HiltViewModel
+class TodayViewModel @Inject constructor(
+    private val activityRepository: ActivityRepository,
+    private val completionRepository: CompletionRepository,
+    private val settingsRepository: SettingsRepository,
+    private val toggleCompletion: ToggleCompletionUseCase,
+    private val setActualValue: SetActualValueUseCase,
+    private val getTodaySchedule: GetTodayScheduleUseCase,
+) : ViewModel() {
 
     private val refreshTick = MutableStateFlow(0)
     private val effects = Channel<TodayEffect>(Channel.BUFFERED)
     val effect = effects.receiveAsFlow()
     private var lastProgress: Float? = null
 
+    /** Which target-entry dialog is open (ADR-44: mutated via atomic `update` only). */
     private val _targetEntry = MutableStateFlow<TargetEntryState?>(null)
-    val targetEntry: StateFlow<TargetEntryState?> = _targetEntry.asStateFlow()
 
     init {
         // DASHBOARD_SPECS §19 / DECISIONS §25: at local midnight the screen
@@ -106,20 +154,41 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * One state stream (ADR-44): the day's derived plan combined with the
+     * target-entry holder, so the screen collects a single
+     * `StateFlow<TodayUiState>`.
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state = refreshTick.flatMapLatest {
-        val today = LocalDate.now()
-        val from = today.minusDays(730).toIso()
-        combine(
-            container.activityRepository.observeByStatus(listOf(ActivityStatus.ACTIVE)),
-            container.completionRepository.observeInRange(from, today.toIso()),
-            container.settingsRepository.observe(),
-        ) { activities, completions, settings ->
-            buildState(today, activities, completions, settings)
-        }
+    val state: StateFlow<TodayUiState> = combine(
+        refreshTick.flatMapLatest {
+            val today = LocalDate.now()
+            val from = today.minusDays(730).toIso()
+            combine(
+                activityRepository.observeByStatus(listOf(ActivityStatus.ACTIVE)),
+                completionRepository.observeInRange(from, today.toIso()),
+                settingsRepository.observe(),
+            ) { activities, completions, settings ->
+                buildState(today, activities, completions, settings)
+            }
+        },
+        _targetEntry,
+    ) { base, targetEntry ->
+        if (base is TodayUiState.Success) base.copy(targetEntry = targetEntry) else base
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayUiState.Loading)
 
-    fun refresh() {
+    /** Single entry point for every user action on this screen (ADR-44). */
+    fun onEvent(event: TodayEvent) {
+        when (event) {
+            TodayEvent.Refresh -> refresh()
+            is TodayEvent.CompletionTap -> onCompletionTap(event.activityId)
+            is TodayEvent.SaveTargetEntry -> saveTargetEntry(event.activityId, event.actual)
+            is TodayEvent.ClearTargetEntry -> clearTargetEntry(event.activityId)
+            TodayEvent.DismissTargetEntry -> dismissTargetEntry()
+        }
+    }
+
+    private fun refresh() {
         refreshTick.value += 1
     }
 
@@ -132,31 +201,33 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
      *
      * The branch lives here, not in Compose — the UI only reports the tap.
      */
-    fun onCompletionTap(activityId: Long) {
+    private fun onCompletionTap(activityId: Long) {
         val today = LocalDate.now()
         viewModelScope.launch {
-            val activity = runCatching { container.activityRepository.getById(activityId) }.getOrNull()
+            val activity = runCatching { activityRepository.getById(activityId) }.getOrNull()
             if (activity == null) {
-                effects.send(TodayEffect.ShowMessage("Couldn't save — try again."))
+                effects.send(TodayEffect.ShowMessage(CouldntSave))
                 return@launch
             }
             if (!CompletionEngine.isTargetBased(activity)) {
-                runCatching { container.toggleCompletion(activityId, today, activity.targetPerOccurrence) }
-                    .onFailure { effects.send(TodayEffect.ShowMessage("Couldn't save — try again.")) }
+                runCatching { toggleCompletion(activityId, today, activity.targetPerOccurrence) }
+                    .onFailure { effects.send(TodayEffect.ShowMessage(CouldntSave)) }
                 return@launch
             }
             val iso = today.toIso()
             val stored = runCatching {
-                container.completionRepository.recordsForActivity(activityId)
+                completionRepository.recordsForActivity(activityId)
             }.getOrNull()?.firstOrNull { it.occurrenceDate == iso }?.value ?: 0.0
-            _targetEntry.value = TargetEntryState(
-                activityId = activityId,
-                title = activity.title,
-                target = activity.targetPerOccurrence,
-                unit = activity.unit,
-                currentActual = stored,
-                completed = CompletionEngine.isComplete(activity, stored),
-            )
+            _targetEntry.update {
+                TargetEntryState(
+                    activityId = activityId,
+                    title = activity.title,
+                    target = activity.targetPerOccurrence,
+                    unit = activity.unit,
+                    currentActual = stored,
+                    completed = CompletionEngine.isComplete(activity, stored),
+                )
+            }
         }
     }
 
@@ -165,19 +236,19 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
      * the source of truth, so 5 → 8 completes and 8 → 5 reverses, with the
      * partial value retained either way.
      */
-    fun saveTargetEntry(activityId: Long, actual: Double) {
+    private fun saveTargetEntry(activityId: Long, actual: Double) {
         viewModelScope.launch {
-            runCatching { container.setActualValue(activityId, LocalDate.now(), actual) }
-                .onSuccess { _targetEntry.value = null }
-                .onFailure { effects.send(TodayEffect.ShowMessage("Couldn't save — try again.")) }
+            runCatching { setActualValue(activityId, LocalDate.now(), actual) }
+                .onSuccess { _targetEntry.update { null } }
+                .onFailure { effects.send(TodayEffect.ShowMessage(CouldntSave)) }
         }
     }
 
     /** Explicit reversal from the dialog: drop today's record entirely. */
-    fun clearTargetEntry(activityId: Long) = saveTargetEntry(activityId, 0.0)
+    private fun clearTargetEntry(activityId: Long) = saveTargetEntry(activityId, 0.0)
 
-    fun dismissTargetEntry() {
-        _targetEntry.value = null
+    private fun dismissTargetEntry() {
+        _targetEntry.update { null }
     }
 
     private suspend fun buildState(
@@ -190,13 +261,15 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
             val byActivity = completions.groupBy { it.activityId }
                 .mapValues { (_, recs) -> recs.associate { it.occurrenceDate.toLocalDate() to it.value } }
             val sections = partitionTodayItems(
-                container.getTodaySchedule(today, activities, byActivity),
+                getTodaySchedule(today, activities, byActivity),
             )
             val progress = sections.progress
             val prev = lastProgress
             lastProgress = progress
             if (prev != null && prev < 1f && progress == 1f && sections.totalCount > 0) {
-                effects.send(TodayEffect.Celebrate("All done — momentum secured."))
+                effects.send(
+                    TodayEffect.Celebrate(UiText(R.string.today_celebrate_all_done)),
+                )
             }
             TodayUiState.Success(
                 date = today,
@@ -214,16 +287,16 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
                 reduceMotionOverride = settings.reduceMotionOverride,
             )
         } catch (t: Throwable) {
-            TodayUiState.Error("Couldn't load today's plan.")
+            TodayUiState.Error(UiText(R.string.today_error_load_plan))
         }
     }
 
     /** DECISIONS §6: four greetings, chosen from the device's local time. */
-    private fun greeting(): String = when (LocalTime.now().hour) {
-        in 5..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        in 17..21 -> "Good evening"
-        else -> "Good night"
+    private fun greeting(): UiText = when (LocalTime.now().hour) {
+        in 5..11 -> UiText(R.string.today_greeting_morning)
+        in 12..16 -> UiText(R.string.today_greeting_afternoon)
+        in 17..21 -> UiText(R.string.today_greeting_evening)
+        else -> UiText(R.string.today_greeting_night)
     }
 
     /**
@@ -232,17 +305,28 @@ class TodayViewModel(private val container: AppContainer) : ViewModel() {
      * messages are switched off the line is dropped entirely, because the
      * Hero's completion count already states progress and repeating it would
      * only add noise.
+     *
+     * An empty day carries **no** line at all: with nothing to report the Hero
+     * says nothing, and the artwork runs straight into the No-Activity card
+     * below it instead of being interrupted by copy (Phase 2C). Null is that
+     * "say nothing" case — the screen renders it as no text at all.
      */
-    private fun messageFor(total: Int, done: Int, motivational: Boolean): String {
-        if (total == 0) return "A fresh page — add your first activity."
-        if (done == total) return "Everything complete. Rest easy."
-        if (!motivational) return ""
+    private fun messageFor(total: Int, done: Int, motivational: Boolean): UiText? {
+        if (total == 0) return null
+        if (done == total) return UiText(R.string.today_message_all_complete)
+        if (!motivational) return null
         val remaining = total - done
         return when {
-            done == 0 -> if (remaining == 1) "One small win starts everything." else "Small steps, unstoppable momentum."
-            remaining == 1 -> "One more — finish strong."
-            done == 1 -> "First win banked. Keep going."
-            else -> "You're building momentum."
+            done == 0 -> UiText(
+                if (remaining == 1) R.string.today_message_one_small_win
+                else R.string.today_message_small_steps,
+            )
+            remaining == 1 -> UiText(R.string.today_message_one_more)
+            done == 1 -> UiText(R.string.today_message_first_win)
+            else -> UiText(R.string.today_message_building)
         }
     }
 }
+
+/** Shared failure copy for every completion/completion-record write. */
+private val CouldntSave = UiText(R.string.error_couldnt_save)

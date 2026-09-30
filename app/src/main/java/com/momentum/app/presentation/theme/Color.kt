@@ -1,7 +1,10 @@
 package com.momentum.app.presentation.theme
 
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import com.momentum.app.R
 
 /**
  * Momentum semantic color tokens (Design System v1.0 §3). Two first-class
@@ -124,9 +127,15 @@ val AuroraDark = MomentumColors(
 )
 
 /** One theme definition: the same token contract in both environments. */
+@Immutable
 data class MomentumThemeDefinition(
     val id: String,
-    val name: String,
+    /**
+     * Display name as a resource id, never a literal: the theme registry is
+     * plain data, and only composables resolve it via
+     * `stringResource(theme.nameRes)`.
+     */
+    @get:StringRes val nameRes: Int,
     val light: MomentumColors,
     val dark: MomentumColors,
 )
@@ -137,7 +146,7 @@ data class MomentumThemeDefinition(
  * user choices keep working without a data migration.
  */
 val MomentumThemes = listOf(
-    MomentumThemeDefinition("aurora", "Aurora", AuroraLight, AuroraDark),
+    MomentumThemeDefinition("aurora", R.string.theme_name_aurora, AuroraLight, AuroraDark),
 )
 
 fun themeById(id: String): MomentumThemeDefinition =

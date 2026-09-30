@@ -40,11 +40,14 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityStatus
 import com.momentum.app.domain.model.DarkModeSetting
@@ -69,8 +72,10 @@ import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.formatAmount
 import com.momentum.app.presentation.components.liquidGlass
 import com.momentum.app.presentation.components.recurrenceLabel
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.ViewModelArgs
+import com.momentum.app.presentation.hiltViewModelWithArgs
 import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.resolve
 import com.momentum.app.presentation.screens.creation.matchTemplate
 import com.momentum.app.presentation.screens.creation.templateById
 import com.momentum.app.presentation.theme.MomentumHeights
@@ -99,14 +104,18 @@ fun HabitDetailRoute(
     onDeleted: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: HabitDetailViewModel = momentumViewModel { HabitDetailViewModel(it, activityId) }
+    val vm: HabitDetailViewModel = hiltViewModelWithArgs {
+        putString(ViewModelArgs.ACTIVITY_ID, activityId.toString())
+    }
     val state by vm.state.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(vm) {
         vm.effect.collect { effect ->
             when (effect) {
-                is HabitDetailEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
+                is HabitDetailEffect.ShowMessage ->
+                    snackbar.showSnackbar(effect.message.resolve(context))
                 is HabitDetailEffect.Deleted -> onDeleted()
             }
         }
@@ -114,10 +123,10 @@ fun HabitDetailRoute(
 
     when (val s = state) {
         HabitDetailUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Loading…", color = MomentumThemeColors.current.textSecondary)
+            Text(stringResource(R.string.loading), color = MomentumThemeColors.current.textSecondary)
         }
         HabitDetailUiState.NotFound -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Habit not found.", color = MomentumThemeColors.current.textSecondary)
+            Text(stringResource(R.string.habit_detail_not_found), color = MomentumThemeColors.current.textSecondary)
         }
         is HabitDetailUiState.Success -> HabitDetailScreen(
             state = s,
@@ -131,11 +140,11 @@ fun HabitDetailRoute(
 
     if (confirmDelete) {
         MomentumDialog(
-            title = "Delete habit permanently?",
-            body = "This removes the habit and its completion history. This can't be undone.",
-            confirmLabel = "Delete",
+            title = stringResource(R.string.dialog_delete_habit_title),
+            body = stringResource(R.string.dialog_delete_habit_body),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = { confirmDelete = false; vm.deleteHard() },
-            dismissLabel = "Cancel",
+            dismissLabel = stringResource(R.string.action_cancel),
             onDismiss = { confirmDelete = false },
             destructive = true,
         )
@@ -194,22 +203,22 @@ fun HabitDetailScreen(
                     longest = state.overview.longestStreak,
                 )
             }
-            item { MomentumSectionHeader(title = "Details") }
+            item { MomentumSectionHeader(title = stringResource(R.string.section_details)) }
             item {
                 MomentumCard {
-                    InfoRow("Direction", directionLabel(activity))
+                    InfoRow(stringResource(R.string.info_row_direction), directionLabel(activity))
                     MomentumDivider()
-                    InfoRow("Tracking", trackingLabel(activity))
+                    InfoRow(stringResource(R.string.info_row_tracking), trackingLabel(activity))
                     MomentumDivider()
-                    InfoRow("Start date", activity.startDate.format(HabitDateFmt))
+                    InfoRow(stringResource(R.string.info_row_start_date), activity.startDate.format(HabitDateFmt))
                     MomentumDivider()
                     InfoRow(
-                        "End date",
-                        activity.endDate?.format(HabitDateFmt) ?: "No end date",
+                        stringResource(R.string.info_row_end_date),
+                        activity.endDate?.format(HabitDateFmt) ?: stringResource(R.string.info_no_end_date),
                     )
                     if (activity.notes.isNotBlank()) {
                         MomentumDivider()
-                        InfoRow("Notes", activity.notes)
+                        InfoRow(stringResource(R.string.detail_row_notes), activity.notes)
                     }
                 }
             }
@@ -226,14 +235,14 @@ fun HabitDetailScreen(
         ) {
             Icon(
                 imageVector = MomentumIcons.arrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.cd_back),
                 tint = c.textPrimary,
             )
         }
         if (isCustomHabit(activity)) {
             LiquidGlassIconButton(
                 icon = MomentumIcons.edit,
-                contentDescription = "Edit habit icon",
+                contentDescription = stringResource(R.string.cd_edit_habit_icon),
                 onClick = onEdit,
                 active = true,
                 modifier = Modifier
@@ -257,18 +266,18 @@ fun HabitDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LiquidGlassButton(
-                text = if (paused) "Resume" else "Pause",
+                text = if (paused) stringResource(R.string.action_resume) else stringResource(R.string.action_pause),
                 onClick = { if (paused) onResume() else onPause() },
                 secondary = true,
                 modifier = Modifier.weight(1f),
             )
             LiquidGlassButton(
-                text = "Edit Habit",
+                text = stringResource(R.string.action_edit_habit),
                 onClick = onEdit,
                 modifier = Modifier.weight(1.2f),
             )
             LiquidGlassButton(
-                text = "Delete",
+                text = stringResource(R.string.action_delete),
                 onClick = onDelete,
                 destructive = true,
                 modifier = Modifier.weight(1f),
@@ -288,25 +297,30 @@ private fun isCustomHabit(activity: Activity): Boolean =
             ?: matchTemplate(activity.habitIntent, activity.title, activity.iconKey),
     )?.isCustom == true
 
+@Composable
 private fun directionLabel(activity: Activity): String = when (activity.habitIntent) {
-    HabitIntent.BUILD -> "Build"
-    HabitIntent.REDUCE -> "Reduce"
+    HabitIntent.BUILD -> stringResource(R.string.intent_build)
+    HabitIntent.REDUCE -> stringResource(R.string.intent_reduce)
 }
 
+@Composable
 private fun targetLabel(activity: Activity): String = when {
     activity.habitIntent == HabitIntent.REDUCE &&
-        activity.reduceMode() == ReduceMode.COMPLETE -> "Zero is the goal"
+        activity.reduceMode() == ReduceMode.COMPLETE -> stringResource(R.string.habit_target_zero)
     activity.targetPerOccurrence != 1.0 || activity.unit.isNotBlank() ->
         "${formatAmount(activity.targetPerOccurrence)} ${activity.unit}".trim()
-    else -> "Just mark it done"
+    else -> stringResource(R.string.habit_target_just_mark)
 }
 
+@Composable
 private fun trackingLabel(activity: Activity): String = when {
     activity.habitIntent == HabitIntent.REDUCE &&
-        activity.reduceMode() == ReduceMode.COMPLETE -> "Completely"
-    activity.habitIntent == HabitIntent.REDUCE -> "Limit"
-    activity.targetPerOccurrence != 1.0 || activity.unit.isNotBlank() -> "Target amount"
-    else -> "Just mark it done"
+        activity.reduceMode() == ReduceMode.COMPLETE -> stringResource(R.string.habit_tracking_completely)
+    activity.habitIntent == HabitIntent.REDUCE -> stringResource(R.string.habit_tracking_limit)
+    activity.targetPerOccurrence != 1.0 || activity.unit.isNotBlank() -> {
+        stringResource(R.string.habit_tracking_target_amount)
+    }
+    else -> stringResource(R.string.habit_target_just_mark)
 }
 
 /** Centered Soft Aurora identity: hero tile, name, Active/Paused status. */
@@ -339,7 +353,7 @@ private fun IdentityHero(activity: Activity, paused: Boolean, isCustom: Boolean)
                 ) {
                     Icon(
                         imageVector = MomentumIcons.edit,
-                        contentDescription = "Icon is editable",
+                        contentDescription = stringResource(R.string.cd_icon_editable),
                         tint = habitIconAccent(activity.iconKey),
                         modifier = Modifier.size(14.dp),
                     )
@@ -375,7 +389,7 @@ private fun StatusPill(paused: Boolean) {
                 .background(if (paused) c.warning else c.success),
         )
         Text(
-            text = if (paused) "Paused" else "Active",
+            text = if (paused) stringResource(R.string.status_paused) else stringResource(R.string.status_active),
             style = MaterialTheme.typography.labelLarge,
             color = if (paused) c.warning else c.success,
             fontWeight = FontWeight.Medium,
@@ -401,21 +415,21 @@ private fun MetaCardsRow(
         horizontalArrangement = Arrangement.spacedBy(MomentumSpacing.group),
     ) {
         MetaCard(
-            label = "Frequency",
+            label = stringResource(R.string.meta_frequency),
             value = frequency,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight(),
         )
         MetaCard(
-            label = "Target",
+            label = stringResource(R.string.detail_row_target),
             value = target,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight(),
         )
         MetaCard(
-            label = "Reminder",
+            label = stringResource(R.string.meta_reminder),
             value = reminder,
             modifier = Modifier
                 .weight(1f)
@@ -470,13 +484,17 @@ private fun WeeklyCompletionCard(overview: HabitOverview) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "This Week",
+                stringResource(R.string.section_this_week),
                 style = MaterialTheme.typography.titleMedium,
                 color = c.textPrimary,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "${overview.week.completedCount}/${overview.week.scheduledCount} completed",
+                stringResource(
+                    R.string.habit_week_completed,
+                    overview.week.completedCount,
+                    overview.week.scheduledCount,
+                ),
                 style = MaterialTheme.typography.labelLarge,
                 color = c.textSecondary,
             )
@@ -568,13 +586,13 @@ private fun StreakSummary(current: Int, longest: Int) {
             HabitIconTile(iconKey = "streak")
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    "$current day${if (current == 1) "" else "s"} streak",
+                    stringResource(R.string.streak_current, current, if (current == 1) "" else "s"),
                     style = MaterialTheme.typography.titleMedium,
                     color = c.textPrimary,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "Longest: $longest day${if (longest == 1) "" else "s"}",
+                    stringResource(R.string.streak_longest, longest, if (longest == 1) "" else "s"),
                     style = MaterialTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )

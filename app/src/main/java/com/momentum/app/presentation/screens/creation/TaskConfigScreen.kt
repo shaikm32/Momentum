@@ -14,8 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.momentum.app.R
 import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.domain.model.Category
 import com.momentum.app.domain.model.DarkModeSetting
@@ -23,8 +26,10 @@ import com.momentum.app.presentation.components.CategoryChip
 import com.momentum.app.presentation.components.MomentumCard
 import com.momentum.app.presentation.components.MomentumSectionHeader
 import com.momentum.app.presentation.components.MomentumTopBar
-import com.momentum.app.presentation.momentumViewModel
+import com.momentum.app.presentation.ViewModelArgs
+import com.momentum.app.presentation.hiltViewModelWithArgs
 import com.momentum.app.presentation.rememberReduceMotion
+import com.momentum.app.presentation.resolve
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumTheme
 import java.time.LocalDate
@@ -42,25 +47,27 @@ fun TaskConfigRoute(
     onBack: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val vm: CreationViewModel = momentumViewModel {
-        CreationViewModel(it, activityId, ActivityType.TASK)
+    val vm: CreationViewModel = hiltViewModelWithArgs {
+        putString(ViewModelArgs.ACTIVITY_ID, activityId?.toString())
+        putString(ViewModelArgs.ACTIVITY_TYPE, ActivityType.TASK.name)
     }
     val form by vm.form.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(vm) {
         vm.effect.collect { effect ->
             when (effect) {
                 is CreationEffect.Saved -> onSaved(effect.activityId)
-                is CreationEffect.Error -> snackbar.showSnackbar(effect.message)
+                is CreationEffect.Error -> snackbar.showSnackbar(effect.message.resolve(context))
             }
         }
     }
     TaskConfigScreen(
         form = form,
         categories = categories,
-        onUpdate = { vm.update(it) },
-        onSave = { vm.save() },
+        onUpdate = { vm.onEvent(CreationEvent.Update(it)) },
+        onSave = { vm.onEvent(CreationEvent.Save) },
         onBack = onBack,
     )
 }
@@ -76,8 +83,9 @@ fun TaskConfigScreen(
     val reduceMotion = rememberReduceMotion(null)
     Column(modifier = Modifier.fillMaxSize()) {
         MomentumTopBar(
-            title = if (form.isNew) "New task" else "Edit task",
-            subtitle = "What do you need to get done?",
+            title = if (form.isNew) stringResource(R.string.task_title_new)
+            else stringResource(R.string.task_title_edit),
+            subtitle = stringResource(R.string.task_subtitle),
             onBack = onBack,
         )
         LazyColumn(
@@ -102,11 +110,11 @@ fun TaskConfigScreen(
                     form = form,
                     onUpdate = onUpdate,
                     reduceMotion = reduceMotion,
-                    supporting = "Separate from the due time — when to nudge you",
+                    supporting = stringResource(R.string.reminder_supporting_task),
                 )
             }
             item {
-                MomentumSectionHeader(title = "Details (optional)")
+                MomentumSectionHeader(title = stringResource(R.string.section_details_optional))
             }
             item {
                 NotesSection(form = form, onUpdate = onUpdate)
@@ -123,9 +131,9 @@ fun TaskConfigScreen(
         }
         CreateCtaBar(
             text = when {
-                form.isSaving -> "Saving…"
-                form.isNew -> "Create task"
-                else -> "Save changes"
+                form.isSaving -> stringResource(R.string.action_saving)
+                form.isNew -> stringResource(R.string.task_config_create)
+                else -> stringResource(R.string.action_save_changes)
             },
             enabled = !form.isSaving && form.isSubmittable(),
             onClick = onSave,
@@ -140,7 +148,7 @@ private fun DueSection(
     onUpdate: ((CreationForm) -> CreationForm) -> Unit,
     reduceMotion: Boolean,
 ) {
-    MomentumSectionHeader(title = "When is it due?")
+    MomentumSectionHeader(title = stringResource(R.string.due_section))
     MomentumCard {
         val today = LocalDate.now()
         FlowRow(
@@ -150,10 +158,10 @@ private fun DueSection(
             DueOption.entries.forEach { option ->
                 CategoryChip(
                     label = when (option) {
-                        DueOption.TODAY -> "Today"
-                        DueOption.TOMORROW -> "Tomorrow"
-                        DueOption.PICK_DATE -> "Pick a date"
-                        DueOption.NO_DATE -> "No due date"
+                        DueOption.TODAY -> stringResource(R.string.action_today)
+                        DueOption.TOMORROW -> stringResource(R.string.due_tomorrow)
+                        DueOption.PICK_DATE -> stringResource(R.string.due_pick_date)
+                        DueOption.NO_DATE -> stringResource(R.string.due_no_date)
                     },
                     selected = form.dueOption == option,
                     onClick = {
@@ -173,23 +181,23 @@ private fun DueSection(
         }
         Expandable(visible = form.dueOption == DueOption.PICK_DATE, reduceMotion = reduceMotion) {
             DateRow(
-                label = "Due date",
+                label = stringResource(R.string.due_date_label),
                 date = form.dueDate,
                 onPick = { d -> onUpdate { it.copy(dueDate = d) } },
             )
         }
         if (form.dueOption == DueOption.NO_DATE) {
-            Explainer("Shows up today until it's done.")
+            Explainer(stringResource(R.string.due_no_date_explainer))
         }
         LabeledSwitch(
-            label = "Specific time",
-            supporting = "What time it's due — separate from the reminder",
+            label = stringResource(R.string.due_specific_time),
+            supporting = stringResource(R.string.due_time_supporting),
             checked = form.hasDueTime,
             onChange = { checked -> onUpdate { it.copy(hasDueTime = checked) } },
         )
         Expandable(visible = form.hasDueTime, reduceMotion = reduceMotion) {
             TimeRow(
-                label = "Due at",
+                label = stringResource(R.string.due_at_label),
                 time = form.dueTimePicker,
                 onPick = { t -> onUpdate { it.copy(dueTimePicker = t) } },
             )
@@ -203,14 +211,14 @@ private fun RepeatSection(
     onUpdate: ((CreationForm) -> CreationForm) -> Unit,
     reduceMotion: Boolean,
 ) {
-    MomentumSectionHeader(title = "Does it repeat?")
+    MomentumSectionHeader(title = stringResource(R.string.repeat_section))
     MomentumCard {
         LabeledSwitch(
-            label = "Repeat",
+            label = stringResource(R.string.repeat_label),
             supporting = if (form.repeatEnabled) {
-                "Each occurrence is independent — it stays a task"
+                stringResource(R.string.repeat_supporting_on)
             } else {
-                "One-time — monthly bills and weekly chores can repeat"
+                stringResource(R.string.repeat_supporting_off)
             },
             checked = form.repeatEnabled,
             onChange = { on ->
@@ -229,7 +237,7 @@ private fun RepeatSection(
         )
         Expandable(visible = form.repeatEnabled, reduceMotion = reduceMotion) {
             Column(verticalArrangement = Arrangement.spacedBy(MomentumSpacing.group)) {
-                Explainer("Repeats from the due date above.")
+                Explainer(stringResource(R.string.repeat_explainer))
                 ScheduleSection(
                     form = form,
                     onUpdate = onUpdate,

@@ -42,8 +42,8 @@ class HomeSectionMotionTest {
 
     @Test
     fun `section ordering is still fixed and empty sections stay hidden`() {
-        assertTrue(count("title = \"Remaining today\"") == 1)
-        assertTrue(count("title = \"Completed today\"") == 1)
+        assertTrue(count("title = stringResource(R.string.today_section_remaining)") == 1)
+        assertTrue(count("title = stringResource(R.string.today_section_completed)") == 1)
         assertTrue(count("if (remaining.isNotEmpty())") == 1)
         assertTrue(count("if (finished.isNotEmpty())") == 1)
     }

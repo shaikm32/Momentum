@@ -17,10 +17,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.momentum.app.R
 import com.momentum.app.domain.model.Activity
 import com.momentum.app.domain.model.ActivityType
 import com.momentum.app.presentation.components.MomentumTopBar
-import com.momentum.app.presentation.rememberContainer
+import com.momentum.app.presentation.rememberActivityRepository
 import com.momentum.app.presentation.theme.MomentumSpacing
 import com.momentum.app.presentation.theme.MomentumThemeColors
 
@@ -37,11 +39,11 @@ fun EditRoute(
     onBack: () -> Unit,
     snackbar: SnackbarHostState,
 ) {
-    val container = rememberContainer()
+    val activityRepository = rememberActivityRepository()
     var activity by remember(activityId) { mutableStateOf<Activity?>(null) }
     var missing by remember(activityId) { mutableStateOf(false) }
     LaunchedEffect(activityId) {
-        val loaded = container.activityRepository.getById(activityId)
+        val loaded = activityRepository.getById(activityId)
         if (loaded == null) {
             missing = true
         } else {
@@ -52,14 +54,14 @@ fun EditRoute(
     when {
         missing -> {
             Column(modifier = Modifier.fillMaxSize()) {
-                MomentumTopBar(title = "Edit", onBack = onBack)
+                MomentumTopBar(title = stringResource(R.string.edit_title), onBack = onBack)
                 LazyColumn(
                     contentPadding = PaddingValues(MomentumSpacing.screen),
                     verticalArrangement = Arrangement.spacedBy(MomentumSpacing.item),
                 ) {
                     item {
                         Text(
-                            "Couldn't find that item. It may have been deleted.",
+                            stringResource(R.string.edit_not_found),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MomentumThemeColors.current.textSecondary,
                         )
@@ -69,7 +71,7 @@ fun EditRoute(
         }
         current == null -> {
             Column(modifier = Modifier.fillMaxSize()) {
-                MomentumTopBar(title = "Edit", onBack = onBack)
+                MomentumTopBar(title = stringResource(R.string.edit_title), onBack = onBack)
                 LazyColumn(
                     contentPadding = PaddingValues(MomentumSpacing.screen),
                     horizontalAlignment = Alignment.CenterHorizontally,

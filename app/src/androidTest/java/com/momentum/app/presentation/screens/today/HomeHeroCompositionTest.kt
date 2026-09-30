@@ -25,9 +25,9 @@ import org.junit.Test
  * ADR-31 regression, measured in real layout bounds: the Home Hero is **one**
  * Aurora-backed surface.
  *
- * The defect these guard against was structural, not tonal â€” the header sat
+ * The defect these guard against was structural, not tonal — the header sat
  * outside the Hero and a blanket veil flattened the artwork, so the screen read
- * as "header â†’ strip of Aurora â†’ plain progress area". File checks cannot see
+ * as "header → strip of Aurora → plain progress area". File checks cannot see
  * that, so these tests assert the actual geometry:
  *
  * - the artwork's bounds are exactly the Hero's bounds (a genuine background
@@ -128,7 +128,7 @@ class HomeHeroCompositionTest {
         val percent = compose.onNodeWithText("67%").getBoundsInRoot()
 
         // The artwork runs from the top of the Hero to its bottom, so the band
-        // between greeting and ring is artwork â€” never bare page background.
+        // between greeting and ring is artwork — never bare page background.
         assertTrue(
             "the artwork must start at the top of the Hero",
             artwork.top <= greeting.top,

@@ -20,3 +20,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Momentum"
 include(":app")
+// ADR-45 / TASK-012: the Macrobenchmark producer module that generates the
+// baseline profile into :app/src/main/baseline-prof.txt.
+include(":baselineprofile")
