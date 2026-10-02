@@ -36,6 +36,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -66,8 +69,12 @@ sealed interface TodayUiState {
         /** Time-of-day greeting, resolved by the screen (DECISIONS §6). */
         val greeting: UiText,
         val sections: TodaySections,
-        /** Null = the Hero says nothing at all (see [messageFor]). */
-        val message: UiText?,
+        /**
+         * The state-specific encouragement line (ADR-48 Amendment Note 1), or
+         * null when the day's state or the Settings toggle says there is no
+         * line. Null means the Hero renders no line and reserves no space.
+         */
+        val encouragement: UiText?,
         /** Null = follow the system animator setting (resolved in the composable). */
         val reduceMotionOverride: Boolean?,
         override val targetEntry: TargetEntryState? = null,
@@ -86,7 +93,12 @@ sealed interface TodayUiState {
 }
 
 sealed interface TodayEffect {
-    data class Celebrate(val message: UiText) : TodayEffect
+    /**
+     * The one-shot 0 → 1 milestone signal (ADR-48 §3). Payload-free: the
+     * screen maps it to the transient Aurora/reward/haptic moment and shows
+     * no snackbar — the Hero already states "Today is complete".
+     */
+    data object Celebrate : TodayEffect
     data class ShowMessage(val message: UiText) : TodayEffect
 }
 
@@ -130,6 +142,20 @@ class TodayViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val refreshTick = MutableStateFlow(0)
+
+    /**
+     * True while a retry from the error branch is fetching. It makes the state
+     * stream emit a real [TodayUiState.Loading] before the retry's result.
+     *
+     * Without that transition a retry can strand the screen: an error is
+     * structurally equal to the previous error, so the state flow de-duplicates
+     * it, and a presentation-local "retrying" flag would never be reset (or
+     * would stick the skeleton over a settled error, or the error over the
+     * skeleton). The Loading value is distinct, so Error → Loading → Error (or
+     * Success) always emits and the screen always leaves the retry state.
+     */
+    private val retrying = MutableStateFlow(false)
+
     private val effects = Channel<TodayEffect>(Channel.BUFFERED)
     val effect = effects.receiveAsFlow()
     private var lastProgress: Float? = null
@@ -143,6 +169,7 @@ class TodayViewModel @Inject constructor(
         // Today is always the device's local calendar date — never a UTC
         // boundary — so the wait is measured against the system zone and a
         // DST shift only moves the wake-up instant, never the date itself.
+        // This is not a retry: it must not flash the skeleton.
         viewModelScope.launch {
             while (isActive) {
                 val zone = ZoneId.systemDefault()
@@ -164,18 +191,23 @@ class TodayViewModel @Inject constructor(
         refreshTick.flatMapLatest {
             val today = LocalDate.now()
             val from = today.minusDays(730).toIso()
-            combine(
+            val data = combine(
                 activityRepository.observeByStatus(listOf(ActivityStatus.ACTIVE)),
                 completionRepository.observeInRange(from, today.toIso()),
                 settingsRepository.observe(),
             ) { activities, completions, settings ->
                 buildState(today, activities, completions, settings)
             }
+            // A retry emits the skeleton first (see [retrying]); a payload
+            // refresh — a completion, the midnight tick — never does.
+            if (retrying.value) data.onStart { emit(TodayUiState.Loading) } else data
         },
         _targetEntry,
     ) { base, targetEntry ->
         if (base is TodayUiState.Success) base.copy(targetEntry = targetEntry) else base
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayUiState.Loading)
+    }
+        .onEach { if (it !is TodayUiState.Loading) retrying.value = false }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayUiState.Loading)
 
     /** Single entry point for every user action on this screen (ADR-44). */
     fun onEvent(event: TodayEvent) {
@@ -188,7 +220,13 @@ class TodayViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Re-derives today's plan. A retry from the error branch also flips
+     * [retrying] so the retry produces a genuine state transition (Loading
+     * first); an initial load and a foreground refresh stay silent.
+     */
     private fun refresh() {
+        retrying.value = state.value is TodayUiState.Error
         refreshTick.value += 1
     }
 
@@ -267,9 +305,7 @@ class TodayViewModel @Inject constructor(
             val prev = lastProgress
             lastProgress = progress
             if (prev != null && prev < 1f && progress == 1f && sections.totalCount > 0) {
-                effects.send(
-                    TodayEffect.Celebrate(UiText(R.string.today_celebrate_all_done)),
-                )
+                effects.send(TodayEffect.Celebrate)
             }
             TodayUiState.Success(
                 date = today,
@@ -279,11 +315,7 @@ class TodayViewModel @Inject constructor(
                     .uppercase(Locale.getDefault()),
                 greeting = greeting(),
                 sections = sections,
-                message = messageFor(
-                    sections.totalCount,
-                    sections.doneCount,
-                    settings.motivationalMessagesEnabled,
-                ),
+                encouragement = encouragementFor(sections, settings.motivationalMessagesEnabled),
                 reduceMotionOverride = settings.reduceMotionOverride,
             )
         } catch (t: Throwable) {
@@ -300,31 +332,32 @@ class TodayViewModel @Inject constructor(
     }
 
     /**
-     * The Hero's short contextual line (DECISIONS §9). It is never a random
-     * quote — it always describes the user's current state. When motivational
-     * messages are switched off the line is dropped entirely, because the
-     * Hero's completion count already states progress and repeating it would
-     * only add noise.
+     * The Hero's state-specific encouragement line (ADR-48 Amendment Note 1 /
+     * refinement item 8). ON rules, first match wins; the Settings toggle
+     * removes the line entirely (the Hero then reserves no space for it):
      *
-     * An empty day carries **no** line at all: with nothing to report the Hero
-     * says nothing, and the artwork runs straight into the No-Activity card
-     * below it instead of being interrupted by copy (Phase 2C). Null is that
-     * "say nothing" case — the screen renders it as no text at all.
+     * 1. `allComplete || isEmpty` → no line — the Hero statement / empty state
+     *    already says it.
+     * 2. A remaining item with `currentStreak >= 2` → "Keep your {n}-day
+     *    streak going.", with `{n}` the greatest streak among `remaining`
+     *    (tie → first in schedule order). This is Home's only streak
+     *    reference; rows carry none (ADR-48 §5).
+     * 3. Otherwise the named next item → "Next up: {title}".
+     *
+     * Neither form carries a progress number, so ADR-48 §1's one
+     * representation still holds.
      */
-    private fun messageFor(total: Int, done: Int, motivational: Boolean): UiText? {
-        if (total == 0) return null
-        if (done == total) return UiText(R.string.today_message_all_complete)
+    private fun encouragementFor(sections: TodaySections, motivational: Boolean): UiText? {
         if (!motivational) return null
-        val remaining = total - done
-        return when {
-            done == 0 -> UiText(
-                if (remaining == 1) R.string.today_message_one_small_win
-                else R.string.today_message_small_steps,
-            )
-            remaining == 1 -> UiText(R.string.today_message_one_more)
-            done == 1 -> UiText(R.string.today_message_first_win)
-            else -> UiText(R.string.today_message_building)
+        if (sections.allComplete || sections.isEmpty) return null
+        val best = sections.remaining.maxByOrNull { it.currentStreak }
+        if (best != null && best.currentStreak >= 2) {
+            return UiText(R.string.today_encouragement_streak, listOf(best.currentStreak))
         }
+        return UiText(
+            R.string.today_encouragement_next,
+            listOf(sections.remaining.first().activity.title),
+        )
     }
 }
 

@@ -7,6 +7,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.momentum.app.R
 
@@ -58,6 +59,26 @@ private val DisplayStyle = TextStyle(
     lineHeight = 48.sp,
 )
 
+/**
+ * Numeric figure style (ADR-48 §2): the Display token plus tabular figures.
+ *
+ * Derived, not taken from the scale: the Display token (40/48, 600) is
+ * specified (DS §4); `tnum` is a *demanded-not-specified* refinement. Manrope
+ * is a variable font and its OpenType feature table **does** expose `tnum`
+ * (verified in `res/font/manrope.ttf` by locating the feature tag in the
+ * binary; `pnum` and `zero` are present too), so the setting takes effect.
+ * No new weight is registered: 600 is the scale's Display weight.
+ *
+ * **No longer read by Home** (ADR-48 Amendment Note 5): the progress card's
+ * fraction moved to [MomentumHeadlineCompact], which carries the same `tnum`
+ * setting. The token **stays declared** — removing a public type token is out of
+ * scope, and nothing else may adopt it silently.
+ */
+@OptIn(ExperimentalTextApi::class)
+val MomentumFigureDisplay = DisplayStyle.copy(
+    fontFeatureSettings = "tnum",
+)
+
 private val HeadlineStyle = TextStyle(
     fontFamily = Manrope,
     fontWeight = FontWeight.SemiBold,
@@ -98,6 +119,55 @@ private val CaptionStyle = TextStyle(
     fontWeight = FontWeight.Medium,
     fontSize = 12.sp,
     lineHeight = 16.sp,
+)
+
+/**
+ * Headline Compact (24/32 600) — the Stitch Aurora reference's `headline-md`.
+ * Added by ADR-48 Amendment Note 5 for the horizontal progress card: the
+ * fraction row and the "Today is complete" statement.
+ *
+ * It **carries `tnum`**, which is what preserves ADR-48 §2's rationale on the
+ * new composition: the completed digit is three characters narrower at 24 sp
+ * than the 40 sp Display figure it replaces, so without tabular figures the
+ * fraction would visibly reflow as `done` advances 9 → 10 → 100. Manrope's
+ * OpenType table exposes `tnum` (see [MomentumFigureDisplay]), so the setting
+ * takes effect on this token too — no substitution, no escalation.
+ */
+@OptIn(ExperimentalTextApi::class)
+val MomentumHeadlineCompact = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 24.sp,
+    lineHeight = 32.sp,
+    fontFeatureSettings = "tnum",
+)
+
+/**
+ * Headline Section (20/28 600) — the Stitch reference's `headline-sm`. Added by
+ * ADR-48 Amendment Note 5 for the ring's percentage inside the progress card
+ * and for Home's two section headings.
+ */
+val MomentumHeadlineSection = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 20.sp,
+    lineHeight = 28.sp,
+)
+
+/**
+ * Label Micro (11/14 600, +0.04em) — the Stitch reference's `label-sm`, the
+ * design system's documented micro-scale treatment for text below 12 px. Added
+ * by ADR-48 Amendment Note 5 for the chrome's date capsule, the ring's `done`
+ * unit, and Home's two section status labels; reused by the bottom navigation's
+ * tab labels (ADR-49 Amendment Note 1). The tracking is the reference's own
+ * value and the reason the token exists rather than reusing Caption.
+ */
+val MomentumLabelMicro = TextStyle(
+    fontFamily = Manrope,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 11.sp,
+    lineHeight = 14.sp,
+    letterSpacing = 0.04.em,
 )
 
 /**

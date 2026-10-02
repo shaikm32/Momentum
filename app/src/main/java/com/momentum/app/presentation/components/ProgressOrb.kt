@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -46,6 +47,14 @@ import kotlin.math.roundToInt
  * [showPercent] is turned off when there is nothing eligible to report, so the
  * ring never implies a percentage that would be misleading
  * (DASHBOARD_SPECS §7).
+ *
+ * [arcBrush] is the **one** additive parameter (ADR-48 Amendment Note 5): a
+ * gradient arc for the horizontal progress card, whose approved ring gradient
+ * runs `#00a572 → #06b6d4 → #7c3aed` — three *existing* Aurora theme tokens
+ * (`success`, `auroraBlue`, `auroraViolet`). It replaces only the solid arc
+ * colour; the track, the stroke width, the halo, the lobes and the draw order
+ * are untouched, and `null` is exactly the previous solid `c.primary` arc, so
+ * all existing call sites are unchanged.
  *
  * **Aurora glow (Phase 2C second pass).** The glow is now a *living* light
  * with two parts driven by the one [rememberGlowPhase] clock:
@@ -75,6 +84,7 @@ fun ProgressOrb(
     glowEnabled: Boolean = true,
     animate: Boolean = true,
     showPercent: Boolean = true,
+    arcBrush: Brush? = null,
 ) {
     val c = LocalMomentumColors.current
     val target = progress.coerceIn(0f, 1f)
@@ -161,8 +171,13 @@ fun ProgressOrb(
                 // Drawn LAST: halo → lobes → arc (ISSUE-014), so the crisp
                 // arc is never painted over by a glow layer and the glow can
                 // only ever extend *beyond* the arc stroke, never veil it.
+                //
+                // `arcBrush` is the one additive parameter (ADR-48 Amendment
+                // Note 5): the horizontal progress card's approved gradient arc.
+                // `null` is `SolidColor(c.primary)` — byte-identical to the
+                // pre-TASK-018 call, and every existing caller passes nothing.
                 drawArc(
-                    color = c.primary,
+                    brush = arcBrush ?: SolidColor(c.primary),
                     startAngle = -90f,
                     sweepAngle = 360f * sweep,
                     useCenter = false,
@@ -213,12 +228,14 @@ private fun rememberGlowPhase(enabled: Boolean): Float =
  * (ISSUE-014). At the suggested 0.25 the light theme measures only ~1.6:1
  * against the veiled artwork (WCAG relative luminance: light artwork plus the
  * 0.30 content veil sits around L 0.62, and a 25 % ink wash over it lands
- * around L 0.42), so the alpha is raised until the ratio clears 3:1: 0.55
- * measures ≈ 3.2:1 in Light (worst case, brightest artwork) and ≈ 5:1 in Dark.
- * Same token, same thin stroke — only the alpha differs, because the criterion
- * (3:1), not the example number, is what has to hold.
+ * around L 0.42), so the alpha is raised until the ratio clears 3:1: 0.7
+ * measures ≈ 3.24:1 in Light (worst case, brightest artwork) and ≈ 4.3:1 in
+ * Dark. Note that `ProgressOrb` has a **single production caller** (Home's
+ * progress card), so this is a Home-only change in effect (ADR-49 Amendment
+ * Note 5). Same token, same thin stroke — only the alpha differs, because the
+ * criterion (3:1), not the example number, is what has to hold.
  */
-private const val TrackAlpha = 0.55f
+private const val TrackAlpha = 0.7f
 
 /** Peak alpha of each orbiting lobe — a lift, not a neon flare. */
 private const val GlowHighlightAlpha = 0.42f

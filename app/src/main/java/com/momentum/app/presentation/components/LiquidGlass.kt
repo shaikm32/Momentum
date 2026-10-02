@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -45,8 +47,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.momentum.app.presentation.rememberReduceMotion
 import com.momentum.app.presentation.theme.LocalMomentumColors
+import com.momentum.app.presentation.theme.MomentumColors
 import com.momentum.app.presentation.theme.MomentumGlass
 import com.momentum.app.presentation.theme.MomentumHeights
+import com.momentum.app.presentation.theme.MomentumLabelMicro
 import com.momentum.app.presentation.theme.MomentumMotion
 import com.momentum.app.presentation.theme.MomentumRadii
 import com.momentum.app.presentation.theme.MomentumSpacing
@@ -82,24 +86,50 @@ enum class GlassLevel(val fillAlpha: Float, val elevation: Dp) {
 }
 
 /**
- * Applies the glass treatment: optional soft shadow, translucent vertical
- * wash (bright top edge fading into the fill), hairline light border.
+ * Applies the glass treatment: optional soft shadow, translucent body wash,
+ * hairline light border.
  * Shadows stay whisper-quiet (Twilight principle: light comes from the
  * environment, components never glow on their own).
  *
  * Solid levels ([GlassLevel.DIALOG]) blend the top-edge streak *into* an
  * opaque stop instead of painting translucent light over the fill, so the
  * brightest part of the surface never reveals the layer behind it.
+ *
+ * **[hue] is the one additive parameter** (ADR-48 Amendment Note 5, the
+ * smallest documented extension of the glass system the approved reference
+ * needs). When non-null, the body wash becomes the reference's 135° chromatic
+ * gradient — `lerp(surface, hue, 0.55) @ fillAlpha` → the same tint at half that
+ * alpha → the plain fill — so one `Brush` paints the diagonal and no second
+ * glass system exists. The hairline and the shadow are untouched, and the hue
+ * is a theme token (`auroraLavender` on Home), so the wash is theme-aware by
+ * construction.
+ *
+ * `hue = null` (the default) is **byte-identical** to the pre-TASK-018
+ * modifier for all sixteen existing call sites — it is the same vertical
+ * `topLight → fill → fill` wash, the same hairline, the same shadow.
+ *
+ * **[fillAlpha] is the second additive parameter** (ADR-49 Amendment Notes 4/5,
+ * the ISSUE-020 Home-scoped remediation). `null` — every existing caller — is
+ * byte-identical to today: `effectiveFillAlpha = level.fillAlpha` and the legacy
+ * single `topLight → fill → fill` vertical gradient. When non-null, the
+ * effective fill becomes [fillAlpha] and the non-hue wash switches to a
+ * **two-layer** treatment — a solid `surface @ fillAlpha` underlayer with a
+ * fading top streak — so Home alone can read more solid without touching
+ * `MomentumGlass` or any other screen. There is still one glass implementation,
+ * no Home fork, and rollback is deleting the argument.
  */
 @Composable
 fun Modifier.liquidGlass(
     shape: Shape,
     level: GlassLevel = GlassLevel.CARD,
+    hue: Color? = null,
+    fillAlpha: Float? = null,
 ): Modifier {
     val c = LocalMomentumColors.current
     val dark = c.isDark
     val solid = level.fillAlpha >= 1f
-    val fill = c.surface.copy(alpha = level.fillAlpha)
+    val effectiveFillAlpha = fillAlpha ?: level.fillAlpha
+    val fill = c.surface.copy(alpha = effectiveFillAlpha)
     val topLight = when {
         solid && dark -> lerp(c.surface, Color.White, MomentumGlass.highlight)
         solid -> c.surface
@@ -121,9 +151,39 @@ fun Modifier.liquidGlass(
     } else {
         this
     }
-    return shadowed
-        .clip(shape)
-        .background(
+    val clipped = shadowed.clip(shape)
+    val body = when {
+        // `Offset.Zero → Offset.Infinite` is Compose's diagonal gradient, i.e.
+        // the reference's `135deg`.
+        hue != null && !solid -> {
+            val tinted = lerp(c.surface, hue, HueMix)
+            clipped.background(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        tinted.copy(alpha = effectiveFillAlpha),
+                        tinted.copy(alpha = effectiveFillAlpha * HueWashMidAlpha),
+                        fill,
+                    ),
+                    start = Offset.Zero,
+                    end = Offset.Infinite,
+                ),
+                shape = shape,
+            )
+        }
+
+        // Home-scoped opt-in: a solid underlayer plus a fading top streak.
+        fillAlpha != null -> clipped
+            .background(color = fill, shape = shape)
+            .background(
+                brush = Brush.verticalGradient(
+                    0f to topLight,
+                    0.38f to Color.Transparent,
+                ),
+                shape = shape,
+            )
+
+        // The default path — every existing caller — unchanged.
+        else -> clipped.background(
             brush = Brush.verticalGradient(
                 0f to topLight,
                 0.38f to fill,
@@ -131,8 +191,19 @@ fun Modifier.liquidGlass(
             ),
             shape = shape,
         )
-        .border(BorderStroke(Dp.Hairline, border), shape)
+    }
+    return body.border(BorderStroke(Dp.Hairline, border), shape)
 }
+
+/** How far a [Modifier.liquidGlass] `hue` is mixed into the surface token. */
+private const val HueMix = 0.55f
+
+/**
+ * The mid-stop alpha of the chromatic wash, as a fraction of the fill alpha.
+ * Reached **only** by the non-null `hue` branch, i.e. by Home's progress card
+ * alone, so raising it is Home-only by construction (ADR-49 Amendment Note 5).
+ */
+private const val HueWashMidAlpha = 0.8f
 
 /**
  * Subtle press scale for tactile glass controls. Disabled entirely under
@@ -306,24 +377,83 @@ fun LiquidGlassIconButton(
     }
 }
 
-/** Floating glass bottom navigation bar. */
+/**
+ * Floating glass bottom navigation bar, rendered to the approved reference's
+ * visual (ADR-49 Amendment Note 1, human ruling 2026-10-01 §4.7 r1):
+ * **VISUAL = the reference, BEHAVIOUR = Momentum.**
+ *
+ * `CircleShape` (the reference's `rounded-full`) replaces the previous 26 dp
+ * radius, the inner row's `heightIn(min = 64.dp)` is its `h-16`, the padding is
+ * `px-space-md` (16 dp) with **no** vertical padding, and `SpaceAround` with
+ * vertically centred children is its `justify-around items-center`.
+ *
+ * `heightIn(min = …)`, never `height(64.dp)`: at font scale 1.0 this renders
+ * exactly 64 dp, and beyond it the bar **grows** rather than clipping (§19).
+ *
+ * The material is unchanged — `GlassLevel.HERO` — and so is every behaviour:
+ * this composable and [LiquidGlassTab] have **exactly one call site each**, in
+ * `navigation/MomentumNavGraph.kt`'s `Scaffold.bottomBar`, so all four
+ * destinations move together and cannot desynchronise. There is no Home-only
+ * fork. No blur is added: the reference's `backdrop-filter: blur(24px)
+ * saturate(180%)` remains a documented non-adoption (ADR-49 §4), and the
+ * reference's `rgba(255,255,255,0.8)` fill and its white `1px` border are
+ * deliberately expressed by Momentum's own translucent wash and its
+ * theme-resolved hairline — a white border is invisible on a near-white bar,
+ * which is exactly why ADR-48 Amendment Note 3 moved the FAB to an ink hairline
+ * in Light.
+ *
+ * ADR-49 Amendment Note 6 (human ruling 2026-10-02 §8.20): the bar opts into the
+ * nav-scoped [NavBarFillAlpha] `fillAlpha`, a two-layer solid fill that lifts
+ * the Dark inactive label/icon band above 4.5:1 while the inactive ink stays
+ * `c.textSecondary` — the selected/inactive hierarchy is preserved, not
+ * flattened. Behaviour, routing, padding and the single call site are unchanged.
+ */
 @Composable
 fun LiquidGlassBottomBar(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val shape = RoundedCornerShape(26.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .liquidGlass(shape, GlassLevel.HERO)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .liquidGlass(CircleShape, GlassLevel.HERO, fillAlpha = NavBarFillAlpha)
+            .heightIn(min = NavBarHeight)
+            .padding(horizontal = MomentumSpacing.standard),
+        horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
 }
 
-/** Single tab inside [LiquidGlassBottomBar]: icon + tiny label, soft active glow. */
+/**
+ * Single tab inside [LiquidGlassBottomBar] — icon + micro label, with the
+ * reference's active icon capsule (ADR-49 Amendment Note 1).
+ *
+ * | reference | here |
+ * |---|---|
+ * | `min-w-[62px]` / `min-w-[56px]` | `defaultMinSize`, same values |
+ * | `min-h-[48px]` / `min-h-[44px]` | `MomentumHeights.controlMin` (**48 dp for both** — §19 targets are non-negotiable and Stitch's 44 px is below the floor; at font scale 1.0 both natural heights already exceed 48 dp, so the rendered composition is unchanged) |
+ * | active `px-4 py-1.5 rounded-full` | `16 dp` horizontal / `6 dp` vertical on a `CircleShape` box |
+ * | capsule `linear-gradient(135deg, #c8e1ff 75%, #dcd2ff 85%)` | two **theme-token** stops carrying the reference's exact alphas and angle |
+ * | capsule `border: 1px rgba(255,255,255,0.9)` | a literal **alpha**, not a literal colour — the same construction this file already uses for its light-mode top streak. ADR-49 Amendment Note 6 (human ruling 2026-10-02 §8.20): **Light** resolves the hairline against `c.textPrimary` (white measured 1.11:1 on the near-white Light capsule), **Dark** keeps white; the alpha is always scaled by `capsuleProgress`. |
+ * | capsule `box-shadow: 0 2px 10px rgba(99,102,241,0.2)` | `shadow(2.dp, …, spotColor = c.primary.copy(alpha = 0.2f))` — the same glow-spot substitution `MomentumFab` and `Modifier.liquidGlass` already document (`#6366F1` is not a Momentum token) |
+ * | active `text-[22px]` FILL 1 / inactive `text-[23px]` FILL 0 | `22 dp` on the rounded (filled) icon / `23 dp` on the outlined one — the reference's own 1 dp asymmetry, reproduced deliberately |
+ * | inactive `w-9 h-9 rounded-full` wrapper | `36 dp` + `CircleShape`; its `group-hover:bg-white/40` is **not** implemented (no hover on touch) |
+ * | labels `font-label-sm`, bold when active | [MomentumLabelMicro], `Bold` / `SemiBold` |
+ *
+ * The reference's `transition-all` on the ink is the retained
+ * `animateColorAsState` pair; its `transition-all` on the active capsule is the
+ * one added `animateFloatAsState`, whose progress **scales the capsule's
+ * alphas** — never a `lerp` toward `Color.Transparent`, which would darken
+ * through premultiplication.
+ *
+ * The reference's selected-tab scale (1.06) and its whole-tab background plate
+ * are **removed**: with the approved capsule a 1.06 scale enlarges the glyph
+ * inside a capsule whose padding is reference-exact, and the plate is superseded
+ * by the capsule. What stays is Momentum's own interaction affordance: the 18 dp
+ * press/clip shape, `glassPress`, `Role.Tab` and the icon's
+ * `contentDescription = label`.
+ */
 @Composable
 fun RowScope.LiquidGlassTab(
     icon: ImageVector,
@@ -332,38 +462,35 @@ fun RowScope.LiquidGlassTab(
     onClick: () -> Unit,
 ) {
     val c = LocalMomentumColors.current
-    val reduceMotion = rememberReduceMotion(null)
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(18.dp)
-    val motionSpec = tween<Float>(durationMillis = MomentumMotion.fast, easing = MomentumMotion.easeOut)
+    val shape = RoundedCornerShape(TabPressRadius)
     val colorSpec = tween<Color>(durationMillis = MomentumMotion.fast, easing = MomentumMotion.easeOut)
-    val selectedBg by animateColorAsState(
-        targetValue = if (selected) c.primary.copy(alpha = 0.18f) else Color.Transparent,
-        animationSpec = colorSpec,
-        label = "tabSelectedBg",
-    )
-    val selectedBorder by animateColorAsState(
-        targetValue = if (selected) c.primary.copy(alpha = 0.40f) else Color.Transparent,
-        animationSpec = colorSpec,
-        label = "tabSelectedBorder",
-    )
+    val motionSpec = tween<Float>(durationMillis = MomentumMotion.fast, easing = MomentumMotion.easeOut)
     val iconTint by animateColorAsState(
-        targetValue = if (selected) c.primary else c.textSecondary,
+        targetValue = if (selected) c.textPrimary else c.textSecondary,
         animationSpec = colorSpec,
         label = "tabIconTint",
     )
-    val iconScale by animateFloatAsState(
-        targetValue = if (selected && !reduceMotion) 1.06f else 1f,
+    val labelColor by animateColorAsState(
+        targetValue = if (selected) c.textPrimary else c.textSecondary,
+        animationSpec = colorSpec,
+        label = "tabLabelColor",
+    )
+    // The one added float: the reference's active-capsule transition. Its
+    // resting value is 0f, so an unselected tab paints no capsule, no hairline
+    // and no glow.
+    val capsuleProgress by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
         animationSpec = motionSpec,
-        label = "tabIconScale",
+        label = "tabCapsule",
     )
     Column(
         modifier = Modifier
-            .weight(1f)
-            .heightIn(min = MomentumHeights.controlMin)
+            .defaultMinSize(
+                minWidth = if (selected) ActiveTabMinWidth else InactiveTabMinWidth,
+                minHeight = MomentumHeights.controlMin,
+            )
             .clip(shape)
-            .background(selectedBg, shape)
-            .border(BorderStroke(Dp.Hairline, selectedBorder), shape)
             .glassPress(interaction)
             .clickable(
                 interactionSource = interaction,
@@ -371,24 +498,129 @@ fun RowScope.LiquidGlassTab(
                 role = Role.Tab,
                 onClick = onClick,
             )
-            .padding(vertical = 4.dp),
+            .padding(vertical = MomentumSpacing.micro),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(TabIconGap),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = iconTint,
-            modifier = Modifier
-                .size(26.dp)
-                .scale(iconScale),
-        )
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .then(
+                        if (capsuleProgress > 0f) {
+                            Modifier.shadow(
+                                elevation = CapsuleElevation,
+                                shape = CircleShape,
+                                spotColor = c.primary.copy(alpha = CapsuleSpotAlpha * capsuleProgress),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .clip(CircleShape)
+                    .background(capsuleBrush(c, capsuleProgress))
+                    .border(
+                        BorderStroke(
+                            CapsuleBorder,
+                            // ADR-49 Amendment Note 6: the reference's white hairline
+                            // is invisible on the near-white Light capsule (measured
+                            // 1.11:1), so Light resolves it against the ink token,
+                            // mirroring the generic hairline above; Dark keeps white.
+                            if (c.isDark) {
+                                Color.White.copy(alpha = CapsuleBorderAlpha * capsuleProgress)
+                            } else {
+                                c.textPrimary.copy(alpha = CapsuleBorderAlpha * capsuleProgress)
+                            },
+                        ),
+                        CircleShape,
+                    )
+                    .padding(
+                        horizontal = MomentumSpacing.standard,
+                        vertical = CapsulePadding,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = c.textPrimary,
+                    modifier = Modifier.size(ActiveTabIconSize),
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(InactiveIconSlotSize)
+                    .clip(CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = iconTint,
+                    modifier = Modifier.size(InactiveTabIconSize),
+                )
+            }
+        }
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            ),
-            color = iconTint,
+            style = MomentumLabelMicro,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            color = labelColor,
         )
     }
 }
+
+/**
+ * The active capsule's two stops, each an existing Aurora token lifted toward
+ * the theme's surface and carrying the reference's own alpha. Because both
+ * lerp toward `c.surface`, the capsule is pale over Light and deep over Dark —
+ * one `c.textPrimary` ink is legible in both, which is the reference's
+ * theme-agnostic composition rather than a Dark redesign.
+ */
+private fun capsuleBrush(c: MomentumColors, progress: Float): Brush {
+    val stops = listOf(
+        lerp(c.auroraBlue, c.surface, CapsuleStopOneMix).copy(alpha = CapsuleStopOneAlpha),
+        lerp(c.auroraLavender, c.surface, CapsuleStopTwoMix).copy(alpha = CapsuleStopTwoAlpha),
+    )
+    return Brush.linearGradient(
+        colors = stops.map { it.copy(alpha = it.alpha * progress) },
+        start = Offset.Zero,
+        end = Offset.Infinite,
+    )
+}
+
+/** The reference's inner bar row height (`h-16`), as a floor, not a ceiling. */
+private val NavBarHeight = 64.dp
+
+/**
+ * The nav-scoped `fillAlpha` opt-in (ADR-49 Amendment Note 6, human ruling
+ * 2026-10-02 §8.20): a two-layer solid fill that raises the bar toward the
+ * reference's own `rgba(255,255,255,0.8)` opacity. It lifts the Dark inactive
+ * label/icon band (measured 3.34:1 at `heroFill`) above the 4.5:1 text floor
+ * while preserving the selected/inactive ink hierarchy — the inactive ink stays
+ * `c.textSecondary`, never flattened to `c.textPrimary`.
+ */
+private const val NavBarFillAlpha = 0.85f
+
+/** Momentum's own press/clip shape for the whole tab — not a reference surface. */
+private val TabPressRadius = 18.dp
+
+private val ActiveTabMinWidth = 62.dp
+private val InactiveTabMinWidth = 56.dp
+private val ActiveTabIconSize = 22.dp
+private val InactiveTabIconSize = 23.dp
+private val InactiveIconSlotSize = 36.dp
+private val TabIconGap = 2.dp
+
+/** The reference's `py-1.5` on the active capsule. */
+private val CapsulePadding = 6.dp
+
+/** The reference's `0 2px 10px` capsule glow. */
+private val CapsuleElevation = 2.dp
+private const val CapsuleSpotAlpha = 0.2f
+private val CapsuleBorder = 1.dp
+private const val CapsuleBorderAlpha = 0.9f
+private const val CapsuleStopOneMix = 0.55f
+private const val CapsuleStopOneAlpha = 0.75f
+private const val CapsuleStopTwoMix = 0.50f
+private const val CapsuleStopTwoAlpha = 0.85f

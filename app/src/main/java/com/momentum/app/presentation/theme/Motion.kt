@@ -24,6 +24,34 @@ object MomentumMotion {
     /** Ambient: very slow decorative loops (Aurora drift). */
     const val ambient = 6000
 
+    /**
+     * Enter: Home's single entrance clock (ADR-48 Amendment Note 4 /
+     * DECISIONS §28). Derived from the reference's own `fade-slide-up` stagger:
+     * four blocks at 0 / 100 / 200 / 300 ms, so the whole reveal spans 900 ms.
+     * Added by TASK-018 — it did not exist before.
+     */
+    const val enter = 900
+
+    /**
+     * FAB glow: the reference's `fab-glow` box-shadow pulse, 3 s `ease-in-out`
+     * (ADR-48 Amendment Note 6). Added by TASK-018 — it did not exist before.
+     */
+    const val fabGlow = 3000
+
+    /**
+     * Verified glyph: the reference's `bolt-pulse`, 2.2 s `ease-in-out`
+     * (ADR-48 Amendment Note 6). Added by TASK-018 — it did not exist before.
+     */
+    const val verifiedPulse = 2200
+
+    /**
+     * Reward: the one-shot completion moment (Home's 100% milestone).
+     * Derived from the design system §28 "Reward ~650 ms". Added by the
+     * TASK-015 refinement (ADR-48 Amendment Note 1) — it did not exist
+     * before.
+     */
+    const val reward = 650
+
     /** Entering: smooth decelerate. */
     val easeOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 }

@@ -38,7 +38,7 @@ This file is not a task log or general project notes file.
 | `ISSUE-017` | CLOSED | High | Habits: top-band/status-bar regression introduced by the Home fix | TASK-006 issue 9 | Habits Hero, system bars | Fixed via ADR-39/§7.7 + verified (TASK-006, Reviewer A4(h)) |
 | `ISSUE-018` | CLOSED | Medium | Excessive gap between Home Hero and "Remaining today" | TASK-006 issue 8 | Home layout | Fixed + verified (TASK-006, Reviewer A4(f)) |
 | `ISSUE-019` | CLOSED | Medium | Reach a Target dialog too transparent to read against Home | TASK-006 issue 2 | Home, target completion | Fixed via ADR-38 + verified (TASK-006, Reviewer A4(g)) |
-| `ISSUE-020` | OPEN | Low | Home date label (`textSecondary`) measures 3.11:1 in Light, below the 4.5:1 floor | TASK-006 Reviewer Finding 2 | Home Hero | Deferred — MINOR; remedy is the text token (task.md §7.5), needs separate task |
+| `ISSUE-020` | CLOSED | Low | Home date label (`textSecondary`) measured 3.11:1 in Light, below the 4.5:1 floor | TASK-006 Reviewer Finding 2 | Home Hero | CLOSED by TASK-015: Home Hero copy is now `textPrimary`; region-measured ≥4.5:1 in both themes (Light min 6.63:1 / Dark min 4.74:1, ADR-47 Amendment Note 1 method). `textSecondary` token unchanged (out of scope); **re-scoped to the full Home contrast sweep for TASK-018 §8.20 and CLOSED by TASK-018 (2026-10-02)** — Home-scoped remediation; bounded region-sample re-measurement PASS in Light and Dark; device verification PASS (412 dp); `Tokens.kt`/`Color.kt` and the frozen background unchanged |
 | `ISSUE-021` | OPEN | Medium | Fresh install reports no active theme in the Theme Gallery | TASK-007 | Theme Gallery | Needs human ruling |
 | `ISSUE-022` | OPEN | High | Settings reduce-motion copy promises a whole-app effect it does not deliver | TASK-007 | Settings, motion | Needs human ruling |
 | `ISSUE-023` | CLOSED | Medium | Orchestrator deliverable write grant missing in `opencode.json` | TASK-007 | Multi-agent infrastructure | Fixed + verified |
@@ -536,7 +536,7 @@ This file is not a task log or general project notes file.
 ### ISSUE-020 — Home date label contrast below floor in Light theme
 
 - Issue ID: `ISSUE-020`
-- Status: OPEN
+- Status: CLOSED
 - Priority: Low
 - Area: UI / Home Hero text token
 - Feature: Home dashboard (Phase 2C)
@@ -552,12 +552,47 @@ This file is not a task log or general project notes file.
   TASK-006.
 - Root cause: `textSecondary` token too light against the Light artwork under
   the current veil header alpha.
-- Fix: deferred — per task.md §7.5 the remedy is the TEXT TOKEN, never
-  re-inflating the veil. Needs a separate task to choose the token and check
-  it against other `textSecondary` usages.
-- Verification: PENDING (separate task).
-- Resolution: None. Deferred by Reviewer decision during TASK-006 close-out;
-  recorded here so it is not lost.
+- Fix: applied by TASK-015 — per task.md §7.5 the remedy is the TEXT TOKEN,
+  never re-inflating the veil. The Home Hero now uses `textPrimary` for all
+  copy (no `textSecondary` over artwork); the global `textSecondary` token is
+  unchanged.
+- Verification: CLOSED — TASK-015 Reviewer PASS (`task.md` §9/§10). Home Hero
+  copy (date, greeting, figure, caption, encouragement) uses `textPrimary`;
+  the ADR-47 Amendment Note 1 region-sample measurement clears 4.5:1 in both
+  themes — Light min **6.63:1** (date), Dark min **4.74:1** (date); all 12
+  element/theme pairs independently reproduced by the Reviewer.
+- Resolution: Fixed on Home by TASK-015 (Home REIMAGINE; ADR-47 §7 / ADR-48).
+  This issue's Home failure mode is eliminated.
+- **TASK-018 §8.20 re-scope and final closure (2026-10-02).** The stable
+  `ISSUE-020` ID was re-opened during TASK-018 as the **full foreground/material
+  contrast sweep** on the corrected Home composition (the narrow TASK-015 failure
+  mode above stayed fixed). The human approved a **Home-scoped** remediation
+  (`task.md` §4.11 / §8.20), implemented by the Developer: a default-`null`
+  `fillAlpha` opt-in on `Modifier.liquidGlass` (`0.85` progress card / `0.90`
+  rows; `HueWashMidAlpha 0.8`), `ProgressOrb` `TrackAlpha 0.7`, the
+  `CompletionAccent.SUCCESS` gradient window `[0.30, 0.34]`, an additive
+  `EmptyState(bodyColor)` and `CompletionButton(idleRingBorderAlpha)`, the two
+  breakdown dots → `c.textPrimary`, Pending `Scheduled Today` and Completed
+  `Finished` → `labelColor = c.textPrimary`, and the `verified` glyph →
+  `accent = c.textPrimary`; plus the three human-approved shared blockers
+  (theme-resolved nav capsule border — Light `textPrimary` / Dark white;
+  nav-scoped `fillAlpha`; Home idle-ring `0.8`). `Tokens.kt`/`Color.kt` and the
+  frozen background were untouched; every non-Home default/`null` path is
+  byte-identical.
+- **Verification (TASK-018).** Developer: `:app:testDebugUnitTest --rerun-tasks`
+  **293 tests / 0 failures**; `assembleDebug` + `assembleDebugAndroidTest` pass.
+  Reviewer: bounded region-sample re-measurement of the changed bands passes in
+  **Light and Dark** with **zero FAIL rows**; thin margins clear (emerald
+  boundary 3.09, ring track 3.24, ring-% Dark 4.78, check glyph Light 4.84); the
+  ring arc remains under the approved decorative exemption. Device: **PASS in
+  Light and Dark** (emulator 412 dp) for Home empty/partial/complete/scrolled and
+  Habits/Tasks/Insights/Settings; the fixed chrome region was pixel-identical
+  before/after scroll. No blocking defects. Recorded limitation, not a defect:
+  320/360 dp and font-scale 2.0 were not device-tested, and the instrumented
+  suites were not executed.
+- **Resolution: CLOSED by TASK-018 (§8.20).** Decision record: ADR-49 Amendment
+  Notes 5 and 6 (append-only). The TASK-015 entry above is retained as the
+  earlier narrow closure of the same stable ID.
 
 ### ISSUE-021 — Fresh install reports no active theme in the Theme Gallery
 

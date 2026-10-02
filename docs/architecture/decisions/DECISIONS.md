@@ -2366,3 +2366,2636 @@ under **ISSUE-025**.
   accompanies this note.** It is a documentation correction only; the working
   tree after it contains no build-relevant delta.
 
+## ADR-47 - Home is a focused Today surface; the Home Hero is simplified in place (one Aurora-backed surface, one constant readability scrim, one bottom hand-off, content-driven height)
+
+- **Decision:**
+  - **1. Home's one job is Today.** Home answers exactly one question - "what
+    matters for me today, and what should I do next?" - as a single scroll of
+    today's progress plus today's actionable rows. It carries no analytics, no
+    history, no habit library, no management controls and no calendar. This
+    restates the locked design language (`MOMENTUM_DESIGN_SYSTEM_V1.md` §13) and
+    is the test every later Home change must pass. Home is *not* a dashboard.
+  - **2. The Hero keeps ADR-31's identity and outcomes but drops the ADR-34/35
+    machinery.** Home remains **one Aurora-backed surface** (ADR-31) whose
+    artwork owns the physical window top edge (ADR-33/37/39), inside **one
+    scroll surface** with the clamped-px + `NestedScrollConnection` collapse
+    (ADR-28/29), and the date/greeting stay top-anchored per the approved
+    product decision (`DECISIONS` §5) and DS §12. Within that, the five-anchor
+    48-sample piecewise readability veil (ADR-35) is replaced by **one constant
+    readability scrim**: a single page-background gradient, transparent at the
+    Hero's top edge, rising to one capped peak behind the header and the
+    progress block, then handing off to the artwork's bottom dissolve. Removed:
+    the ring's scroll-driven scale, the artwork parallax/overscan, the open-band
+    valley, the `Veil*` anchor constants, the 24-sample bottom-blend S-curve, the
+    `VeilSteps`/`BottomBlendSteps` sample counts, and the fixed empty-day
+    `CollapseHeadroom`/weighted spacer that produced the void. **Retained**: the
+    screen-space top mask (ADR-35; it prevents copy entering the camera cutout as
+    the Hero scrolls under the status bar) and the artwork's bottom hand-off
+    (ADR-34/39; it prevents a visible seam). Each retained layer still prevents
+    an *observed* defect; each removed layer only re-implemented a readability or
+    seam outcome that the single scrim + dissolve already provide.
+  - **3. The empty day is a compact Aurora header, not a void.** When
+    `TodaySections.totalCount == 0` the Hero renders date + greeting + Settings
+    only - no progress block, no collapse headroom, no weighted spacer - so the
+    artwork band is content-height instead of ~300 dp (audit §8.3). The
+    no-activity state (existing copy + one add CTA) sits immediately beneath it,
+    and the Quick Add FAB is suppressed on the empty day so there is exactly one
+    add affordance. `HomeEmptyState` drops its `Star` glyph (the same glyph is
+    `momentumIcon`'s corrupt-key fallback, audit §17.3h); the empty state renders
+    without a Material glyph and lets the CTA carry the action.
+  - **4. Home's relationship to Tasks and Insights is documented, not redrawn.**
+    Home is the *act today* surface; the Tasks tab stays the shared
+    management/filter surface (`ActivitiesScreen`); Insights stays
+    history/analysis. Bottom-nav composition (ISSUE-002) and the existence of the
+    Tasks tab (audit Q8, a **product** question) are **not** changed here.
+  - **5. The loading state is content-aware.** The bare
+    `Text("Loading today…")` (`TodayScreen.kt`) is replaced by a static skeleton
+    of the Hero header + two ghost rows built from existing theme surface tokens
+    (DS §25). It is decorative to TalkBack and carries a single "Loading today"
+    label. No shimmer is required, so it costs no animation.
+  - **6. One FAB.** `QuickAddFab` (Home) and `AddHabitFab` (Habits) - two
+    identical-purpose controls with opposite materials and glyph sizes (audit
+    §9.4) - become one shared `MomentumFab`: the solid Aurora-filled disc with
+    the `prominent` (28 dp) glyph, matching DS §9's primary-button language and
+    DS §7's allowance of glass for *floating controls only*. This is a
+    strictly-required shared-component contract and the **only** cross-screen
+    touch in this task; `HabitsScreen`'s FAB call site adopts it and nothing else
+    on Habits changes.
+  - **7. ISSUE-020 is fixed at the ink, not the veil.** Hero copy uses
+    `textPrimary` throughout; the Hero places **no** `textSecondary` over
+    artwork. This follows the recorded remedy (the text token, not another dose
+    of veil, audit §7.20/§8.2 KDoc note) and clears the 4.5:1 floor by
+    construction in both themes.
+  - **8. Hero spacing is expressed with existing tokens.** The Hero's private
+    layout vocabulary is reduced to only the constants that cannot map to
+    `MomentumSpacing`; every remaining value carries a one-line derivation
+    comment. This answers audit §8.1's "the Hero invented a private spacing and
+    alpha vocabulary" without a global token expansion.
+- **Context:** `MOMENTUM_PREMIUM_DESIGN_AUDIT.md` §8.1-§8.3, §7.22 (Home severity
+  `REIMAGINE`), §9.4, §9.5, §17.3h, and HO-4; the Home Hero's own KDoc names
+  `HabitsHero` "the reference composition" and the audit confirms it (222 lines
+  vs 771, one dissolve, no masks, no anchors). Soft Aurora, the locked design
+  system, and AGENTS §5/§9 all require that readability be achieved without
+  flattening the artwork and without inventing per-screen constants. The task's
+  binding requirement is the human brief in `task.md` §12, which explicitly asks
+  for the Hero contract to be decided and the empty-day void removed.
+- **Options:** (A) keep the 771-line Hero untouched and only fix the number;
+  (B) adopt `HabitsHero` wholesale, moving all Home copy to a single
+  bottom-anchored block and deleting the scrim and the screen-space mask; (C)
+  simplify in place - keep Home's approved top header + progress-below structure,
+  replace the sampled veil with one constant scrim, and keep the two layers that
+  still prevent observed defects (chosen); (D) withhold the artwork entirely and
+  use a solid header.
+- **Chosen:** **C**. (A) leaves the audit's central Home finding unresolved and
+  carries a 0.12-alpha safety margin; (B) conflicts with the approved product
+  decision `DECISIONS` §5 and DS §12 that keep the greeting at the top, and
+  deleting the screen-space mask would reintroduce the camera-cutout defect
+  ADR-35 fixed; (D) discards the product's signature atmosphere and the
+  `MomentumHeroArtwork` pipeline for no measured benefit.
+- **Consequences:** Changed: `presentation/screens/today/HomeHero.kt` (reduced
+  to the constant-scrim composition, empty-day content height, no ring scale /
+  parallax / valley / anchors / S-curve), `TodayScreen.kt` (empty-day rule,
+  loading skeleton, hidden FAB on empty, no star glyph), new
+  `presentation/components/MomentumFab.kt`, `HabitsScreen.kt` (FAB call site
+  only), `res/values/strings.xml` (loading/empty-mark strings). **Supersedes in
+  mechanism** ADR-34's dispersion of readability and ADR-35's sampled piecewise
+  veil; **preserves in outcome** ADR-31 (one Aurora-backed surface), ADR-32/34
+  (no dead space below the copy; artwork-to-section hand-off), ADR-33/37/39
+  (artwork at the window edge, no top fade, full-strength head through the
+  status-bar band). No domain, repository, schema, notification, dependency or
+  navigation change. Contract tests that pinned the removed machinery
+  (`HomeHeroAssetsTest`, `HomeHeroCompositionTest`) must be rewritten to the
+  retained outcomes (one surface, no top band of page background, no dead space,
+  one bottom hand-off) rather than deleted.
+
+## ADR-48 - Home shows today's progress exactly once, and the 100% moment is a real (restrained) reward
+
+- **Decision:**
+  - **1. One progress representation, at a size that reflects its importance.**
+    Today's progress appears **once** on Home: the fraction `done / total`,
+    rendered in a numeric figure style based on the existing **Display token
+    (40/48, 600)** - the largest token in the locked scale - with the caption
+    **"completed today"** beneath it (DS §14). `ProgressOrb` becomes the
+    visualization only: it is composed with `showPercent = false`, so there is no
+    second percentage. At 100% the figure is replaced by the statement **"Today
+    is complete"** (DS §14) with the ring full, so nothing is shown twice. On the
+    empty day there is no progress block at all (ADR-47). This ends the current
+    inversion where the sentence that answers the screen's own question is body
+    text, smaller than the greeting above it (audit CP-1/§8.2).
+  - **2. A derived figure style, recorded as derived.** A single
+    `MomentumFigureDisplay` `TextStyle` is added to the type layer
+    (`presentation/theme/Type.kt`) so screens do not construct arbitrary
+    `TextStyle`s (DS §34). It is the Display token plus
+    `FontFeatureSettings("tnum")` when Manrope exposes tabular figures;
+    otherwise it is the Display token unchanged and the figure is centred, so a
+    changing value does not visibly reflow. **Derivation basis:** the Display
+    token (40/48/600) is specified in DS §4; tabular figures are a
+    *demanded-not-specified* refinement whose availability must be **verified at
+    implementation** (Manrope is a variable font; its OpenType feature tables
+    have not been inspected). No new font weight is registered: 600 is the
+    scale's Display weight. The 700-weight-registration question belongs to the
+    separate numeric-register decision (audit HO-1) and is *not* taken here.
+  - **3. The completion moment uses the hooks that already exist.** On the
+    `0 -> 1` transition, Home raises the transient `AuroraState.MILESTONE` for
+    `MomentumMotion.reward` (650 ms), runs a one-shot ring glow for the same
+    duration, and fires **one** `HapticFeedbackType.Confirm`. The snackbar
+    ("All done - momentum secured.") is removed - the Hero is already stating
+    "Today is complete", and the same news twice within 200 px is noise (audit
+    CP-2/§7.8.13). `AuroraState.MILESTONE` and `MomentumMotion.reward` become
+    reachable; the steady 100% state is `AuroraState.COMPLETION`. No particles,
+    no confetti, no sound (DS §19/§21/§33); the moment is "calm and rewarding,
+    not loud". Under reduced motion the transient is skipped and the figure /
+    statement change instantly, while the haptic still fires (feedback, not
+    motion).
+  - **4. The motivational filler slot is removed from Home.** The Hero carries
+    one idea: today's progress. The six `today_message_*` branches - four of
+    which describe a *bucket* of state and one of which is the product tagline
+    used as a daily line (audit §17.3f) - are removed from
+    `TodayViewModel.messageFor`, and the Home Hero renders no supporting line.
+    The **list**, not a sentence, is the "what next".
+  - **5. Home rows do not carry streaks.** Streaks are supporting information
+    (DS §20); `StreakBadge`'s fire glyph is a rejected pattern (DS §33,
+    ISSUE-005). Home's rows pass `streak = 0`, suppressing the badge through the
+    component's own parameter, so the rejected mark leaves Home with no new
+    component work; streaks remain on Habit Detail/Insights, where ISSUE-005's
+    visual treatment is decided separately. (Not in scope: changing
+    `MomentumBadges.kt` itself.)
+  - **6. Motion is change-triggered, not wall-clock.** Home runs **no**
+    permanent infinite animation: the Aurora is static (state is expressed
+    through its intensity) and `ProgressOrb` is composed with
+    `glowEnabled = false` except during the one-shot milestone. Row reflow keeps
+    `Modifier.animateItem`; the progress sweep settles on value change. Home
+    adopts `MomentumMotion.standard` for reflow/sweep and `MomentumMotion.reward`
+    for the milestone rather than the current inline literals (audit §7.15.2/4).
+    Reduced motion nulls every decorative spec, exactly as Home already does
+    (ISSUE-022 remains a whole-app gap; Home stays correct).
+- **Context:** `MOMENTUM_PREMIUM_DESIGN_AUDIT.md` CP-1, CP-2, §7.8.13, §7.13,
+  §17.3f, §19.11, §20 (Home weakness 1/2/4/6/8/10), HO-1, HO-3; DS §4/§14/§19/
+  §20/§21/§25/§27/§28; AGENTS §9 (meaningful completion micro-interactions,
+  never force animation). The human brief (`task.md` §12) names the inverted
+  numeric hierarchy, the snackbar 100% moment and the filler line as concrete
+  defects the concept must resolve.
+- **Options:** (a) keep the percentage in the ring and the fraction at 16 sp
+  (status quo); (b) make the percentage the sole headline and drop the fraction;
+  (c) make the fraction the single Display-size headline with the ring numeric
+  removed (chosen); (d) express the day as a shape rather than a number (audit
+  §19.8 - deferred, it needs a new mark primitive, HO-2).
+- **Chosen:** **c**. (a) is the defect; (b) makes the user count "3 of 5"
+  themselves and loses the DS §14 fraction; (d) is a component-family decision
+  (HO-2) that would touch Insights/Calendar/Habit Detail and is out of this
+  task's scope.
+- **Consequences:** Changed: `HomeHero.kt` (figure/label/statement,
+  `ProgressOrb(showPercent = false, glowEnabled = false)`, milestone transient),
+  `TodayScreen.kt` (milestone mapping, `AuroraState` mapping, no snackbar, no
+  message, streak = 0 on rows, token adoption),
+  `TodayViewModel.kt` (remove `messageFor` filler and the message from
+  `TodayUiState.Success`), `presentation/theme/Type.kt`
+  (`MomentumFigureDisplay`), `res/values/strings.xml` (add "completed today" /
+  "Today is complete"; remove the `today_message_*` and
+  `today_celebrate_all_done` strings that are no longer referenced).
+  `TodayEffect.Celebrate` is retained as the one-shot signal but its payload is
+  no longer surfaced as a snackbar. No domain, repository or schema change.
+- **Flagged product conflict (must reach the Orchestrator).** Removing the Home
+  message slot makes the Settings toggle **"Motivational messages - Gentle
+  encouragement on Today"** inert: `AppSettings.motivationalMessagesEnabled`
+  would no longer affect Home. This ADR **does not** change Settings (out of
+  scope); the conflict is recorded so the disposition of that setting - repurpose
+  its copy, move it, or remove it - is a **product** decision for the
+  Orchestrator, exactly as the reduce-motion copy was handled under CP-3. Until
+  it is resolved the toggle must not be presented as affecting Home.
+
+### ADR-48 Amendment Note 1 - the encouragement line is retained (human ruling) with state-specific content; `MomentumMotion.reward` is added (Architect, 2026-09-30)
+
+- **Instrument:** this note is **append-only**. No ADR-47 or ADR-48 text above is
+  rewritten, deleted or restated. This note supersedes ADR-48 **§4 only** (the
+  removal of the Home message slot) and corrects one factual premise in ADR-48
+  §3 (`MomentumMotion.reward`). Every other ADR-48 clause stands exactly as
+  written.
+
+- **What changed, and why.** The human ruling recorded in `task.md` §7 (product
+  ruling, 2026-09-30) is the governing requirement (AGENTS.md source-of-truth
+  order). It directs that the Home encouragement line is **retained**, **ON by
+  default**, controlled by the existing `AppSettings.motivationalMessagesEnabled`
+  toggle, and that when disabled it is removed **completely with natural layout
+  reflow - no reserved/empty space and no placeholder**; the ON and OFF
+  compositions must each be independently intentional. ADR-48 §4 chose the
+  audit's "remove the slot" option; the ruling chooses the audit's other offered
+  option ("a message slot that can only be filled with something specific") and
+  therefore **supersedes §4**. ADR-48 §4's diagnosis - the six generic
+  `today_message_*` branches are filler and one is the product tagline used as a
+  daily line - remains correct and is the reason the content is redesigned, not
+  restored.
+
+- **Redesigned content (state-specific; the ruling's actual requirement).** The
+  line is now a pure function of the day's live state and has exactly two forms:
+  1. `sections.allComplete || sections.isEmpty` -> **no line** (the Hero headline
+     "Today is complete" / the empty state already state it).
+  2. Any remaining item with `currentStreak >= 2` -> **"Keep your {n}-day streak
+     going."**, where `{n}` is the greatest `currentStreak` among
+     `TodaySections.remaining` (tie -> first in schedule order).
+  3. Otherwise (`remaining.isNotEmpty()`) -> **"Next up: {title}"**, where
+     `{title}` is `remaining.first().activity.title` (the highest-priority
+     remaining item, i.e. the schedule order `GetTodayScheduleUseCase` already
+     produces).
+  No branch describes a bucket of state, repeats the product tagline, or
+  duplicates the DS §14 fraction. Because Home rows no longer carry
+  `StreakBadge` (ADR-48 §5), form 2 is the **only** streak reference on Home and
+  appears only when a streak is genuinely at stake - which is the design system's
+  "streaks are supporting information, not the emotional center" (§20) expressed
+  once instead of N times. Form 3 directly answers the screen's second question
+  ("what should I do next?") by naming the next item.
+
+- **"One representation" is preserved.** ADR-48 §1 is untouched: neither form
+  carries a progress number (a streak count is a different quantity; an item
+  title is not a count), so the fraction remains the single progress
+  representation and the ring still carries no numeric (`showPercent = false`).
+
+- **The previously flagged product conflict is resolved by the ruling.** The
+  Settings toggle is functional again; `AppSettings.motivationalMessagesEnabled`
+  once more changes Home. **No Settings change is required or made** - the
+  toggle, its copy and its persistence already exist and are now truthful. The
+  §"Flagged product conflict" bullet above is closed by this note; its historical
+  text is left verbatim.
+
+- **Factual correction to ADR-48 §3 (token existence).** ADR-48 §3 and the
+  audit's CP-2/HO-3 refer to `MomentumMotion.reward` (650 ms) as an existing
+  unused token. **It does not exist.** A search of
+  `app/src/main/java/com/momentum/app` for `reward`/`Reward` returns **zero**
+  matches; `presentation/theme/Motion.kt` currently declares only `fast` (180),
+  `standard` (280), `emphasis` (450), `ambient` (6000) and `easeOut`.
+  `AuroraState.MILESTONE` **does** exist (`defaultIntensity = 1f`) and is
+  unreachable in production, as the audit says. Therefore the completion moment
+  requires **adding** `MomentumMotion.reward = 650`, derived from the locked
+  design system §28's "Reward ~650 ms" token - not inventing a value. This is a
+  token addition, not a new architectural decision, so no new ADR is created.
+  The same caution applies to `HapticFeedbackType.Confirm`: the repository uses
+  only `LongPress` and `TextHandleMove` today, so its availability in the pinned
+  Compose version must be verified at implementation; if it is unavailable, the
+  milestone keeps `LongPress` (the existing semantic) rather than inventing a
+  new one.
+
+- **What still stands in ADR-48:** §1 (one progress representation at Display
+  scale), §2 (`MomentumFigureDisplay`, derived), §3 (transient
+  `AuroraState.MILESTONE` for `MomentumMotion.reward`, one haptic, no snackbar,
+  no particles/confetti/sound, reduced-motion skip), §5 (Home rows pass
+  `streak = 0`), §6 (change-triggered motion; no permanent infinite animation on
+  Home).
+
+- **Consequences:** `TodayViewModel` keeps a message path, renamed and narrowed
+  to `encouragementFor(sections, motivationalMessagesEnabled)` returning
+  `UiText?`; `TodayUiState.Success.message: UiText?` becomes
+  `encouragement: UiText?`; two strings are added
+  (`today_encouragement_streak` = "Keep your %1$d-day streak going.",
+  `today_encouragement_next` = "Next up: %1$s") and the six generic
+  `today_message_*` strings are **replaced** rather than retained verbatim;
+  `today_celebrate_all_done` is still removed (the snackbar removal stands).
+  `TodayEffect.Celebrate` still fires on the `0 -> 1` transition and still does
+  not surface a snackbar. No domain, repository, Room, DataStore, Settings or
+  navigation change accompanies this note.
+
+- **No code accompanies this note.** It is a documentation amendment only; the
+  working tree after it contains no build-relevant delta beyond this file.
+
+### ADR-47 Amendment Note 1 - the AC 9/AC 17 readability acceptance measurement is the ISSUE-020 region-sample method; the R3 peaks (0.26 Light / 0.22 Dark) stand final (Architect, 2026-09-30)
+
+- **Instrument:** this note is **append-only**. No ADR-47 or ADR-48 text above is
+  rewritten, deleted or restated. It amends only the **acceptance measurement**
+  of ADR-47 §2's readability outcome (AC 9 / AC 17) and confirms R3's "final by
+  measurement" step. The scrim mechanism, its four stops, its per-theme peaks,
+  the [0.15, 0.35] envelope and the ISSUE-020 text-token remedy all stand
+  exactly as approved.
+
+- **The measured conflict.** The implementation report measured the scrim with a
+  **per-pixel minimum** over the copy bands: Light @ 0.26 measured a worst copy
+  pixel of **5.07:1** against `textPrimary` (#172033), but Dark @ 0.22 measured
+  as low as **1.25:1** against #F5F7FC where the bottom-anchored crop places the
+  expanded header over the dark artwork's sparse bright upper ribbon (p95
+  ~4.6:1, mean ~9.7:1 over that band). No peak inside the approved
+  [0.15, 0.35] envelope clears a per-pixel minimum there (the ribbon pixels
+  would need ~0.53), so the Developer escalated instead of silently tuning
+  (AGENTS.md §10).
+
+- **Why the per-pixel minimum is not the criterion.** (1) It is not the repo's
+  method: ISSUE-020 - the only recorded readability measurement - is a **region
+  sample**, one background sample over a rectangular region at the glyphs'
+  location measured against the text token (`(181,183,246)` sampled over
+  `x 270..340, y 178..224`). (2) The approved refinement already names the
+  method: R3's derivation states "the audit's ceiling is 0.65 and **ISSUE-020's
+  measurement method is the acceptance test**" (`task.md` §8 "Refinement" item
+  7). (3) A per-pixel minimum over high-frequency photographic detail (with
+  lossy-WebP ringing) is not a WCAG-defined sample of a background color and is
+  unsatisfiable inside the approved envelope without flattening the artwork to
+  an opaque plate - contrary to ADR-47 §2's "readability without flattening".
+
+- **Decision.** AC 9 (`task.md` §8 §20.9) and AC 17 (refinement §12.17) keep
+  their wording; their measurement is the **ISSUE-020 region-sample method**:
+  for each Hero copy element (date, greeting, figure, caption, encouragement; a
+  wrapped line is sampled per line), take the text line's rectangle; composite
+  the Hero as rendered (the shared artwork with its `DstIn` bottom dissolve over
+  the screen backdrop, then the one 4-stop scrim; source-over per sRGB channel,
+  per-theme peak); reduce the rectangle to one effective background color
+  (per-channel mean); compute the WCAG 2.x contrast ratio against the element's
+  token (`textPrimary`); the **minimum** region ratio across the measured sweep
+  (heights 104-480 dp; widths 360/412 dp; 1-2 line header; 0-2 line
+  encouragement; both theme artworks) governs and is reported per element and
+  per theme. The per-pixel minimum is **informational only**. Full method:
+  `task.md` §8 "Refinement" item 13. Where a device render exists, the same
+  rectangles may be sampled from the screenshot with ink pixels excluded
+  (ISSUE-020 sampled an adjacent same-band rectangle).
+
+- **Final values (final by measurement).** `ScrimPeakLight = 0.26f` and
+  `ScrimPeakDark = 0.22f` stand; the stops stand (`0f -> 0`, `0.20f -> peak`,
+  `0.80f -> peak`, `1f -> 0`). Light clears even the stricter per-pixel sweep
+  (5.07:1), so every region sample clears. In Dark the progress block (quiet
+  lower band) is ~16.9:1 and the expanded-header band's distribution (p95
+  ~4.6:1, mean ~9.7:1; worst pixel 1.25:1) establishes that the region means
+  clear 4.5:1 with margin; the bright ribbon pixels remain artwork, not a
+  flattened plate. The Developer re-measures and records the per-element region
+  values in the handoff and `task.md` §9.
+
+- **Why no stop or peak change.** The region sample clears the floor at the
+  approved profile, so moving the plateau start earlier or raising
+  `ScrimPeakDark` inside the envelope would darken the Aurora without a measured
+  failure. The header's top edge receiving part of the peak through the 0-0.20
+  ramp (the retired ADR-35 veil held 0.26 there) is a property of the approved
+  fixed profile; the acceptance measurement is taken at the copy's actual
+  location, so the ramp is accounted for rather than compensated. Changing a
+  stop, exceeding [0.15, 0.35], or adding a layer/artwork is outside this note
+  and needs the normal approval path.
+
+- **Authority.** This note applies the acceptance method the approved
+  refinement already names; it changes **no** approved numeric (the peaks are
+  the spec's own candidates, now confirmed by measurement) and does not exit the
+  envelope. **No human approval is required.** Human approval would be required
+  for any stop change, any peak outside [0.15, 0.35], or new artwork/layers.
+
+- **What stands unchanged.** ADR-47 §2 (one constant scrim, one bottom
+  hand-off, retained screen-space top mask), the four-stop profile, the
+  per-theme peaks, the envelope, ADR-47 §7 (no `textSecondary` over artwork),
+  ADR-48 and its Amendment Note 1, the artwork pair and the
+  `MomentumHeroArtwork` contract, and every motion/performance constraint in
+  `task.md` §8.
+
+- **Consequences.** No application behavior change: no constant, stop, layer,
+  crop, token or dependency change. The Developer re-measures both themes with
+  the region method, records the per-element values in the handoff and
+  `task.md` §9, updates the `HomeHero.kt` constants KDoc (comment only,
+  replacing the "reported for an Architect decision" residual note), and the
+  Reviewer reproduces the measurement. No build, dependency, navigation, domain
+  or schema change.
+
+### ADR-47 Amendment Note 2 — the Home Hero's height becomes artwork-driven: the copy is one top-anchored module and the flexible height is an artwork crown above it (Architect, TASK-016, pending human approval)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note amends ADR-47 **§2** (one clause only) and
+  **§3** (the empty-day composition), and records the reversals of TASK-015's
+  "content-driven Hero height" model required by the on-device defect report of
+  2026-09-30. ADR-47 Amendment Note 1 (the region-sample acceptance
+  measurement) stands exactly as written.
+
+- **Root cause (measured from the current source, 360 dp window, 24 dp status
+  bar).** The Hero's height was a sum of its **copy**: `topInset + headerDp +
+  (progress block) + HeroBottomInset` plus a `CollapseHeadroom`. The shared
+  artwork is cover-cropped by **width** (`ContentScale.Crop`,
+  `Alignment.BottomCenter`), so at 360 dp the scaled illustration is 360 × 540
+  and the visible slice is a function of the container's height/width ratio
+  alone. Consequences:
+  - **Empty day:** Hero ≈ `40 + 56 + 16` = **112 dp** → the window shows the
+    bottom **21 %** of the illustration (its deliberately featureless lower
+    third), and the shared **absolute** `bottomDissolve = 88.dp` computes
+    `bottomStart = 1 − 88/112 = 0.215`, dissolving **78 %** of the window. The
+    artwork is arithmetically invisible — a flat tint indistinguishable from
+    the page background. This is the whole of the reported "artwork does not
+    render".
+  - **Populated:** the extra 72 dp of `CollapseHeadroom` was placed
+    **between** the header and the progress block, so the greeting→progress
+    distance varied `20…92 dp` with scroll inside a region that (because of the
+    first bullet) carried no visible artwork — a void, not an "open Aurora
+    band".
+  There is no place inside a top-anchored/bottom-anchored copy arrangement for
+  flexible height that is both visible and not a gap between copy blocks. The
+  correction is therefore structural, not numeric.
+
+- **Decision (this note).**
+  1. **The Hero's foreground is one top-anchored module.** Its internal
+     geometry is **scroll-invariant**: `topInset → artwork crown → date +
+     greeting + Settings → MomentumSpacing.section → progress block +
+     encouragement → HeroBottomInset`. The greeting→progress distance is a
+     fixed `MomentumSpacing.section` (24 dp) at every collapse value. Nothing
+     weighted may sit **between** the header and the progress block, and
+     nothing weighted may sit **below** the last copy.
+  2. **The Hero's flexible height is an artwork crown placed above the copy**,
+     between the status-bar reserve and the date:
+     `ArtworkCrown = HeroRingSize + MomentumSpacing.standard` = **96 dp**.
+     Derivation: at least one progress-orb diameter (80 dp, the largest opaque
+     element the Hero already owns) of clear, copy-free artwork plus one
+     standard gap; below 96 dp the bottom-anchored crop falls back to the
+     illustration's quiet lower third and the artwork stops reading as an
+     image.
+  3. **Height model.** `compactHeight = topInset + headerDp + (if
+     (hasProgress) HeaderProgressGap + contentDp else 0.dp) + HeroBottomInset`;
+     `expandedHeight = if (hasProgress) compactHeight + ArtworkCrown else
+     compactHeight`; the crown itself is `lerp(ArtworkCrown, 0.dp, p)` so it
+     shrinks 1:1 with the clipped box. The collapse therefore **reclaims the
+     artwork sky**, never space between two copy blocks. The reported collapse
+     range is still a pure function of the measured content, never of `p`.
+  4. **The empty day is no longer a slim header.** It keeps the same crown, so
+     the Hero is `topInset + ArtworkCrown + header + HeroBottomInset` (208 dp at
+     360 dp, against ≈ 112 dp before) and the artwork reads in both states.
+     The empty day still has **no** progress block, **no** encouragement, **no**
+     collapse travel and **no** reserved space for either.
+  5. **The progress figure and the orb are one group.** `Modifier.weight(1f)` is
+     removed from the figure column; the figure is content-width and followed by
+     `HeroOrbGap = MomentumSpacing.standard` (16 dp) before the orb, so both sit
+     on the Hero's 20 dp screen axis. The previous weighted column stretched
+     the figure to 240 dp while its text stayed start-aligned, which pushed the
+     orb to the trailing edge and produced a digit-dependent 100–200 dp gap.
+  6. **Everything else stands.** One Aurora-backed surface (ADR-31), artwork at
+     the physical window top edge (ADR-33/37/39), one scroll surface with the
+     clamped-px collapse (ADR-28/29), one constant page-background scrim with
+     the same stops and the same `[0.15, 0.35]` peak envelope, the retained
+     screen-space top mask (ADR-35), the artwork's bottom hand-off, `textPrimary`
+     throughout and no `textSecondary` over artwork (ADR-47 §7), the
+     content-summed compact height that cannot clip large fonts, and the
+     `MomentumHeroArtwork` call unchanged (`Alignment.BottomCenter`,
+     `fillMaxSize()`, shared `topDissolve`/`bottomDissolve`, no zoom, no
+     parallax). **No domain, schema, ViewModel, navigation, dependency or build
+     change.**
+  7. **The scrim is re-measured, not assumed.** Because the artwork window and
+     the Hero height changed, TASK-015's contrast measurements do **not**
+     transfer. The canonical ISSUE-020 **region-sample** method (ADR-47
+     Amendment Note 1) is re-run for both themes across heights {208, 216, 312}
+     dp and widths {360, 412} dp. Every region sample must clear **4.5:1**. If
+     one fails, the peak moves **inside the existing envelope** (Light toward
+     `0.32f`, Dark toward `0.30f`) and the sweep is repeated; if it still fails
+     it is escalated, and the ink is never changed to compensate.
+
+- **Options.** (a) Raise the empty-day Hero height only — leaves N2's
+  scroll-variant gap and N1's cropped artwork untouched. (b) Keep the headroom
+  between the copy blocks and rely on the artwork filling it — provably cannot
+  work, because the region that grows is exactly the region the crop empties.
+  (c) Move all Hero copy to a single bottom-anchored block (the `HabitsHero`
+  arrangement) — conflicts with the approved product decision (`DECISIONS` §5,
+  DS §12) that keeps the greeting at the top. (d) One top-anchored copy module
+  with the flexible height as an artwork crown above it (chosen).
+- **Chosen: (d).** It is the only option that makes the artwork visible in every
+  state, keeps the greeting top-anchored as approved, makes the Hero's internal
+  composition scroll-invariant, and adds no state, animation, layer or artwork.
+- **Consequences.** Changed: `presentation/screens/today/HomeHero.kt`
+  (`ArtworkCrown` replaces `CollapseHeadroom`; `HeaderProgressGap` becomes
+  `MomentumSpacing.section`; new `HeroOrbGap`; the progress row's `weight(1f)`
+  removed; new `onHeightChanged` parameter mirroring `onCollapseRangePx`;
+  re-measured `ScrimPeak*` KDoc),
+  `presentation/screens/today/TodayScreen.kt` (the empty branch's centring
+  geometry — see ADR-48 Amendment Note 2 §2). Contract tests that pinned the
+  removed model are rewritten to the retained outcomes, not deleted:
+  `HomeHeroAssetsTest`, `HomeAccessibilityTest`, `HomeHeroCompositionTest`.
+  `HomeScrollSurfaceTest` requires no change (still one `LazyColumn`, one
+  `HomeHero(`). `MomentumHeroArtwork`, `MomentumFab`, `ProgressOrb`, `HabitsHero`
+  and the theme layer are untouched.
+- **Approval.** **Not approved. This note records an Architect decision that
+  requires explicit human approval before implementation** (AGENTS.md §4/§21,
+  `task.md` §8.13), because it reverses an approved TASK-015 clause.
+
+### ADR-48 Amendment Note 2 — the Home FAB is present in every state, the empty state's CTA is removed, and the scroll-driven orb transformation is rejected for this pass (Architect, TASK-016, pending human approval)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note amends **ADR-47 §3**'s two Home clauses (the
+  suppressed FAB and the single add CTA) and records the reversal of TASK-015
+  R9/R10 required by the human brief of 2026-09-30. ADR-48 §1–§3, §5, §6 and
+  ADR-48 Amendment Note 1 stand exactly as written.
+
+- **Root cause (E3/N3).** `AnimatedVisibility(visible = !state.isEmpty)` made
+  the FAB's **presence** a function of the day's state, and
+  `HomeEmptyState(onAdd = onAdd)` gave the empty state a second add affordance.
+  A control whose visibility is a state change reads as an event that arrives,
+  not as a control that is always available — which is what was reported as
+  "disconnected". The FAB's *material* was not the cause and is not changed.
+
+- **Decision (this note).**
+  1. **One add affordance, and it is the FAB.** `MomentumFab` is composed
+     unconditionally on Home, in every state. `HomeEmptyState` renders the
+     shared `EmptyState` with **no action**; `EmptyState`'s `actionLabel` /
+     `onAction` become optional (`String? = null`, `(() -> Unit)? = null`,
+     inline conditional `TextButton`) — an additive default, source-compatible
+     with the three other call sites, which all pass named arguments. The now
+     unreferenced `today_empty_action` string is deleted. ADR-47 §3's "the
+     Quick Add FAB is suppressed on the empty day so there is exactly one add
+     affordance" is superseded: the same outcome (exactly one affordance) is now
+     reached by **removing the card CTA**, not by suppressing the control.
+  2. **The empty state is centred by measured geometry, not by padding.** Its
+     `LazyColumn` slot takes
+     `Modifier.heightIn(min = viewportHeight − heroHeight − EmptyDayBottomReserve)`
+     with a `Box(contentAlignment = Alignment.Center)` inside, so the free space
+     is divided equally above and below the card in the region between the
+     Hero's bottom edge and the top of the bottom navigation. `heroHeight` is
+     measured and reported by the Hero; the reserve is the same single named
+     constant the `LazyColumn` already uses as `contentPadding.bottom`.
+     Arbitrary `Spacer` constants and percentage paddings are rejected by
+     construction — they are not size-independent and the human brief forbids
+     them.
+  3. **One FAB treatment in both states.** `MomentumFab` (ADR-47 §6 — the solid
+     Aurora-filled disc, `prominent` glyph, white hairline, soft shadow) is
+     **unchanged**. Placement is tightened to the design system's rhythm:
+     `end = MomentumSpacing.screen`, `bottom = MomentumSpacing.section` (24 dp,
+     so the floating control cannot read as part of the glass bottom bar), and
+     the list reservation becomes
+     `MomentumSpacing.card + MomentumFabSize + MomentumSpacing.section` (96 dp),
+     which guarantees the last row clears the FAB by a full section gap. Any
+     material change would be a new visual language and needs its own ADR.
+  4. **The scroll-driven transformation is rejected for this pass.** The idea
+     under evaluation — on scroll, the orb moves left and the progress
+     information aligns right — is **not adopted and not authorized here**. The
+     crown (ADR-47 Amendment Note 2) already makes the Hero re-compose with the
+     drag through the already-approved single px source of truth and one
+     `NestedScrollConnection`, with no new state, no clock and correct reduced
+     motion. A second independent orb interpolation would add a second reduced
+     motion semantic, a second thing that can desynchronise from the collapse,
+     and would reverse the approved top-anchored greeting mid-scroll. It is not
+     needed to resolve any of E1–E4 / N1–N3. It may be raised again as a new
+     proposal with its own rationale, cost analysis and motion spec, and would
+     then require its own human approval. **It must not be introduced silently
+     during implementation.**
+
+- **What stands unchanged.** ADR-48 §1 (one progress representation, Display
+  figure, `showPercent = false`), §2 (`MomentumFigureDisplay`), §3 (the 100 %
+  reward: transient `AuroraState.MILESTONE` for `MomentumMotion.reward`, one
+  ring glow, exactly one `HapticFeedbackType.Confirm`, no snackbar) and
+  Amendment Note 1 (the state-specific encouragement line), ADR-47 §4/§5/§6/§7
+  and §8, the FAB's `cd_quick_add` label and its Create Item destination, the
+  56 dp target, both themes, reduced motion, TalkBack, and the offline-only
+  guarantee. Removing the FAB's enter/exit transition **removes** motion rather
+  than adding it. No domain, schema, ViewModel, navigation, dependency or build
+  change.
+- **Consequences.** Changed: `presentation/screens/today/TodayScreen.kt`
+  (unconditional `MomentumFab`, FAB placement, list reservation, `BoxWithConstraints`
+  root, measured hero height, centred empty item, `HomeEmptyState` without
+  `onAdd`), `presentation/components/MomentumBadges.kt` (optional CTA only —
+  the one cross-boundary change, justified because a local copy of the card
+  would fork its material), `res/values/strings.xml` (delete
+  `today_empty_action`). `QuickAddTest` is rewritten to the new outcome;
+  `HomeScrollSurfaceTest`, `HomeStatesTest`, `HomeHeroStateTest` and
+  `HomeSectionMotionTest` require no change.
+- **Approval.** **Not approved. This note records an Architect decision that
+  requires explicit human approval before implementation** (AGENTS.md §4/§21,
+  `task.md` §8.13), because it reverses approved TASK-015 decisions.
+
+### ADR-47 Amendment Note 3 — the Home Hero is three layers (BACKGROUND artwork / ATMOSPHERE / FOREGROUND copy), the crown is transparent space, and the continuous bottom merge is verified with two derived failure bounds (Architect, TASK-016, pending human review of this amendment)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note **adds to** ADR-47 Amendment Note 2 (the
+  artwork-driven height + crown model) and does not change any approved number.
+  Decisions 1–3 of TASK-016 are **approved** (human ruling, 2026-09-30); this note
+  records the ruling's binding *layer / atmosphere* clarification and still
+  requires human review before implementation.
+
+- **Decision (this note).**
+  1. **Layer contract and z-order.** The Hero's clipped `Box` draws exactly
+     three layers, in this order, and nothing else:
+     - **L0 BACKGROUND** — `MomentumHeroArtwork(Alignment.BottomCenter,
+       Modifier.fillMaxSize())`, full-bleed over the Hero's entire box, top edge
+       = the physical window top edge (ADR-33/39), clipped by the Hero's
+       `clipToBounds()`, merging into the page background at the Hero's
+       **bottom** edge.
+     - **L1 ATMOSPHERE** — `HeroScrim(Modifier.fillMaxSize())`, the unchanged
+       four-stop page-background gradient (0 → clear, 0.20 → peak, 0.80 → peak,
+       1 → clear) at peak 0.26 Light / 0.22 Dark. A **tint**, never a cover.
+     - **L2 FOREGROUND** — the copy column: status-bar reserve, crown, header,
+       section gap, progress block, bottom inset.
+     The Hero contains **no card, panel, `LiquidGlass` surface, divider or scrim
+     rectangle behind any copy.** The only sub-surface is the existing
+     `LiquidGlassIconButton` (Settings) inside the header row.
+  2. **The crown is transparent space, not a layer.** A crown band contains **no
+     child** — no image, card, gradient band, divider, rule or glyph. Its only
+     purpose is to reserve the band in which L0 and L1 are the sole visible
+     content, so the artwork is seen unobstructed. Anything drawn in the crown is
+     a defect. This is the binding clarification that the artwork is the Hero's
+     **background**, not a stacked illustration band above the content.
+  3. **Foreground dominance is achieved with type hierarchy and negative space,
+     never with an opaque cover.** `MomentumFigureDisplay` > greeting > date and
+     caption, all `textPrimary` (ADR-47 §7), plus the crown and the 24 dp section
+     gap as negative space. Nothing is boxed; no surface is added behind copy.
+  4. **The artwork is never replaced, re-authored, re-tinted, re-cropped, zoomed
+     or parallaxed.** The `MomentumHeroArtwork` call is unchanged, which keeps
+     ADR-30/ADR-39 and `task.md` §8.9's boundaries intact.
+  5. **The encouragement line is over the artwork** in every state where it
+     exists. It must not be lifted onto the page background, because a solid
+     surface between the artwork and the page background would create exactly the
+     hard boundary the ruling forbids. `maxLines = 2` + ellipsis and
+     `AnimatedVisibility` with no reserved space are unchanged; because the Hero's
+     height is a measured content sum, its presence changes the Hero's height and
+     re-fires `onHeightChanged` automatically.
+
+- **Continuous bottom merge — verified from the component, not assumed. Verdict:
+  the existing shared 88 dp `bottomDissolve` + the four-stop scrim already give a
+  continuous merge with no hard boundary, in both themes, at 208 / 216 / 312 dp
+  and at the content-dependent ~368 / ~272 dp variants. No correction is required
+  and none is made.** Evidence:
+  1. `MomentumHeroArtwork.HeroArtworkImage` builds
+     `Brush.verticalGradient(0f → White, bottomStart → White, 1f → Transparent,
+     startY = 0f, endY = h)` and applies it with `BlendMode.DstIn`, with
+     `bottomStart = (1f − 88.dp / h).coerceIn(0.10f, 0.95f)` = 0.577 / 0.593 /
+     0.718 for h = 208 / 216 / 312. The last stop is at `endY = h` with full
+     transparency, so the artwork contributes **nothing** at the Hero's bottom
+     edge, and no ramp is ever truncated or degenerated.
+  2. Theme-independent: `DstIn` reads **alpha only**, the profile runs
+     `White → Transparent`, and the mask colour carries no hue. Light and Dark
+     share one identical alpha profile.
+  3. The scrim also reaches **exactly 0** at that edge (`1f to clear`). This is
+     **load-bearing**: `HeroScrim` is a `Box(fillMaxSize)` inside the clipped
+     Hero, so a scrim ending at its peak would leave a full-width band of
+     `c.background` at 0.26 / 0.22 alpha against the un-tinted Aurora field
+     below — a visible hard edge across the whole width. The four-stop profile
+     and `ScrimPeakEnd = 0.80f` are therefore **retained exactly**, and a
+     contrast tweak may move the peak **value** inside `[0.15, 0.35]` but must
+     never alter the profile or the stops.
+  4. Nothing below the Hero changes identity: the same `AuroraBackground` runs
+     behind the whole `LazyColumn`, and the first list item draws over it with its
+     own surface.
+  5. **No top boundary is ever created, so ADR-39's "no top fade" remains correct
+     and no top fade is added.** `clipToBounds()` clips at the Hero's top edge,
+     but that edge is pinned to `y = 0` of the scroll surface; the Hero is the
+     first `LazyColumn` item, so collapsing shrinks its height from its **bottom**
+     and moves the dissolve hand-off upward while the top edge stays at the
+     window top; once the list scrolls, the Hero's top leaves through the
+     **window** edge, which is not a page-background boundary.
+  6. The only profile discontinuity is a first-derivative kink at each ramp start
+     — value-continuous, never a hard boundary.
+
+- **Recorded finding, deliberately not corrected.** The scrim's bottom ramp
+  `[0.80h → h]` **overlaps** the artwork's dissolve `[h − 88 → h]` by 41.6 dp at
+  h = 208, 43.2 at 216, 62.4 at 312 and 73.6 at 368, so the artwork's apparent
+  hand-off is compounded rather than a single 88 dp ramp. This is not a hard edge
+  and a clean, slightly faster hand-off is desirable (ADR-47 requires the
+  hand-off), but it is the mechanism by which artwork presence could regress
+  toward the E1 failure, so it is the stated derivation for BOUND-1 below and for
+  the §8.6 sweep heights. Tiling the ramps was considered and **rejected**: it
+  would require duplicating the component's 88 dp default into `HomeHero` as a
+  second source of truth (violating ADR-30's caller contract and `task.md` §8.9)
+  and would invalidate the contrast baseline ADR-47 Amendment Note 1 fixed as
+  final, for a benefit the ruling does not ask for.
+
+- **The two failure bounds (derived, with Reviewer assertions).**
+  - **BOUND-1 — the artwork must not become invisible (E1 regression guard).**
+    *Derivation:* the artwork's fully-opaque region inside the Hero is exactly
+    `[0, h − 88]`; the remaining 88 dp is the hand-off and is meant to fade into
+    the page background. Requirement 4 is satisfied if every state presents at
+    least one `HeroRingSize` (80 dp) of unobstructed, fully-opaque artwork, the
+    smallest band that can hold a recognizable fragment of the illustration at
+    phone scale and the same element the crown derives from. Window check:
+    `h − 88` = 120 / 128 / 224 / 280 / 184 dp for h = 208 / 216 / 312 / 368 / 272,
+    all ≥ 80. Crown check (the binding one): `ArtworkCrown ≥ HeroRingSize`; 96 =
+    80 + 16 ✔. The artwork window must **never** be derived from `HeroRingSize`.
+    *Assertions:* (a) hero height − 88 dp ≥ `HeroRingSize` in empty / expanded /
+    collapsed, tolerance 1 dp; (b) `artworkBounds == heroBounds` in every state;
+    (c) the crown rectangle contains **no** text node, no content-description node
+    and no semantics node; (d) both scrim peaks still parse inside
+    `[0.15, 0.35]`. *On-device only, not claimable as a test here (`adb`
+    unavailable):* the illustration must be recognisable inside the 96 dp crown in
+    **both** themes.
+  - **BOUND-2 — the foreground must not be washed out and the artwork must not be
+    covered.** *Derivation:* requirement 5 forbids an opaque cover and
+    ADR-47 §2 with Amendment Note 1 already bounds the scrim peak to
+    `[0.15, 0.35]`; the enforceable ceiling is therefore exactly that existing
+    envelope, and the floor is the existing ISSUE-020 acceptance floor of
+    **≥ 4.5:1**. *Assertions:* (a) the §8.6 region-sample sweep over both themes ×
+    heights **{208, 216, 272, 312, 368} dp** × widths {360, 412} dp ×
+    {Fraction, Complete} × encouragement {on, off} clears 4.5:1 per copy element,
+    now including the encouragement line and both collapsed states; (b) no
+    `textSecondary` in `HomeHero.kt`; (c) no `LiquidGlass`, `Card`, `Surface` or
+    `background(` between `HeroHeader(` and `HeroProgressBlock(`; (d) every copy
+    node's bounds lie inside `artworkBounds` in every state and both themes.
+    *On-device only:* the illustration must still be visible behind and around the
+    copy — the copy's backing must not read as a flat plate.
+
+- **Consequences.** **No new application code beyond ADR-47 Amendment Note 2's
+  geometry.** This note changes **no** constant, no layer, no crop and no
+  component: `MomentumHeroArtwork.kt` and the `HeroScrim` profile are **not**
+  touched, and `task.md` §8.9's boundaries stand. It adds the layer contract the
+  Developer must implement against, the verification that the existing shared
+  dissolve and scrim already satisfy the continuous-merge requirement, the two
+  derived bounds with runnable assertions, and one new
+  `HomeHeroCompositionTest` case (`artworkIsPresentButNotCovered`). The §8.6
+  sweep is widened to the collapsed and encouragement heights.
+
+- **Explicit non-goal.** `HeroScrim`'s and `MomentumHeroArtwork`'s `drawWithCache`
+  blocks re-run per frame during the collapse drag (96 dp of travel; two `Brush`
+  allocations per frame). This is pre-existing and already accepted by TASK-015
+  as the residual of a height that must change layout. It must **not** be
+  optimised in this pass.
+
+- **Approval.** Decisions 1–3 are approved by the human ruling of 2026-09-30. This
+  note records the ruling's binding layer/atmosphere clarification and **still
+  requires human review and acceptance before any implementation is authorized**
+  (`task.md` §8.13).
+
+### ADR-48 Amendment Note 3 — the shared `MomentumFab` hairline becomes the design system's theme-resolved edge; RISK-1 is closed by ruling (Architect, TASK-016, pending human review of this amendment)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note **adds to** ADR-48 Amendment Note 2 (the FAB is
+  present in every state; the empty-state CTA is removed; §8.5's placement and
+  reservation) and to **supersedes §8.5's "material NOT changed"**, exactly as the
+  human ruling of 2026-09-30 directs. ADR-47 §6's identification of `MomentumFab`
+  as the one shared Solid-Aurora disc stands; only its edge changes.
+
+- **Diagnosis (from the current `MomentumFab.kt`, against Home's surroundings,
+  both themes).** Home's FAB floats between two things that both define
+  themselves with an **edge** — the Aurora artwork/page behind it and the glass
+  bottom navigation bar below it — and both use the design system's edge
+  vocabulary. `MomentumFab` does not, and the mismatch is theme-asymmetric:
+  1. **Light — effectively no edge.** The hairline is
+     `Color.White.copy(alpha = 0.28f)`: white at 28 % on a light-violet `primary`
+     disc over a near-white page. `MomentumGlass.borderLight`'s own KDoc states
+     "white is invisible" — which is why every other light surface
+     (`EmptyState`, `LiquidGlass`, the bottom bar) separates with an **ink**
+     hairline. The FAB is the only light surface with a white edge, so in Light it
+     reads as a soft blob whose only separator is a black ambient shadow.
+  2. **Dark — the shadow cannot separate anything and the edge over-strengths.**
+     `shadow(elevation = 12.dp, ambientColor = Color.Black.copy(alpha = 0.30f))`
+     over `c.background` in Dark is black on near-black: invisible by
+     construction, and Dark surfaces in this app are separated by edges, not
+     shadows. Meanwhile the FAB's 0.28 white hairline is the strongest white
+     edge in the dark theme, where the bar, cards and dialogs all use
+     `MomentumGlass.borderDark` = 0.16.
+  3. **Both themes — the elevation is a magic number.** The literal `12.dp`
+     duplicates `MomentumGlass.heroElevation = 12.dp`, which exists for floating
+     layers.
+  The disconnection is therefore an **edge-vocabulary** problem, not a fill,
+  shape, size, glyph or behaviour problem.
+
+- **Decision (this note).**
+  1. **Placement and availability remain the primary fix** and stand exactly as
+     ADR-48 Amendment Note 2 / `task.md` §8.5 specify: the FAB is composed
+     unconditionally in every Home state, `end = MomentumSpacing.screen`,
+     `bottom = MomentumSpacing.section`, and the list reservation is
+     `MomentumSpacing.card + MomentumFabSize + MomentumSpacing.section` (96 dp).
+  2. **The hairline becomes the design system's theme-resolved edge**, using the
+     pair `EmptyState` already uses:
+     `Color.White.copy(alpha = MomentumGlass.borderDark)` (0.16) in Dark and
+     `c.textPrimary.copy(alpha = MomentumGlass.borderLight)` (0.10 ink) in Light.
+     Light therefore gains a real, theme-correct edge — **the integration fix** —
+     and Dark adopts the same white edge value as every other dark surface.
+  3. **`shadow(elevation = 12.dp, …)` becomes
+     `shadow(elevation = MomentumGlass.heroElevation, …)`** — an identical
+     value, so there is **no visual change**; ambient and spot colours are
+     unchanged. In Dark the shadow is explicitly **not** relied on as the
+     separator; the edge is.
+  4. **Unchanged:** the fill gradient and its stops, `CircleShape`,
+     `MomentumFabSize = 56.dp`, `MomentumIcons.add`, `MomentumIconSizes.prominent`,
+     `glassPress` press feedback, `role = Role.Button`, and the
+     `contentDescription` parameter. **No new token, no new value, no new
+     component, no new API, no new visual language, no hard-coded colour added**
+     — the change removes the last hard-coded hairline alpha.
+  5. **Explicitly rejected:** placement-only (it cannot repair the Light-theme
+     invisible edge, and the ruling authorises the repair); a glass or gradient
+     FAB or a gradient ring (a new visual system, forbidden); and adding an
+     optional `border`/`emphasised` parameter so Home could differ from Habits
+     (new component architecture, forbidden — which is why the shared consequence
+     below is put to the human rather than engineered around).
+
+- **Shared call-site consequence — requires explicit human approval.**
+  `MomentumFab.kt` is shared with `HabitsScreen` (`cd_create_habit`), so this
+  change affects **Habits' FAB** as well: in Light it gains the same ink hairline,
+  in Dark its white hairline becomes 0.16. Nothing else on Habits changes —
+  same component, size, glyph, placement and behaviour. This is the direct,
+  unavoidable consequence of fixing a shared component and makes the two screens
+  consistent with each other and with every other surface; it cannot be scoped to
+  Home without forbidden changes. If the human refuses it, the only lawful
+  outcomes are to accept placement-only and re-open RISK-1, or to defer the whole
+  matter to a future task that owns `MomentumFab` as a component. The Architect
+  recommends approval.
+
+- **Assertions.** *Runnable (source-level, `QuickAddTest`):* `MomentumFab.kt`
+  contains `MomentumGlass.borderDark`, `MomentumGlass.borderLight` and
+  `MomentumGlass.heroElevation`, and **no longer** contains
+  `Color.White.copy(alpha = 0.28f)` — replacing the existing literal assertion;
+  `CircleShape`, the add glyph, `prominent`, `Brush.verticalGradient`, `shadow(`,
+  `glassPress(interaction)`, `Role.Button`, `MomentumFabSize = 56.dp` and
+  `contentDescription: String` remain asserted unchanged. *Runnable
+  (placement, `TodayScreen.kt`):* `end = MomentumSpacing.screen`,
+  `bottom = MomentumSpacing.section`, the 96 dp reservation, and no
+  `AnimatedVisibility` at the FAB call site. *On-device only, not claimable as a
+  test here (`adb` unavailable):* in **Light** the FAB reads as a defined disc
+  against the near-white page with an edge of the same weight as the bottom bar's;
+  in **Dark** its rim is visible without the page behind it being brighter.
+
+- **Consequences.** Changed: `presentation/components/MomentumFab.kt` (two
+  expressions — the hairline and the elevation token), plus the corresponding
+  `QuickAddTest` assertion. This is the only component outside
+  `presentation/screens/today/**` this pass may touch besides `EmptyState`'s
+  optional CTA (ADR-48 Amendment Note 2). No domain, schema, ViewModel,
+  navigation, dependency or build change; no change to Habits' layout, copy or
+  behaviour.
+
+- **Approval.** Recorded under the human ruling of 2026-09-30 (Decision 4), which
+  authorized a narrowly scoped existing-token integration adjustment and closed
+  RISK-1. This note **still requires human review and acceptance of §8.15.3's
+  shared call-site consequence before any implementation is authorized**
+  (`task.md` §8.13).
+
+### ADR-47 Amendment Note 4 — Home's Aurora becomes one persistent screen-level atmosphere; the Hero box and the crown are deleted; date and greeting become scrollable content and only Settings is fixed chrome (Architect, TASK-017, pending human approval)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note **supersedes ADR-47 Amendment Note 2 in full**
+  and **supersedes ADR-47 §3**'s "compact Aurora header" clause, **amends ADR-47
+  §2**, **amends ADR-47 §6**, **re-issues ADR-47 Amendment Note 3 against the new
+  atmosphere**, and **retires ADR-35 on Home**. ADR-48 and its Amendment Notes 1–3
+  stand exactly as written except where ADR-48 Amendment Note 4 (immediately
+  below) amends ADR-48 §1.
+
+- **Root cause, established from the code (not from taste).** TASK-016's
+  `heightIn(min = …)` / `onHeightChanged` empty-state geometry is confirmed as the
+  mechanism, and it is **one** defect: `HomeHero.kt:205` and `HomeHero.kt:214`
+  disagree in the `!hasProgress` branch.
+
+  ```kotlin
+  val expandedHeight = if (hasProgress) compactHeight + ArtworkCrown else compactHeight  // :205
+  val crown          = if (hasProgress) lerp(ArtworkCrown, 0.dp, p) else ArtworkCrown   // :214
+  ```
+
+  On an empty day the 96 dp crown is **charged to no height but is still laid
+  out**. The Hero `Box` has a fixed `.height(currentHeight)`; its copy `Column` is
+  `.fillMaxSize()` and measures children sequentially against the remaining space,
+  and `SizeElement` coerces a child that exceeds it. Trace at scale 1.0 with a
+  24 dp status bar and `headerPx == 0`: `compactHeight = 56 dp`; `Spacer(topInset
+  40)` consumes 40; `Spacer(crown 96)` is measured with `maxHeight = 16` and is
+  coerced to 16, leaving **0 dp**; `HeroHeader` is therefore measured with
+  `maxHeight = 0` and **collapses to zero height** — the date, the greeting and the
+  48 dp Settings button all draw nothing — and it reports `headerPx = 0` back, so
+  the height sum never self-corrects and the state is **stable at 56 dp**. The
+  artwork, `fillMaxSize()` inside a `clipToBounds()` 56 dp box, computes
+  `bottomStart = (1 − 88/56).coerceIn(0.10f, 0.95f) = 0.10f`, so its shared 88 dp
+  dissolve ramps to transparent from 10 % of the window and **~90 % of the
+  illustration is dissolved away**. The observed result — no date, no greeting, no
+  Settings, no visible artwork — is exactly this, and it is a **regression**, not a
+  crop or legibility defect.
+
+  The KDoc's declared invariant that "the height model and the foreground layout
+  can never drift apart" is **false in exactly this branch**. The instrumented
+  guard `HomeHeroCompositionTest.emptyDayHeroStillShowsTheArtworkCrown` asserts
+  `height >= statusBarTop + HeroTopInset + ArtworkCrown` and would have failed on
+  its first run; no instrumented suite has ever been executed in this project
+  (`task.md` §7), so the one contract that could have caught this was never run.
+  That, not the geometry itself, is the process root cause.
+
+  The same defect inverted explains the non-empty finding: with progress the date
+  sits `topInset + crown` = **136 dp** below the window top. Because the date's
+  distance from the top **is** the crown, no crown value is ever correct — only
+  removing the crown removes the gap.
+
+- **Decision (this note).**
+  1. **Aurora is the atmosphere and has no height of its own.** The artwork becomes
+     a persistent screen-level backdrop of Home's content area — behind the scroll
+     surface, behind the persistent chrome, behind the FAB, and visible around and
+     through the Liquid Glass foreground. §4.3's `AURORA = atmosphere ·
+     LIQUID GLASS = interface · CONTENT = hierarchy` is the governing principle.
+  2. **There is ONE atmosphere, composed in four layers**, in this z-order:
+     **(1a)** the ambient Aurora field (`AuroraBackground`, `animated = false`);
+     **(1b)** the shared `MomentumHeroArtwork` in a derived window;
+     **(1c)** one readability scrim spanning the **whole atmosphere**;
+     **(1d)** the foreground. Layers 1a and 1b are two **regions of one
+     environment** joined by the shared 88 dp dissolve, not an image with a fade.
+  3. **The artwork window is one derived constant, never a Hero height:**
+
+     ```kotlin
+     ArtworkWindow = HeroRingSize + MomentumSpacing.standard + ArtworkHandOff
+     //               80 dp              16 dp                88 dp        = 184 dp
+     ```
+
+     Three facts, all already canonical: `HeroRingSize` (80 dp — BOUND-1's
+     recognition band), one standard gap, and the shared `MomentumHeroArtwork`
+     dissolve (ADR-39). It is **identical in every state, on every device, at every
+     font scale**, and is never a function of content. **No further Hero-height
+     value is authorized.**
+  4. **The window reserves nothing.** The artwork occupies the top 184 dp of the
+     environment **and the copy floats on it** from the first line. The crown
+     existed only to reserve copy-free space for the artwork, which is precisely
+     the "artwork as decorative banner" abstraction ADR-47 §2's outcomes and §4.3
+     forbid. With no reservation, nothing competes for the artwork's space, so
+     **BOUND-1 becomes structural** (`ArtworkWindow − 88 = 96 dp ≥ HeroRingSize` in
+     every state, no per-state measurement) and the artwork can never be squeezed
+     out.
+  5. **ADR-47 Amendment Note 3's layer contract is re-issued** as 1a → 1b → 1c →
+     1d above. Its §"Continuous bottom merge" analysis is re-run and becomes
+     *simpler and stronger*: the scrim's extent is constant, the four-stop profile
+     and `ScrimPeakStart = 0.20f` / `ScrimPeakEnd = 0.80f` are **unchanged**, and
+     because the scrim reaches exactly 0 at the atmosphere's bottom edge — the
+     content area's bottom edge, behind the floating glass bar — the failure ADR-47
+     Amendment Note 3 §3.3 identified is structurally impossible. Peaks remain
+     **0.26 Light / 0.22 Dark**, inside the approved `[0.15, 0.35]` envelope.
+  6. **`MomentumHeroArtwork.kt` is NOT modified** and the `MomentumHeroArtwork`
+     call keeps its current form (no `bottomDissolve` override, no `zoom`, no
+     `parallax`, no `ColorFilter`). ADR-30's caller contract and ADR-39 stand.
+  7. **Layer classification of every element** (exactly one class each):
+     artwork → **(1) atmosphere**; ambient Aurora field → **(1)**; scrim → **(1)**;
+     **Settings → (2) persistent Home chrome**; **date → (3) scrollable content**;
+     **greeting → (3)**; progress figure / total / caption / ring / encouragement →
+     **(3)**; section headers and rows → **(3)**; empty-state card → **(3)**; FAB →
+     **(4) fixed action**; bottom navigation → **(5) fixed navigation**.
+  8. **Date and greeting become scrollable content. Only Settings is fixed.** The
+     rationale, since this contradicts a task hypothesis and must be reviewable:
+     a permanently-fixed per-day statement sits above a scrolling list with nothing
+     between them, re-creating the "spatially disconnected" defect in a new form;
+     the greeting is a **headline about today**, not a system control, and a
+     permanent headline permanently asserts the screen's top region as its most
+     important; a fixed band grows from ~88 dp to 130+ dp at font scale 2.0 and
+     permanently consumes a third to a half of the viewport on every screen of every
+     day; and decisively, a fixed band permanently reduces the maximum list height,
+     so on a small phone at large font the screen cannot answer "what should I do
+     next" — its own second question — without first scrolling past a header that
+     said nothing new. Settings is fixed **because it must be**: it is a global
+     control unrelated to today and Home is its only route.
+  9. **The invariant that replaces the fixed-header assumption:** *what floats is
+     glass, and what floats is what must always be reachable.* Settings is the only
+     foreground element permitted to sit directly on the atmosphere, and it is
+     legible there precisely because it is a Liquid Glass control rather than bare
+     ink — so §4.3's "Liquid Glass surfaces must let Aurora remain perceptible
+     through/around them" is satisfied rather than traded away.
+  10. **The empty state is inside the same environment.** Its centring stays
+      **measured** — `emptyRegion = viewport − (statusBars + HomeTopInset +
+      measuredHeaderHeight) − EmptyDayBottomReserve`, applied as
+      `Box(Modifier.heightIn(min = emptyRegion), contentAlignment =
+      Alignment.Center)` — with the input now structurally correct instead of
+      self-desynchronising. **No CTA** (ADR-48 Amendment Note 2) and **centred card**
+      (ADR-48 Amendment Note 2) both stand. The FAB remains the single creation
+      affordance.
+  11. **The collapse is deleted, and no motion replaces it.** `HomeHero.kt` is
+      deleted; `collapsePx`, `maxCollapsePx`, `heroNestedScroll`,
+      `onCollapseRangePx` and the ADR-35 screen-space top mask all go with it —
+      there is no box left to resize and the mask's stated purpose (copy entering
+      the camera cutout as the Hero scrolled under the status bar) cannot recur.
+      **No scroll-driven orb choreography and no parallax is introduced**; the
+      artwork stays present because it moved *out* of the scroll surface, not
+      because something animates it. All other Home motion (row `animateItem`,
+      Aurora intensity tween, branch `AnimatedContent`, encouragement
+      `AnimatedVisibility`, one-shot milestone glow) is unchanged and remains
+      reduced-motion-nulled. **The clamped-px collapse pattern (ADR-28/29) is not
+      condemned and survives on Habits.**
+  12. **Performance improves and no regression is accepted.** Deleting the Hero
+      eliminates the residual ADR-47 Amendment Note 3 §"Explicit non-goal" recorded
+      (per-frame `drawWithCache` brush rebuilds during the 96 dp collapse drag), the
+      per-frame recomposition caused by reading `collapsePx.value` in composition,
+      and the whole-screen `CompositingStrategy.Offscreen` + per-draw
+      `Brush.verticalGradient` status-bar mask. Afterwards **nothing in Home's
+      scroll surface is invalidated by scrolling at all**: the atmosphere reads
+      only `AuroraState`/intensity/theme and the list only `TodayUiState.Success`.
+      One `LazyColumn` remains, with `key` + `contentType` and no nested scroller.
+
+- **What stands unchanged.** ADR-47 §1 (Home's one job is Today), §4, §5, §7 (no
+  `textSecondary` over artwork), §8 (tokens, derivations); ADR-47 Amendment Note 1
+  (the ISSUE-020 region-sample **method** and the `[0.15, 0.35]` ceiling);
+  ADR-47 Amendment Note 3's BOUND-2 requirements, whose sweep **must be re-run from
+  scratch** (its baseline was measured against Hero heights that no longer exist);
+  ADR-28/29 (the pattern), ADR-30/ADR-39 (the shared artwork contract),
+  ADR-31/ADR-32/ADR-33/ADR-37 (artwork at the window edge, no top fade,
+  full-strength head through the status-bar band, no dead space below the copy) —
+  **preserved in outcome** by a more direct mechanism; ISSUE-020's remedy.
+
+- **Contrast: the baseline is superseded, the method is not.** The artwork window,
+  the scrim's vertical extent and every copy position change, so the ADR-47
+  Amendment Note 1 sweep is **re-run from scratch**: both themes × `ArtworkWindow`
+  and `ArtworkWindow ± MomentumSpacing.section` × widths {360, 412} dp ×
+  `AuroraState.defaultIntensity` {0.35, 0.55, 0.75, 1.0} × bands {date, greeting,
+  **the completed value inside the ring (ring stroke included in the composited
+  background)**, total, caption, complete statement, merged description,
+  encouragement, both section headers, `ActivityCard` titles and metadata,
+  `EmptyState` title/body}. **Minimum region ratio across the sweep governs**;
+  floor **≥ 4.5:1** per band. A failing band may move the **peak** inside
+  `[0.15, 0.35]` — **never** the four-stop profile or `ScrimPeakStart/End`.
+
+- **Accessibility consequences.** Reading order becomes Settings → date → greeting
+  → figure → total → caption → encouragement → Remaining heading → rows → Completed
+  heading → rows → FAB → navigation, and the **greeting gains
+  `Modifier.semantics { heading() }`** so heading navigation, not a permanently
+  visible band, is the user's orientation tool. One merged `contentDescription`
+  over the progress lockup is preserved, so the figure/total split creates no
+  second announcement. Settings 48 dp, FAB 56 dp, completion control 48 dp — all
+  unchanged. **Large-font behaviour strictly improves**: every foreground band is
+  inside the scroll surface and **no foreground element is height-constrained by an
+  atmosphere**, which is exactly the D1 failure class, so clipping by font scale is
+  unreachable. Reduced motion reaches fewer call sites and adds nothing.
+
+- **Consequences.** **No domain, repository, Room, DataStore, ViewModel,
+  navigation, dependency, manifest or build change.** Changed: `TodayScreen.kt`
+  (collapse machinery and the Hero item deleted; atmosphere backdrop + Settings
+  chrome added; `HomeHeader` becomes a scroll item; `heroHeightPx` →
+  `chromeHeightPx`), `HomeHero.kt` **deleted**, new `HomeAtmosphere.kt`,
+  `HomeHeader.kt` and `HomeProgress.kt`, and `res/values/strings.xml`
+  (`today_hero_fraction` → `"%1$d"`; new `today_hero_fraction_total` →
+  `"/ %1$d"`). Unmodified: `MomentumHeroArtwork.kt`, `MomentumAurora.kt`,
+  `LiquidGlass.kt`, `ProgressOrb.kt`, `MomentumNavGraph.kt`, `TodayViewModel.kt`,
+  every theme file. Contract tests that pinned the crown/collapse model
+  (`HomeHeroAssetsTest`, `HomeScrollSurfaceTest`, `HomeAccessibilityTest`,
+  `HomeHeroCompositionTest`, `HomeHeroStateTest`, `QuickAddTest`,
+  `HomeSectionMotionTest`) **must be rewritten to the retained outcomes, not
+  deleted**; `HomeStatesTest` is unaffected and must stay green.
+
+- **Approval.** Recorded as the Architect's TASK-017 proposal under the human brief
+  of 2026-10-01. **This note requires human approval in full — including the
+  rejection of the crown model, the scrollable date/greeting decision, and the
+  `ArtworkWindow` derivation — before any implementation is authorized.** No code
+  accompanies this note; `adb` is unavailable, so no instrumented or on-device
+  verification is claimed for it.
+
+### ADR-48 Amendment Note 4 — the progress lockup: the ring frames the completed value and the total becomes subordinate; the FAB's fill becomes glass-over-`primary` at `MomentumGlass.heroFill` (Architect, TASK-017, pending human approval)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note **adds to** ADR-47 Amendment Note 4 (the
+  persistent atmosphere and the fixed/scrollable classification) and **amends
+  ADR-48 §1 for the `Fraction` branch only** and **ADR-47 §6's word "solid"**.
+  ADR-48 §2, §3, §4, §5, §6 and ADR-48 Amendment Notes 1, 2 and 3 stand exactly as
+  written.
+
+- **Diagnosis (from the current code, both themes).** `today_hero_fraction =
+  "%1$d / %2$d"` is **one** `Text` at **one** style (`MomentumFigureDisplay`,
+  Display 40/48/600), so the completed value and the total have **identical size,
+  weight and colour** and there is no hierarchy between them at all. `ProgressOrb`
+  is a `Row` sibling separated by `HeroOrbGap` and vertically centred, so its
+  position is decided by **available width rather than by meaning**, and with
+  `showPercent = false` it carries **no information** — a ring whose only role is
+  to be a ring. That is the reported incoherence, and it is structural rather than
+  tonal.
+
+- **Decision (this note).**
+  1. **One representation, still.** ADR-48 §1's core invariant — a single progress
+     representation, no second percentage, `showPercent = false` — is untouched.
+  2. **The ring frames the completed value instead of accompanying it.**
+     `ProgressOrb` keeps its exact drawing and its exact `HeroRingSize = 80 dp`
+     (unchanged: one Display line height 48 dp + 2 × `MomentumSpacing.standard`),
+     and the completed value is composed **inside** it. The ring is now positioned
+     by meaning — it is the progress frame of the figure — and its position is
+     invariant at every width, digit count and font scale, which is the direct
+     answer to the requirement that it must not be placed beside the number
+     because horizontal space happens to be available. `HeroOrbGap` and the `Row`
+     are deleted.
+  3. **The fraction becomes two typographic levels, not one string.**
+     `today_hero_fraction` → `"%1$d"`; new `today_hero_fraction_total` →
+     `"/ %1$d"`. The completed value is at `MomentumFigureDisplay`; the total sits
+     directly beneath it at the design system's **Title** token. Both are
+     `textPrimary`: the subordinate level is carried by **size and weight only**,
+     never by opacity or `textSecondary`, per ADR-47 §7 and ISSUE-020's remedy.
+     ADR-48 §2's `FontFeatureSettings("tnum")` is what makes the split safe — the
+     completed digit does not change width as it advances.
+  4. **The caption `completed today` stays**, `labelLarge`, `textPrimary`, beneath
+     the total on the same 20 dp screen axis. No copy is invented, removed or
+     reworded.
+  5. **One merged `contentDescription`** (`today_hero_progress_desc`) covers the
+     whole lockup, so the split is never double-read and the ring stays decorative.
+     Reading order: completed value → total → caption.
+  6. **The `Complete` branch is unchanged**: the ring full at the screen's left
+     axis with "Today is complete" beside it. ADR-48 §1's "ring full" clause
+     **stands**; only the `Fraction` branch — `0 / 1` beside an empty ring — was
+     incoherent. The `Hidden` branch still renders nothing at all.
+  7. **The Architect fixes the relationship, not the pixels.** Exact insets and radii
+     are the Developer's choice within the existing token grid.
+  8. **`MomentumFab`'s fill becomes glass-over-`primary`.** The two hard-coded fill
+     alphas (`0.95f` / `0.92f`) become **`MomentumGlass.heroFill` (0.68)** applied to
+     `c.primary`, with the top-edge illumination streak and the theme-resolved edge
+     the `GlassLevel.HERO` path already uses. **No new token, no new value, no new
+     component, no new API, no hard-coded colour added.** ADR-47 §6's word "solid"
+     is what changes. **Unchanged:** `CircleShape`, `MomentumFabSize = 56.dp`,
+     `MomentumIcons.add`, `MomentumIconSizes.prominent`, `glassPress`,
+     `Role.Button`, the `contentDescription` parameter, ADR-48 Amendment Note 3's
+     edge and `MomentumGlass.heroElevation`, and the placement and 96 dp reservation
+     of ADR-48 Amendment Note 2.
+
+- **Why the FAB changes (and why not its colour).** Home's entire foreground
+  vocabulary is Liquid Glass — the bottom bar at `heroFill`, Settings at
+  `controlFill`, cards at `cardFill`. `MomentumFab` was the only foreground object
+  with a hard, fully-opaque, saturated boundary, and the only object floating on
+  bare atmosphere with nothing relating it to the content above or the bar below.
+  ADR-48 Amendment Note 3 correctly diagnosed this as an **edge**-vocabulary
+  problem and fixed only the edge; the **fill** is what still separates it, because
+  under `AURORA = atmosphere · LIQUID GLASS = interface` the foreground must be
+  glass over atmosphere and the atmosphere must remain perceptible *through and
+  around* it — which a 0.95-alpha disc is the one element that prevents. At
+  `heroFill` the disc keeps the theme's `primary` identity and remains the
+  unmistakable primary action while joining one material family with the glass bar
+  below and the glass Settings control above, so Home's three floating objects form
+  one depth stack.
+
+- **Explicitly rejected.** A saturated solid disc (current — opaque, breaks
+  atmospheric continuity); a gradient or aurora FAB and a gradient ring (new visual
+  language, forbidden); **full `GlassLevel.HERO` glass with a `c.primary` glyph**
+  (loses primary-action salience against the atmosphere — offered to the human as
+  the alternative in `task.md` §8.16 item 6, with glass-over-`primary`
+  recommended); an optional `border` / `emphasised` parameter so only Home could
+  differ (new component architecture, forbidden by ADR-47 §6); and moving the FAB
+  into the bottom bar (placement is confirmed correct on device).
+
+- **Shared call-site consequence — requires explicit human approval, exactly as
+  ADR-48 Amendment Note 3 recorded.** `MomentumFab.kt` is shared with
+  `HabitsScreen` (`cd_create_habit`), so Habits' FAB becomes translucent instead of
+  solid: same component, size, glyph, placement and behaviour. Nothing else on
+  Habits changes. This cannot be scoped to Home without forbidden changes. The
+  Architect recommends approval; if the human refuses it, the only lawful outcomes
+  are to accept the disconnection and re-open D6, or to defer `MomentumFab` to a
+  future task that owns it as a component.
+
+- **Consequences.** Changed: `presentation/screens/today/HomeProgress.kt` (new),
+  `presentation/components/MomentumFab.kt` (**two expressions**),
+  `res/values/strings.xml` (one string changed, one added). No domain, schema,
+  ViewModel, navigation, dependency or build change. `QuickAddTest`'s
+  `Brush.verticalGradient` assertion and its FAB-material assertions must be
+  rewritten to the retained outcomes; its placement and 48 dp assertions stand.
+
+- **Approval.** Recorded as the Architect's TASK-017 proposal under the human brief
+  of 2026-10-01. **This note requires human approval — including the shared
+  Habits call-site consequence and the choice between glass-over-`primary` and full
+  glass — before any implementation is authorized.** No code accompanies this note;
+  `adb` is unavailable, so no instrumented or on-device verification is claimed for
+  it.
+
+### ADR-47 Amendment Note 5 — the Home top chrome is persistent: Date + Greeting + Settings are fixed, the artwork's datum is the window top, and the scroll boundary is layout (Architect, TASK-017, human ruling 2026-10-01 §4.10.4 — approved)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note **supersedes one clause of ADR-47 Amendment
+  Note 4** — its §8 element classification (which placed **date** and **greeting**
+  in the scrollable content) — and **withdraws its §9 placement invariant** ("what
+  floats is glass, and what floats is what must always be reachable"), which
+  survives only as the reason *Settings* is glass rather than bare ink. Every other
+  clause of ADR-47 Amendment Note 4 and ADR-48 Amendment Note 4 stands exactly as
+  written, including the 184 dp `ArtworkWindow`, its derivation, the full-atmosphere
+  four-stop scrim, the progress lockup, the FAB treatment, the deletion of the
+  collapse, and the performance result.
+
+- **Ruling recorded.** The human ruling of 2026-10-01 §4 approved the TASK-017
+  proposal and **reversed its date/greeting classification**. The binding behaviour
+  contract is now `Date → fixed · Greeting → fixed · Settings → fixed`, forming
+  **one coherent persistent Home top chrome**, against
+  `Progress / Encouragement / Activities → scrollable`. Scrollable content must
+  **never** overlap the chrome and must have **a proper scrollable region below
+  it**, achieved with **no** collapse, parallax or scroll choreography. The chrome
+  must read as coherent with the Aurora environment and **not** as an unrelated
+  opaque header. The architect retains ownership of the visual composition.
+
+- **Decision (this note).**
+  1. **The layering tension is resolved: the chrome is drawn *over* the artwork,
+     and the artwork's datum is the physical window top.** Ruling §3 ("the artwork
+     forms the upper visual region of the Aurora atmosphere") and §4 ("Aurora /
+     artwork below the chrome") are **not** in conflict: §3 is a *geometry* statement
+     and §4 is a *z-order* statement, and both hold. The atmosphere spans the whole
+     content area; the artwork occupies its upper 184 dp measured from the window
+     top; the chrome floats over that region; the scrollable region begins at the
+     chrome's measured bottom edge.
+  2. **Why the datum must be the window top, and why this is not a preference.**
+     `MomentumHeroArtwork` generates **no top fade**: `topDissolve` produces no
+     stop and the profile is fully opaque from the container's top edge, because
+     its KDoc and ADR-39 both state that the container's top edge *is* the
+     physical window top edge, so there is no page background above it to blend
+     into. Starting the artwork **below** the chrome would put its top edge against
+     page background, forcing either a **hard horizontal edge** (forbidden) or a
+     **new top fade** — which that component explicitly reserves as a future ADR
+     decision "for a container whose top edge borders page background", for which
+     "no such caller exists today". Creating that caller is precisely the change
+     ADR-39 deferred, and the component file is not to be modified. The artwork's
+     top edge must therefore stay the window's top edge, which **forces** the
+     chrome to be drawn over the artwork.
+  3. **The four coherence guarantees that make the chrome part of the environment
+     rather than a header.** (a) **No plate** — the chrome contains no `Surface`,
+     `Card`, `LiquidGlass`, `.background(`, `HorizontalDivider`, `shadow(` or
+     `graphicsLayer` between its own edges; its copy sits on the raw atmosphere +
+     scrim exactly as the scrollable progress copy does. The only permitted
+     sub-surface is the 48 dp `LiquidGlassIconButton` (Settings), copy-adjacent
+     chrome rather than a copy backdrop — the same exception the old Hero already
+     documented. (b) **No divider and no edge** at the chrome's bottom edge;
+     separation is by negative space alone. (c) **One continuous scrim** spanning
+     the whole content area with **no stop at the chrome's bottom edge**, so chrome
+     and content sit under the same gradient. (d) **One axis, one ink, one type
+     scale, one material** — the same 20 dp screen axis, the same `textPrimary`,
+     the same design-system type scale, and the same `GlassLevel.CONTROL` glass as
+     every other control.
+  4. **`ArtworkWindow` remains 184 dp with the window top as its datum**, derived
+     exactly as ADR-47 Amendment Note 4 §3 recorded
+     (`HeroRingSize + MomentumSpacing.standard + ArtworkHandOff`). The chrome's
+     height is **neither added to it nor subtracted from it**: the window does not
+     grow when the chrome grows. It remains **constant in every state** and is
+     **never** a function of activity count, empty/non-empty state, copy height,
+     the chrome's measured height, encouragement presence or scroll position. Only
+     theme and width affect the *crop*, never the height. BOUND-1 therefore remains
+     structural (`ArtworkWindow − 88 dp = 96 dp ≥ HeroRingSize`, no measurement).
+     The chrome's bottom edge is expected to fall inside the artwork's opaque
+     region at font scale 1.0; at font scale 2.0 it may extend past the window,
+     which is **acceptable and must not be "fixed"** by altering `ArtworkWindow` —
+     the scrim spans the whole content area precisely so copy below the artwork
+     window stays readable.
+  5. **The scroll boundary is produced by ordinary layout, not by scroll
+     observation.** The chrome and the scrollable region are **siblings in one
+     `Box`**, the region's top edge being the chrome's bottom edge via a
+     `padding(top = chromeHeightDp)` derived from a single `onSizeChanged` on the
+     chrome. Overlap is therefore **unrepresentable rather than merely prevented**.
+     `clipToBounds()` on the region is belt-and-braces for the ruling's
+     "appropriate clipping / content bounds". `contentPadding.top` stays `0.dp` —
+     any top padding would open a band of atmosphere between the chrome and the
+     first item, which is the disconnection the ruling forbids.
+     **There is no `NestedScrollConnection`, no scroll-state read, no per-frame
+     observation, no `derivedStateOf`, no parallax and no sticky header.** The one
+     measurement is a pure function of the chrome's content, window insets and
+     width — it changes on font-scale, configuration and greeting-length change and
+     **never on scroll** — so the write is idempotent and cannot feed back into
+     layout.
+  6. **Child declaration order is part of the contract.** Compose composes and
+     paints a `Box`'s children in declaration order, and the merged semantics tree
+     follows composition order. One order satisfies both: **atmosphere, chrome,
+     scroll region, FAB**. Because the chrome and the region are geometrically
+     disjoint, paint order between them is irrelevant; the only binding paint
+     constraints are that the atmosphere is first and the FAB (which overlays the
+     list's tail) is last. Reordering would push the persistent Home identity after
+     the content in the traversal order, which is wrong.
+  7. **Empty state: the centring region now accounts for the chrome and the
+     atmosphere, and §4.10.7's two guarantees are structural, not arithmetic.**
+
+     ```kotlin
+     emptyRegion = viewportDp - chromeHeightDp - EmptyDayBottomReserve   // 96 dp, unchanged
+     // Box(Modifier.heightIn(min = emptyRegion), contentAlignment = Alignment.Center)
+     ```
+
+     `EmptyDayBottomReserve` is unchanged and still used both as the list's
+     `contentPadding.bottom` and in this subtraction, so the reserve the list
+     honours and the region the card is centred in cannot drift apart. Because the
+     atmosphere is a **sibling backdrop** sized to the whole content area and the
+     chrome is a **sibling above** the region, the empty item **cannot collapse
+     either** — there is no shared box for it to squeeze. This makes the TASK-016
+     D1 regression class unreachable. The empty card carries **no CTA** and the
+     FAB remains the single creation affordance.
+  8. **Accessibility.** The chrome's three elements are **three separate, unmerged
+     semantics nodes**: the chrome must **not** use `clearAndSetSemantics` or
+     `mergeDescendants`, because a merged chrome would swallow the Settings button
+     and make a persistent control unreachable by screen reader. Group visually,
+     never semantically. The greeting carries `heading()` and is the screen's first
+     heading; the date is plain text; both section headers keep theirs, so heading
+     navigation yields **greeting → Remaining → Completed**. `Settings` keeps
+     `Role.Button`, its `cd_settings` label, the 48 dp minimum and its
+     `c.textSecondary` icon tint — the one place a secondary token is legal,
+     because the glyph sits on its own `GlassLevel.CONTROL` glass fill rather than
+     as bare ink on the atmosphere (ADR-47 §7 governs *copy over artwork*, and the
+     sweep measures this band). The progress lockup keeps exactly one merged
+     `contentDescription`. The atmosphere contributes no semantics. **Accessibility
+     is never traded for composition**: if font scale 2.0 cannot be satisfied
+     without clipping, the fix is the chrome's composition, never semantics, never
+     a sub-48 dp target and never a removed heading.
+  9. **Contrast: the band list moves; the floor does not.** The ISSUE-020
+     region-sample method is unchanged and the **≥ 4.5:1 floor is not weakened**.
+     Because the chrome is fixed, its bands move with it, so the sweep gains two
+     bands: the **`done` digit inside the ring** (with the ring's
+     `textPrimary @ 0.55` stroke included in the composited background) and a
+     **seam band** asserting the atmosphere immediately below the chrome's bottom
+     edge shows **no hard edge** — the region-sample difference across that seam
+     must be within the scrim's own local gradient ramp. A failing band may move
+     only the **peak**, inside `[0.15, 0.35]`; the four-stop profile and
+     `ScrimPeakStart` / `ScrimPeakEnd` are load-bearing and must not change.
+  10. **ADR-35's retirement is unchanged and now better founded.** The status-bar
+      top mask is retired on Home: there is no Hero, the chrome is **fixed** and
+      therefore never crosses the status bar, and scrollable content begins below
+      the chrome's measured bottom edge — so the camera-cutout failure it
+      prevented cannot recur. The clamped-px collapse **pattern** (ADR-28/29) is
+      not condemned and survives on Habits.
+  11. **Tag and symbol mapping.** `HomeHeroTag`, `HeroArtworkTag`, `HeroHeaderTag`
+      and `HeroContentTag` are deleted with `HomeHero.kt` and are replaced by
+      `HomeAtmosphereTag` + `HomeScrollRegionTag`, `AtmosphereArtworkTag`,
+      `HomeChromeTag` and `HomeProgressTag`. Because the instrumented suites look
+      tags up by string, a renamed tag is a silent test failure rather than a
+      compile error, so this mapping is part of the decision. `HeroFigureState`
+      and `HeroRingSize` move to `HomeProgress.kt`; `HeroScrim`, `ScrimPeak*`,
+      `ScrimPeakStart`, `ScrimPeakEnd` and `ArtworkWindow` move to
+      `HomeAtmosphere.kt`; `HomeTopChrome` and `ChromeBottomInset` (a named alias
+      for `MomentumSpacing.section`, the only spacing value introduced) live in
+      `HomeChrome.kt`. `TodayLoadingSkeleton` is updated to the new silhouette,
+      keeping its single accessible label and its no-spinner / no-shimmer contract.
+
+- **Explicitly rejected in this note.** A collapse, parallax, or any
+  scroll-driven chrome treatment (ruling §4.10.1/§4.10.4/§4.10.5). A `Surface`,
+  glass panel, plate, divider or shadow behind the chrome (§4.10.4). Starting the
+  artwork below the chrome, which would require a hard edge or a new top fade
+  (§8.17.2's derivation). `contentPadding(top = chromeHeight)` on a full-height
+  list, which lets later items scroll up underneath the chrome and so requires
+  either a forbidden plate or re-introduces the overlap problem. A sticky/pinned
+  duplicate of the date and greeting. Any spacer, offset or padding literal added
+  to make the composition line up. The three crown tests are **deleted because the
+  crown no longer exists** and are **replaced** by bounds tests on the atmosphere,
+  the chrome, the scroll boundary, the constant artwork window, BOUND-1 and the
+  empty-card centring — retained outcomes, not removed coverage.
+
+- **Consequences.** Changed: `TodayScreen.kt` (four declared children in the order
+  above; collapse machinery and `BoxWithConstraints` centring arithmetic replaced
+  by the measured-chrome layout; `emptyRegion` recomputed from the chrome height),
+  `HomeHero.kt` **deleted without ever being edited** (§4.10.13 forbids reshaping
+  it), new `HomeAtmosphere.kt` / `HomeChrome.kt` / `HomeProgress.kt`,
+  `TodayLoadingSkeleton` updated, `MomentumFab.kt` (glass-over-`primary`, per
+  ADR-48 Amendment Note 4), `res/values/strings.xml` (fraction split). Unmodified:
+  `MomentumHeroArtwork.kt`, `MomentumAurora.kt`, `LiquidGlass.kt`,
+  `ProgressOrb.kt`, `MomentumNavGraph.kt`, `TodayViewModel.kt`, every theme file,
+  every non-Home screen, and all domain, schema, repository, navigation, dependency
+  and build configuration. Seven Home test files are rewritten to the retained
+  outcomes; `HomeStatesTest` is unaffected.
+
+- **Approval.** Recorded under the human ruling of 2026-10-01 §4.10, which approved
+  the TASK-017 proposal, accepted the shared `HabitsScreen` FAB consequence (§4.10.8)
+  and authorized implementation. This note **specifies** the §4.10.4 amendment;
+  it introduces no new decision requiring a further ruling. **No code accompanies
+  this note.** `adb` is unavailable in this environment, so no instrumented or
+  on-device verification is claimed or implied for any part of TASK-017.
+
+### ADR-47 Amendment Note 6 — the ISSUE-020 contrast re-measurement for the TASK-017 composition is on record: 0 of 1664 samples below 4.5:1, governing minimum Light 4.93:1 · Dark 9.00:1, both peaks unchanged (Architect, TASK-017, 2026-10-01)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note **records a measurement result only** — it
+  supersedes no clause and changes no decision. It closes the acceptance
+  measurement called for by ADR-47 Amendment Note 4 (the ISSUE-020 baseline is
+  superseded **by addition of this note**, never by rewrite), by ADR-47 Amendment
+  Note 5 §9, and by `task.md` §8.15 / §8.17.4. **Every approved value stands
+  exactly as recorded above.**
+
+- **Origin and why it is recorded here.** The Developer ran the measurement and
+  correctly **escalated rather than substituting an implementation file as the
+  ADR record**: AGENTS.md §21 makes this file the Architect's to own, §22 forbids
+  an agent widening its own permission boundary, and the Developer's grant does
+  not extend to `docs/**`. The result was held in `task.md` §9.5 and in
+  `HomeAtmosphere.kt`'s `ScrimPeak*` KDoc; this note is the canonical record.
+
+- **Method — unchanged and re-run from scratch.** The canonical ISSUE-020
+  **region-sample** methodology of ADR-47 Amendment Note 1, applied to the
+  TASK-017 composition: composite page background + Aurora field + artwork
+  (cover-crop `Alignment.BottomCenter`, shared 88 dp `DstIn` dissolve) + the
+  **full-content-area** four-stop scrim, reduce each band's text rectangle to one
+  mean background colour per channel, compute the WCAG 2.x ratio against the band's
+  ink token, and let the **minimum region ratio across the sweep govern**. A
+  per-pixel minimum over the artwork's high-frequency detail remains informational
+  only. **TASK-016's table was deliberately not carried forward** (§4.10.12).
+
+- **Sweep.** 2 themes × widths {360, 412} dp × content-area heights {560, 720} dp
+  (the scrim's extent *is* the content area, so both are swept) ×
+  `AuroraState.defaultIntensity` {0.35 REST, 0.55 PROGRESS, 0.75 COMPLETION, 1.0
+  MILESTONE} × the chrome's bottom edge at font scale {1.0, 2.0} × 3 day states
+  {empty, populated, complete} × encouragement {on, off} × all 13 bands of
+  `task.md` §8.17.4 — including the two bands added for the fixed-chrome
+  composition: **`done`-inside-the-ring** (the ring's `textPrimary @ 0.55` stroke
+  composited into the sampled background) and the **seam** band.
+  → **1536 region samples + 128 seam samples. 0 below 4.5:1.**
+
+- **Worst case per band across the sweep** (twelve contrast bands; the thirteenth is
+  the seam, reported separately below).
+
+  | Band | Light @ 0.26 | Dark @ 0.22 |
+  |---|---|---|
+  | date | 10.06:1 | 16.90:1 |
+  | greeting | 10.09:1 | 16.93:1 |
+  | **Settings icon tint** (`textSecondary` on its own `CONTROL` glass) | **4.93:1** | 9.01:1 |
+  | **`done` inside the ring** (ring stroke in the background) | 9.26:1 | **9.00:1** |
+  | `/ total` | 13.92:1 | 14.89:1 |
+  | `completed today` caption | 14.22:1 | 15.71:1 |
+  | `Today is complete` statement | 12.68:1 | 14.01:1 |
+  | merged `today_hero_progress_desc` | 9.26:1 | 9.00:1 |
+  | encouragement | 14.30:1 | 16.18:1 |
+  | section headers | 14.00:1 | 15.34:1 |
+  | `ActivityCard` titles/metadata | 15.04:1 | 15.65:1 |
+  | `EmptyState` title/body | 15.04:1 | 15.65:1 |
+
+- **Result.** **Governing minimum: Light 4.93:1 · Dark 9.00:1** — both clear the
+  **≥ 4.5:1** floor with margin. The floor was **not** weakened to accommodate the
+  new composition (§4.10.12). The **weakest band is the Settings glyph**, which is
+  the one place a secondary token is lawful under ADR-47 Amendment Note 5 §8
+  (`task.md` §8.17.6 rule 5): the glyph sits on its own `GlassLevel.CONTROL` glass
+  fill rather than as bare ink on the atmosphere, so it clears the body-text floor
+  regardless. No copy band over the atmosphere is close to the floor.
+
+- **Band 13 — the seam shows no hard edge, with one recorded method deviation.**
+  The atmosphere's step across `chromeBottom` is **0.96** channel-sum per dp worst
+  case, against a **median 0.64** and a **p99 1.50** for the artwork's own per-dp
+  gradient over the same span; the scrim's own contribution there is
+  **0.005/dp**. The step is therefore **artwork-driven, not composition-driven**,
+  and the seam is indistinguishable from the illustration's existing local ramp.
+  **Deviation, method wording only:** `task.md` §8.17.4 band 13 was written as "no
+  step larger than the scrim's own per-dp derivative there". Taken literally that
+  is unsatisfiable for illustrated content at any approved peak — the artwork's own
+  local gradient alone is roughly 30× the scrim's derivative — so it cannot
+  discriminate a composition edge from artwork detail. The measurement therefore
+  used the discriminable form: the step at the seam versus the artwork's **own**
+  local per-dp step distribution across the same span. **The acceptance intent
+  ("no hard edge at `chromeBottom`") is met, and the underlying geometry is
+  structural rather than measured** — the scrim spans the whole content area and
+  generates no stop at the chrome's boundary (ADR-47 Amendment Note 5 §3c), so no
+  composition edge exists there to find. This deviation is surfaced here for the
+  Reviewer rather than buried in an implementation file.
+
+- **Escalation: not required. Every approved value stands unchanged.** No band
+  failed, so **both peaks remain `ScrimPeakLight = 0.26f` / `ScrimPeakDark =
+  0.22f`**, inside the approved `[0.15, 0.35]` envelope. `ScrimPeakStart = 0.20f`,
+  `ScrimPeakEnd = 0.80f` and the four-stop profile were **not** touched — only the
+  peak value was ever in scope. **The floor, the scrim profile, the peak stops and
+  every ink token are untouched**; ADR-47 §7's prohibition on `textSecondary` over
+  the atmosphere is unaffected, its one carve-out being the Settings glyph on its
+  own glass. BOUND-1 remains structural (`ArtworkWindow − 88 dp = 96 dp ≥
+  HeroRingSize`), unaffected by this measurement.
+
+- **Verification status — stated plainly.** This is a **computational contrast
+  measurement**, not an instrumented or on-device result. `adb` is unavailable in
+  this environment and **no instrumented suite has been executed, and no screenshot,
+  pixel or device claim is made or implied** for any part of TASK-017. The figures
+  above are the Developer's, recorded here as reported; a **Reviewer is
+  independently re-verifying them** against the same method. The device-matrix
+  verification of `task.md` §8.15 remains with the human.
+
+### ADR-47 Amendment Note 7 — the artwork window becomes reference-derived and width-proportional; BOUND-1 is re-derived and the Note 6 contrast baseline is superseded (Architect, TASK-018, pending human approval)
+
+- **Instrument.** Append-only. No ADR-47 or ADR-48 text above is rewritten,
+  deleted or restated. This note **amends** ADR-47 Amendment Note 4 §3 and
+  ADR-47 Amendment Note 5 §4 — the single clause that made `ArtworkWindow` a
+  constant independent of everything, including width — and **supersedes** ADR-47
+  Amendment Note 6's *baseline by addition of this note*, never by rewrite.
+  ADR-47 §1/§4/§5/§7/§8, Amendment Note 1 (the region-sample **method** and the
+  `[0.15, 0.35]` ceiling), Amendment Note 3's BOUND-2 requirements,
+  Amendment Note 5's §1–§3/§5–§11, ADR-28/29, ADR-30, ADR-31/32/33/37/39 and
+  ADR-48 stand exactly as written.
+
+- **Root cause (from the approved reference, not from taste).** The Stitch Home
+  reference renders as a **640 × 1600** image authored in CSS px at
+  `1rem = 16px`, i.e. a **320 × 800 dp viewport at 2×**. Its Aurora band is
+  `h-[460px]` = **230 dp of a 320 dp viewport = 0.71875 × width**, and it
+  visibly continues behind the progress card. Momentum's
+  `ArtworkWindow = HeroRingSize + MomentumSpacing.standard + ArtworkHandOff`
+  = **184 dp**, which is 0.511 × width at 360 dp — the reference's atmosphere is
+  visibly a broader sky, and at the reference's own width Momentum's band is 46 dp
+  shorter than the design it must reproduce. Amendment Note 5 §4's
+  "the window does not grow when the chrome grows … constant in every state …
+  only theme and width affect the *crop*, never the height" was correct for the
+  composition it governed and is now **incomplete**: it forbids *content*,
+  *state* and *scroll* dependence (all of which are still forbidden, verbatim)
+  but says nothing that makes a width-proportional band wrong — it simply had no
+  reason to allow one.
+
+- **Decision (this note).**
+  1. **`ArtworkWindow` becomes one derived, reference-derived value:**
+
+     ```kotlin
+     ArtworkBandFraction = 460f / 640f                        // reference band / viewport width
+     ArtworkWindow        = ArtworkBandFraction * windowWidth  // 230 dp @320 · 258.75 dp @360 · 296.1 dp @412
+     ```
+
+     `windowWidth` is `BoxWithConstraints.maxWidth` read from the **existing**
+     root — one read, never scroll-dependent, no new window-size observer.
+  2. **Every independence clause survives verbatim.** The window is still never a
+     function of activity count, empty/non-empty state, copy height, the chrome's
+     measured height, encouragement presence or scroll position, and it is still
+     identical on an empty day. **Width is the only newly permitted input.**
+  3. **The scrim is untouched.** Stitch's own fade mask —
+     `rgba(page, 0) 0% → 0.15 50% → 0.75 80% → page 100%` — is
+     structurally identical to Momentum's existing four-stop scrim, so
+     `ScrimPeakStart = 0.20f`, `ScrimPeakEnd = 0.80f`, the four-stop profile,
+     `ScrimPeakLight = 0.26f` / `ScrimPeakDark = 0.22f` and the `drawWithCache`
+     brush all stand. Nothing about the readability mechanism changes.
+  4. **BOUND-1 is re-derived**, because `HeroRingSize` is no longer the largest
+     opaque element the atmosphere carries (ADR-48 Amendment Note 5 replaces it
+     with a 96 dp ring):
+
+     ```
+     ArtworkWindow - ArtworkHandOff  >=  ProgressCardRingSize + 2 * MomentumSpacing.standard   // >= 128 dp
+     142.75 dp @360 · 142 dp @320 · 208 dp @412
+     ```
+
+     *Assertions:* (a) the window is proportional to width and equal at equal
+     width in every day state, both themes and at both font scales; (b) the
+     inequality holds at 320/360/412 dp, tolerance 1 dp; (c) the window is never
+     derived from `ProgressCardRingSize`, `chromeHeight`, `state.isEmpty`,
+     `totalCount`, `doneCount`, `viewportDp` or scroll; (d) `ArtworkHandOff`
+     stays `88.dp` — the shared component's own value, restated as a
+     measurement, because ADR-30's caller contract lets callers pass band amounts
+     only and ADR-47 Amendment Note 3 already rejected duplicating it.
+  5. **The contrast baseline is re-run from scratch.** A wider artwork band puts
+     more high-frequency illustration under the same scrim, so ADR-47 Amendment
+     Note 6's figures do not transfer. The ISSUE-020 **region-sample method**
+     (ADR-47 Amendment Note 1) is re-run for the TASK-018 composition: both
+     themes × widths {360, 412} dp × content-area heights {560, 720} dp ×
+     `AuroraState.defaultIntensity` {0.35, 0.55, 0.75, 1.0} × chrome bottom edge
+     at font scale {1.0, 2.0} × 3 day states × encouragement {on, off} × the
+     band list of `task.md` §8.15, **including the new glass-card bands**. The
+     floor is **≥ 4.5:1**, unweakened; the minimum region ratio governs; a
+     failing band may move **only the peak**, inside `[0.15, 0.35]` — never the
+     four-stop profile, the stops, the ink or the artwork.
+  6. **Everything else stands unchanged:** the artwork's datum is the physical
+     window top and there is still no top fade (ADR-39); the chrome floats over
+     it; the scrim spans the whole content area with no stop at the chrome's
+     bottom edge; the atmosphere is a sibling backdrop of the whole content area;
+     the scroll boundary is layout, not observation; nothing is added to
+     `MomentumHeroArtwork.kt`; no artwork is created, replaced, re-tinted,
+     re-cropped, zoomed or parallaxed.
+
+- **Options.** (a) Keep 184 dp and accept a visibly narrower atmosphere than the
+  approved reference — a reinterpretation of the design; (b) make the window a
+  function of the chrome or of content — forbidden by Amendment Note 4 §3 and the
+  source of the TASK-016 defect; (c) a fixed larger constant (e.g. 259 dp) — one
+  number that is correct at exactly one width and wrong everywhere else;
+  (d) proportional to width, every other clause intact (chosen).
+
+- **Approval.** **Requires explicit human approval before implementation**
+  (AGENTS.md §4/§21), because it amends a clause of a human-ruled note
+  (Amendment Note 5 §4, human ruling 2026-10-01 §4.10.4) and supersedes a
+  recorded contrast baseline.
+
+### ADR-47 Amendment Note 8 — the artwork window becomes the complete artwork's intrinsic 1536/1024 ratio, width-proportional (1.5 × width); AN7's `460/640` band ratio, its derived window values and its BOUND-1 arithmetic are superseded, and AN6's contrast baseline is now formally superseded (Architect, TASK-018, 2026-10-02 — human ruling `task.md` §4.8/§4.9, closeout §13.3)
+
+- **Instrument.** Append-only. No ADR text above is rewritten, deleted or
+  restated. This note **supersedes only Amendment Note 7's artwork-band
+  decision** — the `ArtworkBandFraction = 460f / 640f` reference band ratio,
+  every derived `ArtworkWindow` value AN7 stated (230 / 258.75 / 296.13 dp at
+  320 / 360 / 412 dp), and the BOUND-1 arithmetic computed from them — **by
+  addition of this note**. It **retains, verbatim**, AN7's independence clauses,
+  its untouched four-stop scrim, profile and peaks (`ScrimPeakStart = 0.20f`,
+  `ScrimPeakEnd = 0.80f`, `ScrimPeakLight = 0.26f` / `ScrimPeakDark = 0.22f`
+  inside `[0.15, 0.35]`), its re-derived BOUND-1 **structure** against
+  `ProgressCardRingSize`, its Decision-item-6 unchanged-clause list, and every
+  other statement AN7 made. AN7's own Instrument clause stays in force: it
+  still amends ADR-47 Amendment Note 4 §3 and Amendment Note 5 §4's "184 dp
+  constant" clause, because the window is still one derived value — never a
+  measured one, never a constant — and it is still `BoxWithConstraints.maxWidth`
+  that derives it, with no new observer.
+
+- **Governing decision (newer, and it wins where it differs).** The human's
+  **Device Finding #1** (`task.md` §4.8, human ruling 2026-10-01; verified PASS
+  and background frozen in `task.md` §4.9) is the governing decision for the
+  artwork window. The **complete** existing artwork (`habits_hero_light` /
+  `habits_hero_dark`, 1024 × 1536) renders in full — waves, glow, sparkles and
+  stars, nothing important cropped — **top-aligned**, scaled proportionally to
+  the screen width, over the unchanged lavender / dark atmospheric continuation,
+  as one fixed, non-scrolling composition:
+
+  ```kotlin
+  ArtworkIntrinsicRatio      = 1536f / 1024f                                     // 1.5
+  artworkWindow(windowWidth) = (ArtworkIntrinsicRatio * windowWidth.value).dp    // 480 / 540 / 618 dp @ 320 / 360 / 412
+  ```
+
+  `ContentScale.Fit`, **no crop**: no object-cover, no vertical or horizontal
+  crop, no zoom, no parallax, no collapse, no scroll observation, no per-frame
+  background movement, and no scrim that obscures the Aurora. The shared 88 dp
+  bottom dissolve, ADR-39's window-top datum with no top fade, the four-stop
+  scrim over the whole content area and the layout-produced scroll boundary all
+  stand. This is a width-proportional window, so AN7's withdrawal of the
+  184 dp constant clause and its width-only-permitted-input clause both survive.
+
+- **BOUND-1 on the new geometry (structure retained, numbers superseded).**
+  `artworkWindow(w) - ArtworkHandOff >= ProgressCardRingSize + 2 *
+  MomentumSpacing.standard` (>= 128 dp) — the AN7 structure and its
+  `ArtworkHandOff = 88.dp` unchanged — yields **392 / 452 / 530 dp** at
+  320 / 360 / 412 dp. The window grows, so the inequality holds with more
+  margin than the withdrawn band.
+
+- **Closure condition satisfied — AN6's contrast baseline is formally
+  superseded and AN7's Decision-item-5 contrast re-run is complete.**
+  `ISSUE-020` is **CLOSED by TASK-018** (`task.md` §8.20 Home-scoped remediation
+  approved under §4.11; `ISSUES.md`; `PROJECT_STATUS.md` F-HOME is
+  `FULLY_VERIFIED`). The note deferred while ISSUE-020 FAILed
+  (`task.md` §10.11, §13.0) is therefore unblocked. On record: the
+  final-geometry sweep **FAILed** and was remediated by targeted local
+  foreground/material corrections, after which the **bounded region-sample
+  re-measurement PASSES in Light and Dark with zero FAIL rows** at unchanged
+  floors (4.5:1 text / 3.0:1 non-text), with the ring arc decorative under
+  §4.11 CHANGE 5; thin margins cleared at emerald boundary 3.09, ring track
+  3.24, ring-% Dark 4.78, check glyph Light 4.84. **No peak moved** —
+  `ScrimPeakLight = 0.26f` / `ScrimPeakDark = 0.22f` remain inside
+  `[0.15, 0.35]` — and no scrim stop, ink token, artwork or theme token
+  (`Tokens.kt`, `Color.kt`) was changed. Gradle validation: **293/293 unit
+  tests, 42 suites, 0 failures** (`--rerun-tasks`), `assembleDebug` and
+  `assembleDebugAndroidTest` exit 0; **device verification PASS** in Light and
+  Dark. The exact per-band figures live in `task.md` (§9.A, §9.B, §13.3), not
+  here.
+
+- **Recorded limitation (not a defect).** Device verification ran at **412 dp**
+  only (emulator, Light and Dark). **320 dp and 360 dp widths and font scale 2.0
+  were not device-tested**, and the instrumented suites were not executed. This
+  is a limitation of coverage, not a defect: the window's width-proportionality,
+  the BOUND-1 inequality at all three widths, and `Fit`-not-`Crop` on Home's
+  call site are pinned by assertions in `HomeAtmosphereAssetsTest` and
+  `HomeCompositionTest`.
+
+- **What remains historically valid.** Nothing earlier is rewritten. AN7's
+  `460/640` ratio, its 230 / 258.75 / 296.13 dp values and its BOUND-1
+  arithmetic remain on record as history and are **obsolete for implementation**:
+  `task.md` §4.9 identifies the band ratio as "ADR-47 AN7 §2's obsolete band
+  ratio", and the contrast figures measured against the withdrawn band must not
+  be inherited or re-quoted as current. Standing unchanged and authoritative:
+  ADR-47 §1/§4/§5/§7/§8, Amendment Note 1's region-sample **method** and the
+  `[0.15, 0.35]` peak ceiling, Amendment Note 3's BOUND-2, Amendment Note 5
+  §1–§3/§5–§11, AN7's independence clauses / scrim / peaks / re-derived BOUND-1
+  structure, and ADR-28/29, ADR-30, ADR-31/32/33/37/39.
+
+### ADR-48 Amendment Note 5 — the Home progress card is the horizontal Aurora lockup: text block left, gradient ring with the percentage inside right, breakdown row beneath a divider (Architect, TASK-018, pending human approval)
+
+- **Instrument.** Append-only. No ADR-48 text above is rewritten, deleted or
+  restated. This note **supersedes ADR-48 §1's "no second percentage" and ADR-48
+  Amendment Note 4 §2's "the ring frames the completed value"** **for Home
+  only**, and amends ADR-47 Amendment Note 5 §9's band list. ADR-48 §2, §3, §4,
+  §5, §6 and Amendment Notes 1–3, and ADR-47 §1/§7/§8 stand exactly as written.
+
+- **Why the reversal (the requirement, not a preference).** The approved Stitch
+  Home reference and the human brief (`task.md` §4.2 region C) specify a
+  **horizontal** composition — "text block left, ring right, breakdown row beneath
+  a divider", "circular percentage ring **with the percentage inside**",
+  "Ring + textual metric read as one cohesive unit" — and **explicitly reject**
+  the TASK-017 vertical "ring above the count" layout. That is the binding
+  requirement under AGENTS.md §2.1.
+
+- **Decision (this note).**
+  1. **One lockup, four regions.** The card is
+     `liquidGlass(RoundedCornerShape(MomentumRadii.control), GlassLevel.HERO, hue = c.auroraLavender)`,
+     padded `MomentumSpacing.standard`, containing (a) a `Row` whose left column
+     is `weight(1f)` and carries the fraction + its subordinate suffix on one
+     baseline and the encouragement/statement beneath, and whose right member is
+     a `size(ProgressCardRingSize = 96.dp)` `Box` containing `ProgressOrb` with the
+     percentage and the word `done` composed **inside** it; (b) a hairline
+     `HorizontalDivider` at `c.textPrimary.copy(alpha = 0.08f)`; (c) a
+     `Spacer(MomentumSpacing.compact)`; (d) a `SpaceBetween` breakdown row of two
+     8 dp dots with their labels.
+  2. **The ring carries the percentage; `showPercent = false` stays.** The
+     percent is composed by `HomeProgress.kt` from the **target** progress, not the
+     animated sweep, so the number is stable while the arc sweeps under it. The
+     ring is `96.dp` (the reference's `w-24 h-24`); `ProgressOrb`'s stroke is
+     `size × 0.075` = 7.2 dp, so **no stroke parameter is added**.
+  3. **The arc is a gradient, which is the one genuinely new drawing
+     capability.** `ProgressOrb` gains a single additive parameter
+     `arcBrush: Brush? = null`; when non-null it replaces the solid `c.primary`
+     base arc and **nothing else changes** (track, halo, lobes, glow and the
+     `showPercent` behaviour are identical, and `null` is byte-identical to today
+     for every existing caller). Home passes
+     `Brush.linearGradient(listOf(c.success, c.auroraBlue, c.auroraViolet))` —
+     **three existing theme tokens, no new colour.**
+  4. **The ring's track keeps `c.textPrimary @ 0.55`.** The reference's
+     `rgba(15,23,42,0.08)` track would be invisible over the Aurora; ISSUE-014's
+     ≥ 3:1 requirement outranks the reference's value and is unchanged.
+  5. **The ring's positional invariant is preserved, and is what makes the
+     reversal safe.** The text column is `weight(1f)` and the ring is
+     size-constrained, so the ring is at the same position at **every** width,
+     digit count and font scale. ADR-48 Amendment Note 4's stated defect — a
+     horizontal figure whose companion was placed by *available width rather than
+     by meaning* — cannot recur: here the arrangement is the approved composition,
+     not a consequence of leftover space. `HeroRingSize`, the vertical lockup and
+     the `Row`/`HeroOrbGap` arrangement are deleted; `MomentumFigureDisplay` stays
+     declared but becomes unused on Home (removing a public token is out of scope).
+  6. **The `Complete` branch keeps ADR-48 §1's statement.** Ring full
+     (`100%`); the fraction row is replaced by `today_hero_complete`
+     ("Today is complete") in the new 24 sp headline token; the encouragement is
+     absent. The reference specifies no completion state, so this is a retained
+     approved decision, not a gap in the design.
+  7. **One merged `contentDescription`** (`today_hero_progress_desc`) now covers
+     the whole merged group — fraction, percentage, `done` and the breakdown — so
+     the two-level split is never double-read and the ring stays decorative. The
+     encouragement stays outside the merged group and keeps its own
+     announcement.
+  8. **What is explicitly preserved:** ADR-48 §3's 100 % moment (transient
+     `AuroraState.MILESTONE` for `MomentumMotion.reward`, one
+     `HapticFeedbackType.Confirm`, one-shot ring glow, no snackbar, no
+     particles, reduced-motion skip), ADR-48 §5 (Home rows carry no streak),
+     ADR-48 §6 (Home runs **no** permanent infinite animation), ADR-48
+     Amendment Note 1 (the state-specific encouragement line and its Settings
+     toggle), and ADR-47 §7 (`textPrimary` for copy over the atmosphere — the
+     `textSecondary` used inside the progress card sits on the card's own glass
+     fill, which is the established `ActivityCard` vocabulary, and every such
+     band is in the `task.md` §8.15 sweep).
+  9. **Rejected:** keeping the vertical lockup (explicitly rejected by the
+     requirement); making the percentage the sole headline and dropping the
+     fraction (`code.html`'s structure and the brief both keep both); a solid
+     single-hue ring (the gradient is the reference's); a second `Text` for the
+     percentage supplied by `ProgressOrb` itself (its built-in percent is
+     `headlineMedium` + no unit label, so composing it in `HomeProgress.kt`
+     reuses the existing `clearAndSetSemantics` structure and adds **no**
+     parameter to `ProgressOrb` beyond `arcBrush`); and shrinking the ring to
+     `HeroRingSize` 80 dp (the reference is 96 dp and the 20/28 percentage plus
+     the 11/14 unit label need the room).
+
+- **Approval.** **Requires explicit human approval before implementation**
+  (AGENTS.md §4/§21): it trades ADR-48 §1's "one progress representation"
+  invariant for the approved horizontal composition, and it adds one parameter to
+  a shared component.
+
+### ADR-49 — Stitch Aurora Home: composition, component boundaries, glass extension, tokens and the recorded conflict rulings (Architect, TASK-018, pending human approval)
+
+- **Instrument.** Append-only. No ADR above is rewritten, deleted or restated.
+  This ADR **adds to** ADR-47 Amendment Notes 4–7 and ADR-48 Amendment Notes 1–5;
+  where it touches an existing decision it names it.
+
+- **Context.** TASK-018 implements an **already-approved** external design
+  (`screen.png` primary, `code.html` secondary, `DESIGN.md` and the Aurora PRD
+  supporting) into the existing Home surface. The Stitch design is approved and
+  may not be redesigned, reinterpreted or simplified; Momentum is authoritative
+  for all functionality and all real data. `AGENTS.md` §2 source-of-truth order,
+  §4 (architecture), §9 (scope discipline), §10 (product vs technical) and §13
+  (act when clear) govern. The full component-level plan is `task.md` §8.
+
+- **Decision.**
+
+  1. **The reference viewport is 320 × 800 dp.** `screen.png` is 640 × 1600 and
+     `code.html` is authored in CSS px with `1rem = 16px`, so the render is
+     **2×**. Every dp value in `code.html` is read as a dp value, which is how
+     the ring is 96 dp, the tile 48 dp, `gap-space-sm` 8 dp and
+     `gap-space-lg` 24 dp.
+  2. **Typography maps to Manrope only; no font dependency is added.** Plus
+     Jakarta Sans and Inter are both mapped to the single bundled variable font.
+     Roles matching Momentum's existing scale are **reused** — greeting
+     `headlineLarge` 28/34 600; `body-sm` `bodyMedium` 14/20 + a per-`Text`
+     `FontWeight.Medium` (the precedent `ActivityCard` already sets); card title
+     `titleSmall` 14/20 + `SemiBold`; `label-md` `labelMedium` 12/16 500; icons
+     `prominent` / `secondary` / `primary`. Exactly **three** new tokens are
+     required and named exactly:
+     **`MomentumHeadlineCompact` 24/32 600** (the reference's `headline-md`, used
+     by the progress fraction and the completion statement),
+     **`MomentumHeadlineSection` 20/28 600** (the reference's `headline-sm`, used
+     by the ring percentage and both section headings) and
+     **`MomentumLabelMicro` 11/14 600 @ letterSpacing 0.04em** (the reference's
+     `label-sm`, used by the date capsule, the ring's `done` unit and the section
+     status labels). Each carries a one-line derivation comment. No arbitrary
+     size substitution anywhere.
+  3. **One optional parameter on the shared glass modifier.**
+     `Modifier.liquidGlass(shape, level, hue: Color? = null)`. When `hue` is
+     non-null the body wash becomes a 135° `Brush.linearGradient` — the reference's
+     chromatic card wash — while the top streak, hairline and shadow are
+     unchanged; `null` reproduces today's rendering byte-for-byte, so all existing
+     callers are unaffected. `hue` is passed a **theme token**
+     (`c.auroraLavender` on the progress card), never a literal.
+  4. **`backdrop-filter: blur()` is not expressible and is not added.** The
+     existing `LiquidGlass` KDoc already ruled it out (minSdk 26, no reliable
+     cross-device API, no fragile dependency worth taking), and that ruling is
+     not reopened. Blur is a **recorded non-adoption**; depth continues to come
+     from translucency + top streak + hairline + shadow, exactly as the existing
+     system already declares. No second glass system is introduced.
+  5. **Home's card and section header are screen-local composables.**
+     `HomeProgressCard`, `HomeSectionHeader` and `HomeActivityCard` live in a new
+     `presentation/screens/today/HomeCards.kt`. This is required, not preferred:
+     `ActivityCard.kt` has **3** call sites (Today, Activities, Calendar) and
+     `MomentumSectionHeader` has **13** (Today, Activities, Calendar, Insights,
+     Settings, detail, creation, Create Item), and re-styling either to the
+     approved Stitch composition would redesign screens this task is forbidden to
+     touch (`task.md` §4.6). The new composables **compose the existing shared
+     primitives** — `Modifier.liquidGlass`, `glassPress`, `momentumIcon`,
+     `habitIconAccent`, `CompletionButton` — so the card does not fork a material
+     (the reasoning ADR-48 Amendment Note 2 applied to `EmptyState`), and
+     `ActivityCard.kt` / `MomentumComponents.kt` / `MomentumBadges.kt` are **not
+     modified**.
+  6. **`CompletionButton` gains two additive, default-preserving parameters:**
+     `accent: CompletionAccent = CompletionAccent.THEME` (`THEME` is the existing
+     `primary → secondary` gradient, used by all existing call sites; `SUCCESS` is
+     the reference's emerald treatment, used by Home) and
+     `showIdleGlyph: Boolean = true` (`false` gives the reference's empty ring).
+     One shared control therefore keeps one accessible path — 48 dp target,
+     `Role.Checkbox`, `completionActionLabel`, the `LongPress` haptic and the
+     spring pop — on every screen, and no completion control is forked. **The
+     completed card stays fully actionable**: the reference's emerald badge is
+     non-interactive, but Momentum's completed row must remain reversible
+     (`DECISIONS §12`), so the badge keeps its button role and label. That is a
+     deliberate, recorded deviation.
+  7. **The fixed/scrollable boundary, the four-child z-order, the single
+     `LazyColumn` and the layout-produced scroll boundary are unchanged** from
+     ADR-47 Amendment Note 5 §5/§6 — `padding(top = chromeHeight)` from one
+     `onSizeChanged`, `contentPadding.top = 0.dp`, `clipToBounds()`,
+     declaration order atmosphere → chrome → region → FAB. The only structural
+     addition is that the region's `verticalArrangement` becomes
+     `MomentumSpacing.tight` (8 dp), matching the reference's `space-sm` gaps.
+  8. **The date capsule becomes a glass pill**, which **amends ADR-47 Amendment
+     Note 5 §3(a)**: the "one permitted sub-surface" in the fixed chrome is now
+     the 48 dp `LiquidGlassIconButton` **plus** the date capsule
+     (`GlassLevel.CONTROL`, `RoundedCornerShape(MomentumRadii.pill)`, padded
+     `MomentumSpacing.compact` × `MomentumSpacing.micro` — the reference's 5 × 14
+     px is off the 4 dp grid and is mapped onto it rather than invented). The
+     pill is copy-adjacent chrome, not a copy backdrop, so the note's purpose is
+     preserved. The date label already renders as `"EEE, MMM d".uppercased()`,
+     which is character-identical to the reference's `THU, OCT 1`.
+  9. **Section heading copy changes** from "Remaining today" / "Completed today"
+     to "Pending" / "Completed", with new trailing status labels
+     "Scheduled Today" and "Finished" (the latter emerald with an additive
+     `MomentumIcons.verified` glyph from the already-bundled
+     `material-icons-extended`). A new greeting support line
+     ("Ready to conquer your day?") is added because `task.md` §4.2 region B
+     requires the element and the model has none; it is a **fixed** line and
+     deliberately **not** the toggle-controlled encouragement, so
+     `AppSettings.motivationalMessagesEnabled` semantics are untouched. All of
+     this is copy, i.e. a **product** surface, and is put to the human.
+  10. **Motion: only what exists in `code.html`, translated once.** The
+      `fade-slide-up` stagger becomes **one** finite 900 ms clock
+      (`MomentumMotion.enter = 900`, the reference's total stagger span) driving
+      **four** derived `entranceProgress` values — chrome 0 ms, progress card
+      100 ms, `Pending` header 200 ms, `Completed` header 300 ms — eased with
+      the existing `MomentumMotion.easeOut`. **Per-row stagger is not
+      implemented**: a `LazyColumn` row has no "first composition" identity, so a
+      per-item entrance would re-fire on every scroll-in; the reference's
+      whole-section unit has no exact Momentum equivalent, and its header is the
+      closest honest one. `progress-fill`, `check-pop` and the card/control press
+      compression map onto existing springs and `glassPress`.
+      **`aurora-glow-pulse` (6 s), `flame-pulse`/`bolt-pulse` (2–2.2 s) and
+      `fab-glow` (3 s) are rejected** — they are permanent infinite animations,
+      which ADR-48 §6 forbids on Home and `HomeSectionMotionTest` asserts. The
+      `:hover` rules are n/a on touch. `MomentumMotion.easeOut` stands in for the
+      reference's `cubic-bezier(0.16, 1, 0.3, 1)`; no new easing token is added.
+  11. **Light/Dark.** The reference is **light** and `DESIGN.md` + the Tailwind
+      config's dark `#0b1326` surface palette is **not imported** — no M3 slot
+      names, no Tailwind or Material-Symbols glyphs, no `#0b1326`. Light follows
+      the reference on Momentum's own `AuroraLight`; **Dark is Momentum's
+      existing `AuroraDark` with the identical composition and hierarchy** through
+      theme-aware tokens — no separate Dark redesign and **no new colour token
+      anywhere in this task**. The one theme-agnostic adoption is the scrim's ramp
+      *shape*, which the existing four-stop scrim already has.
+  12. **Recorded conflict rulings** (`task.md` §8.12). C1 the progress headline
+      reads **"items done"**, not the reference's "habits done": the denominator
+      is every eligible `Activity` (habits **and** tasks), and `task.md` §4.2
+      region C specifies "X of Y items done". C2 **streak chips are not
+      implemented** — `code.html` has none, `task.md` §4.2 region D enumerates the
+      card without one, and the PRD removed streak badges on purpose
+      ("Presence Over Streaks") while ADR-48 §5 has Home rows passing
+      `streak = 0`; adding them would need a new component and would create a
+      second streak representation beside the encouragement line. C3 the secondary
+      line stays `homeMetadataLabel(item)` (localized `dueTime` +
+      `targetProgressLabel`) with **no row at all** when blank — the reference's
+      `15 mins` / `500ml` / `3 entries` need a duration field and an entry-count
+      field that `Activity` does not have, and closing that gap is a schema change
+      outside this task. C8b icon tiles are **2-stop** 135°
+      (`White@0.20 → accent@0.42`) at the correct 48 dp / 16 dp geometry, because
+      Momentum maps one `iconKey` to one accent and a faithful 3-hue tile would
+      require a per-icon colour table — new tokens and a new visual language. C9
+      Momentum's 20 dp screen axis is kept and the reference's 16 dp side padding
+      is mapped to `MomentumSpacing.standard` for in-component padding only. C10
+      the bottom navigation is **unchanged** — it is a `Scaffold` sibling shared by
+      all four destinations, and matching its radius and margins to the reference
+      would redesign the other three screens. C13 `ArtworkHandOff` stays 88 dp per
+      ADR-30. C14 `MomentumFigureDisplay` stays declared but unused on Home.
+  13. **The empty state is not specified by the reference** (there is none), so
+      Momentum's existing contract is retained **verbatim**: `EmptyState` with the
+      existing title/body, `icon = null`, **no CTA** (ADR-48 Amendment Note 2),
+      centred by measured geometry in `emptyRegion`, with the FAB as the single
+      creation affordance and both sections hidden. `EmptyState.kt` is not
+      modified. This is flagged as a reference gap, not a design choice.
+  14. **Nothing else moves.** No domain, repository, Room, DataStore, ViewModel,
+      Settings, navigation, dependency, manifest or build change; no artwork is
+      created, replaced or re-tinted; no parallax, no scroll choreography, no
+      second glass system, no second glass token ladder.
+
+- **Options considered and rejected.** (a) Restyle `ActivityCard` and
+  `MomentumSectionHeader` in place — redesigns 15 call sites across five screens,
+  which §4.6 forbids; (b) fork a Home-only copy of each — forks the material and
+  the accessible path, the outcome ADR-48 Amendment Note 2 already rejected for
+  `EmptyState`; (c) add real `RenderEffect` blur behind the glass — a fragile
+  minSdk-26 dependency the existing KDoc already declined, and a new
+  infrastructure dependency requiring its own ADR; (d) bundle Plus Jakarta Sans /
+  Inter — a font dependency, forbidden and unnecessary because Manrope covers
+  every role; (e) import the `DESIGN.md` dark palette and import Tailwind's colour
+  slots — contradicts `task.md` §4.4 and the precedence order.
+
+- **Approval.** **Requires explicit human approval before implementation**
+  (AGENTS.md §4/§21): items 2, 3, 5, 6, 8, 9 and 10 each add a token, a shared
+  parameter or copy, item 8 amends a human-ruled coherence guarantee, item 11
+  resolves a source conflict between artifacts, and item 12 records rejections of
+  primary-source elements. **Granted by the human on 2026-10-01** (`task.md` §4.7),
+  with two explicit reversals recorded as ADR-49 Amendment Note 1 (item 12's C10,
+  the bottom navigation) and ADR-48 Amendment Note 6 (item 10, the motion set).
+
+### ADR-49 Amendment Note 1 — the bottom navigation is re-rendered to the Stitch visual, in place, for all four destinations; behaviour is unchanged (Architect, TASK-018 A1, human ruling 2026-10-01 §4.7 r1 — approved)
+
+- **Instrument:** append-only. No ADR text above is rewritten, deleted or
+  restated. This note **supersedes** ADR-49 §12's C10 ruling and `task.md` §8.10
+  as originally written; it **adds to** ADR-49 §1 (the px-reads-as-dp convention),
+  §4 (blur is a documented non-adoption), §3 (`hue` is the only glass extension)
+  and §11 (Light/Dark via theme-aware tokens, no new colour token). The *human's*
+  ruling withdrew the Architect's earlier refusal; this note records the resulting
+  decision, not a reopening of it.
+
+- **Context.** ADR-22 locked the four top-level destinations; ADR-49 §12 C10
+  declined to restyle the shared bar because doing so would change all four
+  destinations and §4.6 forbids redesigning Habits / Tasks / Insights. The human
+  overrode that: *"Do NOT preserve the current Momentum bottom-navigation styling
+  merely because it is shared. … VISUAL = Stitch, BEHAVIOR = Momentum."*
+  `MomentumNavGraph.kt:223-232` is the **only** call site of `LiquidGlassBottomBar`
+  and of `RowScope.LiquidGlassTab`, so a single shared implementation reaches all
+  four destinations identically and they cannot desynchronise.
+
+- **Decision.**
+  1. **No Home-only fork.** The two existing shared composables are re-rendered in
+     place. Forking would create the second implementation that the single call
+     site exists to prevent, and the human forbade it. `MomentumNavGraph.kt`
+     changes **only** the `bottomBar` slot's padding: `start`/`end`
+     `MomentumSpacing.screen` → `MomentumSpacing.standard` (16 dp = `left-4`
+     `right-4`) and `bottom` `MomentumSpacing.compact` →
+     `MomentumSpacing.screen` (20 dp = `bottom-5`). `WindowInsets.navigationBars
+     .only(WindowInsetsSides.Bottom)` is retained and remains Momentum's
+     `env(safe-area-inset-bottom)`. Nav3, `backStack.selectTab`, the `showBar`
+     gate, `Scaffold`, `contentWindowInsets` and the four routes are untouched.
+  2. **Bar.** `rounded-full` → `CircleShape` (was `RoundedCornerShape(26.dp)`);
+     `h-16` → `Modifier.heightIn(min = 64.dp)` (**not** `height(64.dp)`, so the
+     bar grows at large font scales instead of clipping); `px-space-md` →
+     `padding(horizontal = MomentumSpacing.standard)` with the vertical padding
+     removed; `justify-around items-center` → `Arrangement.SpaceAround` +
+     `CenterVertically`. `GlassLevel.HERO` is retained: the reference's
+     `rgba(255,255,255,0.8)` background, `1px solid rgba(255,255,255,0.95)` border
+     and three-part shadow map onto the existing floating-layer material, and
+     `backdrop-filter: blur(24px) saturate(180%)` stays a **recorded
+     non-adoption** (ADR-49 §4) — the Stitch look is produced by the glass
+     material itself, with the atmosphere reading through the 0.68 wash.
+  3. **Tab.** `Modifier.weight(1f)` is removed in favour of
+     `Modifier.defaultMinSize(minWidth = 62.dp / 56.dp, minHeight = MomentumHeights
+     .controlMin)` — Stitch's own per-state `min-w`, and §19's 48 dp floor
+     (Stitch's inactive `min-h-[44px]` is below it and is **raised to 48 dp**; at
+     font scale 1.0 the natural heights of 50/52 dp already exceed it, so only the
+     guarantee changes). `py-1` → 4 dp, `mt-0.5` → a 2 dp `spacedBy`. Active:
+     a `CircleShape` capsule padded `16 × 6` dp filled with a 135° two-stop
+     gradient `lerp(c.auroraBlue, c.surface, 0.55f)@0.75f →
+     lerp(c.auroraLavender, c.surface, 0.50f)@0.85f`, `shadow(2.dp, spotColor =
+     c.primary.copy(alpha = 0.2f))`, `border(1.dp, Color.White.copy(alpha = 0.9f))`,
+     a 22 dp icon at `c.textPrimary`. Inactive: a 36 dp `CircleShape` slot
+     (`group-hover:bg-white/40` not implemented), a 23 dp icon at
+     `c.textSecondary`. Labels use the already-approved `MomentumLabelMicro`
+     11/14 token, `Bold` when selected and `SemiBold` otherwise, in
+     `c.textPrimary` / `c.textSecondary`. **No new colour token, no new type token
+     and no new spacing token are introduced.**
+  4. **Motion.** The existing `animateColorAsState` colour transitions are kept
+     and retargeted to the new inks; the capsule is driven by **one** added
+     `animateFloatAsState(0f → 1f)` whose value **scales the alphas** (never
+     `lerp`s toward `Color.Transparent`, which would darken through
+     premultiplication); and the selected scale **1.06 is removed**, because a
+     1.06 scale enlarges the glyph inside a capsule whose padding is Stitch-exact
+     and is a flourish the reference does not have. `Role.Tab`, the icon's
+     `contentDescription = label` and `glassPress` are all retained — press
+     feedback is not in the human's A1 list, so no affordance may be removed.
+  5. **Safe area and FAB — resolved by measurement, not by assumption.** The bar's
+     own height is **unchanged at 64 dp** (today's measured value is also 64 dp:
+     6 dp padding + 52 dp tab). Only the bottom margin moves, 12 → 20 dp, so the
+     `Scaffold` `bottomBar` slot grows by exactly **8 dp**, and `Scaffold` folds
+     that into `innerPadding.bottom` for the whole `NavDisplay`. `MomentumFab`
+     lives inside that content area, so it is carried up automatically; its own
+     clearance is `bottom = MomentumSpacing.section` (24 dp) from the top of the
+     bottom-bar slot, which is *larger* than the reference's 8 px
+     (`bottom: 5.75rem` − `bottom-5` − `h-16`), so **collision is unreachable**.
+     `EmptyDayBottomReserve` (96 dp) is **unchanged**: it is measured from the
+     region's bottom, already inset by `innerPadding`, so the +8 dp is absorbed
+     there. Recorded deviation: the bar's ends now sit 4 dp proud of the content's
+     20 dp screen axis (ADR-49 §12's C9 stands for content).
+
+- **Recorded deviations.** blur not adopted · bar background/border/shadow kept at
+  `GlassLevel.HERO`'s existing alphas and elevation (the reference's are more
+  opaque) · inactive `min-h` 44 → 48 dp · `h-16` → `heightIn(min = 64.dp)` ·
+  `#312e81`/`#1e1b4b`/`#64748b` → `c.textPrimary`/`c.textPrimary`/
+  `c.textSecondary` · capsule `rgba(99,102,241,0.2)` → `c.primary@0.2f` ·
+  capsule border `rgba(255,255,255,0.9)` → `Color.White.copy(alpha = 0.9f)` (the
+  same construction `Modifier.liquidGlass` already uses in this file) · the
+  capsule's two literal pastel stops → two `lerp(aurora…, c.surface, …)` stops at
+  the reference's own `0.75f`/`0.85f` alphas, which keeps it pale in Light and
+  deep in Dark so one `c.textPrimary` ink is legible in both · the active capsule
+  is 34 dp against the inactive 36 dp slot, so the active label sits ~1 dp higher,
+  and the inactive icon (23 dp) is 1 dp larger than the active one (22 dp) — both
+  are the reference's own asymmetries, reproduced deliberately.
+
+- **Consequences.** Changed: `components/LiquidGlass.kt` (`LiquidGlassBottomBar`,
+  `RowScope.LiquidGlassTab`), `navigation/MomentumNavGraph.kt` (three padding
+  values). **Affected screens: Home, Habits, Tasks and Insights**, identically, by
+  construction. The only layout consequence is **+8 dp `innerPadding.bottom`** on
+  each. No behavioural, routing, domain, persistence or dependency change.
+  **No existing test asserted on the navigation bar** (verified: zero references
+  to `LiquidGlassBottomBar`, `LiquidGlassTab`, `nav_home`, `RoundedCornerShape(26`
+  or `bottomBar` in `src/test` or `src/androidTest`), so nothing is invalidated;
+  new coverage is a source-reading `BottomNavStitchVisualTest`, androidTest bounds
+  assertions for the slot height and the 48 dp targets, and four new contrast-sweep
+  bands. `QuickAddTest`'s two `MomentumNavGraph.kt` assertions survive unchanged.
+
+### ADR-48 Amendment Note 6 — Home's motion becomes ambient: three approved loops from one shared clock, draw-phase only, entirely absent under reduced motion (Architect, TASK-018 A2, human ruling 2026-10-01 §4.7 r2 — approved)
+
+- **Instrument:** append-only. No ADR text above is rewritten, deleted or
+  restated. This note **supersedes ADR-48 §6 for Home**, supersedes ADR-49 §10's
+  rejection of `aurora-glow-pulse` / `bolt-pulse` / `fab-glow`, and **adds to**
+  ADR-47's static-Aurora clause for Home's `HomeAtmosphere` only (ADR-49 §7, §8.2
+  and §14 are untouched apart from the three rows below). It **also** amends
+  `task.md` §8.3, §8.7, §8.9, §8.11, §8.14 and §8.15.
+
+- **Context.** ADR-48 §6 ("Motion is change-triggered, not wall-clock") forbade
+  any permanent infinite animation on Home, and `HomeSectionMotionTest` asserted
+  it. The human reversed that rejection: the approved Stitch composition puts a
+  live Aurora inside the progress card and a glowing primary FAB over the
+  atmosphere, and those motions are part of the approved design. The human's
+  reversal was bounded — *no invented animation, no excessive motion, every loop
+  nulled under reduced motion* — and this note is that bound.
+
+- **Decision.**
+  1. **ADR-48 §6 is superseded for Home by a narrower rule, not a wider one.**
+     Home may run **ambient** loops: slow (≥ 2.2 s), tiny-amplitude, purely
+     decorative, driven from **one** `rememberInfiniteTransition`, consumed in the
+     **draw/layer phase only**, never owned by a `LazyColumn` item, and **entirely
+     absent** under reduced motion (the transition is never composed, and nothing
+     is merely shortened). **Change-triggered motion remains change-triggered:**
+     `animateItem` reflow, the ring sweep, `check-pop`, press compression, the
+     900 ms entrance clock and the one-shot milestone transient are unchanged.
+     **Rationale:** §6 was written when Home's Aurora was static and its progress
+     card carried no atmosphere of its own, so a permanent loop was pure battery
+     drain with nothing to animate. The approved composition changed that premise;
+     a blanket ban would now forbid reproducing the approved design. What §6 was
+     actually protecting — reduced motion, no invented motion, no motion that
+     costs composition — is preserved verbatim in the rule above.
+  2. **Exactly three loops are approved, each with `code.html`'s own numbers.**
+     *M1 — Aurora drift.* `code.html`'s `aurora-float` is **defined but never
+     bound** (verified: one occurrence, inside the `@keyframes` block), so it is
+     **left unbound**; the human's required "Aurora subtle movement" is instead
+     delivered by enabling `AuroraBackground`'s **existing** drift, whose
+     `MomentumMotion.ambient` = **6000 ms** matches `aurora-float`'s 6 s exactly and
+     whose ±3 % w / ±2.5 % h oscillation is ≈ the reference's own 8 px amplitude.
+     That requires `HomeAtmosphere`'s `animated = false` → `true`; `AuroraBackground`
+     nulls its own phase under reduced motion, so no new gate is added.
+     *M2 — `aurora-glow-pulse` (6 s) on the progress card's two aura blobs.*
+     `code.html` has them bound (`anim-aurora-blob`, 3 occurrences). The keyframe's
+     `filter: blur(32px) → blur(40px)` is expressed as an animated radial-gradient
+     radius (32 → 40 dp) via `canvas.scale` over a `drawWithCache`-cached brush —
+     one brush, **zero** per-frame allocation — because a wider blur radius *is* a
+     wider falloff. `filter: blur()` itself remains a **recorded non-adoption**
+     (ADR-49 §4). Opacity scales 0.35 ↔ 0.6 exactly as the reference does.
+     *M3 — `fab-glow` (3 s) on `MomentumFab`.* The component's **existing** single
+     shadow animates: elevation 12 → 16 dp and `c.primary` spot alpha 0.40 → 0.55,
+     the reference's own figures. `MomentumFab` gains `glowPulse: Boolean = false`
+     and `rotateGlyphOnPress: Boolean = false`; **`HabitsScreen`'s FAB is
+     byte-identical** because it does not opt in.
+     *M4 — `bolt-pulse` (2.2 s) on the `verified` glyph.* `graphicsLayer` only
+     (`scale 1 → 1.15`, `rotationZ 0 → −4°`), read from the shared clock; the
+     `drop-shadow` half is not implemented. *M5 — FAB press rotation* is the press
+     analogue of the reference's `hover:rotate-90`, using the reference's 90° and
+     the existing `fast` / `easeOut` tokens; hover itself remains n/a (C12).
+  3. **Two keyframes are not implemented, on verified evidence.**
+     `flame-pulse` and `aurora-float` each occur exactly once in `code.html` —
+     the keyframe block and the class definition respectively — so **both are
+     unbound in the reference itself**. `flame-pulse` additionally belongs to the
+     streak chip removed by the same human ruling. No binding is invented.
+  4. **One clock, and a reduced-motion path with no transition at all.**
+     `TodayScreen` composes exactly one `rememberInfiniteTransition(label =
+     "homeAmbient")` guarded by `if (reduceMotion) null else`, and derives
+     `ambientPulse` (6000 ms), `fabPulse` (`MomentumMotion.fabGlow` = 3000) and
+     `boltPulse` (`MomentumMotion.verifiedPulse` = 2200) from it, all with
+     `LinearEasing` (the reference's `ease-in-out`). Every consumer reads
+     `ambient?.let { … }?.value ?: 0f`, and `0f` is each keyframe's own `0%/100%`
+     resting value, so the static frame is a valid frame and nothing jumps.
+     `MomentumMotion` gains **exactly two** tokens (`fabGlow`, `verifiedPulse`),
+     each with a derivation comment; **no new easing token**.
+  5. **Per-frame cost and the composition guarantee.** Each loop is consumed in
+     `drawWithCache`, `graphicsLayer` or `Modifier.shadow`; none is read by a
+     composable body, so no loop recomposes its subtree; no loop is owned by a
+     `LazyColumn` item; and no loop adds a scroll observer. ADR-47 AN5's
+     "scrolling recomposes nothing" therefore holds **as a stated guarantee**: a
+     fling touches no loop input and, because no list item recomposes, no list
+     item's layer can be invalidated by a scroll. The FAB's shadow redraw is the
+     most expensive of the three and is confined to one fixed 56 dp element
+     outside the list.
+  6. **Recorded deviation.** `bolt-pulse` is applied inside a `LazyColumn` item
+     through `graphicsLayer`. The literal rule was "never animate anything inside a
+     `LazyColumn` item"; moving the `Completed` header out of the list would break
+     ADR-47 AN5 §5/§6's scroll architecture, which ADR-49 §7 and `task.md` §8.2
+     require to stand. The rule's **intent** is fully met — no per-item animation
+     instance, no per-frame recomposition, no scroll-driven work, one transition in
+     exactly one place — and the deviation is recorded rather than resolved
+     silently.
+
+- **Consequences.** Changed: `screens/today/TodayScreen.kt` (one shared ambient
+  clock + the FAB's two opt-ins), `screens/today/HomeAtmosphere.kt` (`animated =
+  true`), `screens/today/HomeCards.kt` (the two aura blobs + the `verified` glyph's
+  `graphicsLayer`), `components/MomentumFab.kt` (two additive default-`false`
+  parameters), `theme/Motion.kt` (two tokens). **Two currently-green assertions are
+  corrected, not deleted**: `HomeSectionMotionTest.Home runs no permanent infinite
+  animation` becomes `Home's only infinite motion is the three approved ambient
+  loops`, re-asserting the one-clock rule, the three exact periods, the enabled
+  Aurora drift and the two surviving rejections; `HomeAccessibilityTest`'s
+  `"no shimmer currency on Home"` is re-anchored to `TodayLoadingSkeleton`'s own
+  body so the no-shimmer invariant survives. `QuickAddTest` gains the opt-in
+  assertions, `HomeSectionMotionTest` gains an assertion that `HomeCards.kt`
+  contains no transition of its own, and `HomeAtmosphereAssetsTest`'s planned
+  `fab-glow`-absent negative is inverted into positive blob assertions. No domain,
+  repository, ViewModel, schema, dependency, manifest or build change.
+
+### ADR-49 Amendment Note 2 — the ISSUE-020 sweep for the TASK-018 composition is on record; one band failed and is re-inked to `c.textSecondary`, and three chrome bands stay OPEN (Architect, TASK-018, recorded — Orchestrator adjudication 2026-10-01 §10.1)
+
+- **Instrument.** Append-only. No ADR text above is rewritten, deleted or
+  restated. This note **records a measurement result plus one ink correction**. It
+  **supersedes ADR-47 Amendment Note 6's baseline by addition of this note**,
+  never by rewrite — the instrument AN7 itself declared — and it amends
+  `task.md` §8.7 and §8.8 **only** where named below: the encouragement /
+  completion-statement ink and the `Finished` label ink. ADR-47 §7, ADR-47
+  Amendment Notes 1–7, ADR-48 Amendment Notes 1–6, ADR-49 and ADR-49 Amendment
+  Note 1 stand exactly as written apart from those two inks.
+
+- **Why a re-measurement was required.** ADR-47 Amendment Note 7 replaced
+  `ArtworkWindow` with the reference-derived, width-proportional
+  `ArtworkBandFraction × windowWidth` = `460f / 640f × windowWidth` — **230 dp at
+  320 dp, 258.75 dp at 360 dp, 296.13 dp at 412 dp** — which is a direct
+  consequence of the human-approved width-proportional window (`task.md` §4.7,
+  "Approved as planned"). A wider band places more high-frequency illustration
+  under the same scrim, so **AN6's entire table is superseded by addition of this
+  note and must never be rewritten.** The region-sample **method**, the **≥ 4.5:1**
+  floor and the `[0.15, 0.35]` peak envelope are AN1's and AN6's and are unchanged
+  here.
+
+- **Method — unchanged, re-run from scratch for the TASK-018 geometry.** The
+  canonical ISSUE-020 **region-sample** method of ADR-47 Amendment Note 1: composite
+  page background + Aurora field + artwork (cover-crop `Alignment.BottomCenter`,
+  shared 88 dp `DstIn` dissolve) + the **full-content-area** four-stop scrim,
+  reduce each band's text rectangle to one mean background colour per channel,
+  compute the WCAG 2.x ratio against the band's ink token, and let the **minimum
+  region ratio across the sweep govern**.
+  **Sweep.** 2 themes × widths {360, 412} dp × content-area heights {560, 720} dp ×
+  `AuroraState.defaultIntensity` {0.35, 0.55, 0.75, 1.0} × the chrome bottom edge
+  at font scale {1.0, 2.0} × 3 day states {empty, populated, complete} ×
+  encouragement {on, off} × the full band list of `task.md` §8.15 — fraction ·
+  suffix · encouragement/statement · ring percentage (with the ring's 7.2 dp
+  `textPrimary @ 0.55` track composited into the sampled background) · ring `done`
+  label · `n Completed` / `n Pending` · the divider · both section headings and
+  both status labels · the completed card's strikethrough title · the completed
+  card's emerald control (its `c.success` fill **is** the sampled background) · the
+  pending card's empty ring · **plus the four nav bands added by ADR-49 Amendment
+  Note 1**: inactive label and inactive icon over the composited `GlassLevel.HERO`
+  bar, and active label and active icon over the animated capsule at both pulse
+  extremes.
+
+- **Why every glass band is computable without the artwork — the lower-bound
+  argument.** Each band sitting on glass was evaluated as a **provable lower
+  bound** on contrast: in **Light** the worst case is the glass composited over
+  **pure white** (no backdrop is lighter, and a lighter background can only lower
+  dark-ink contrast), in **Dark** the glass over **pure black**. This is
+  **conservative for dark ink in both themes**, and it is the only reason the
+  sweep is possible without decoding the illustration.
+
+- **Measured result — every band that could be computed.** Light worst cases, as
+  reported, by sampled surface (`GlassLevel` in brackets):
+
+  | Sampled surface | `textPrimary` | `textSecondary` | `textMuted` |
+  |---|---|---|---|
+  | progress card `#F0ECFC` [`HERO`] | **14.05:1** ✓ | **5.09:1** ✓ | **3.10:1** ✓ |
+  | pending card / nav bar, over white [`CARD` / `HERO`] | **16.27:1** ✓ | **5.90:1** ✓ | **3.10:1** ✓ |
+  | completed card, over white [`CONTROL`] | **16.27:1** ✓ | **5.90:1** ✓ | — |
+  | nav active capsule `#C8C1F4` | **9.60:1** ✓ | — | — |
+
+  - The `textMuted` **dot** and the completed **emerald control** are **non-text**
+    surfaces carrying their own **≥ 3:1** obligation, which both clear: the
+    control's `c.success` fill measures **4.26:1** against its surroundings and its
+    check ink reads **3.82:1** on that fill. The `3.10:1` dot is likewise reported
+    against the **non-text** obligation, never against the body-text floor.
+  - **Dark is comfortable throughout**: the worst text band is **6.04:1**, the nav
+    active capsule. Per-band Dark minima were not reported separately, so none are
+    tabulated here — the governing Dark figure is the one on record, and the
+    Reviewer re-verifies it independently (the ADR-47 AN6 precedent).
+
+- **One band failed, and the approved ink cannot legally ship as specified.**
+  - The **encouragement / completion-statement line**, specified in §8.7 in
+    `c.success`, measures **3.68:1** in Light **on its own card** — below the
+    **≥ 4.5:1** floor for a 14 sp Medium body line. The **`Finished`** status label
+    in `c.success` (§8.8) measures **≈ 4.26:1** on the bare Light atmosphere for
+    the same reason: `AuroraLight.success` `#1F8A70` (luminance 0.1964) reaches
+    only 4.26:1 **even against pure white**, so it cannot carry body or micro text
+    in this theme.
+  - **Independently verified** by the Orchestrator (`task.md` §10.1; WCAG relative
+    luminance computed straight from the sRGB values in `Color.kt` and
+    `code.html`): `c.success` `#1F8A70` on `#F0ECFC` = **3.72:1 — FAIL**;
+    `c.textSecondary` `#596579` = **5.08:1 — pass**; `c.textPrimary` `#172033` =
+    **17.71:1 — pass**. The Developer's **3.68:1** is the **governing** figure for
+    that band because it samples the region **as composited** — including the two
+    `clipToBounds` aura blobs beneath the content (§8.19 M2), which darken it —
+    where 3.72:1 is the token against the plain fill. **Both fail, and the ruling
+    below holds under either number.**
+  - **No in-envelope remedy exists.** The only knob the sweep may move is the
+    scrim **peak**, bounded by `[0.15, 0.35]`, and it cannot reach either band: both
+    sit on their own glass fill, or on a backdrop already at the peak. Moving it
+    would be a no-op for them.
+
+- **Root cause — a token-mapping error against the authoritative reference, not an
+  unavoidable constraint.** `code.html` does **not** colour either band with the
+  emerald success colour. Its encouragement line is `text-[#00687a]` (dark teal,
+  **5.55:1** on `#F0ECFC`) and its `Finished` label is `text-[#005236]` (dark
+  green, **8.19:1**) — both verified in the reference and both clearing the floor.
+  §8.7/§8.8's mapping of those two bands to `c.success` was a **semantic
+  substitution Momentum made**, and `screen.png` / `code.html` are authoritative
+  for concrete values (`task.md` §4.7 r1). The failure is therefore a **mapping
+  error**, which is correctable; it is not evidence that the approved composition
+  cannot carry the band.
+
+- **Decision — the ink follows the reference's role, in the closest existing
+  token.** **Both bands use `c.textSecondary`.**
+  - It clears the floor in **both** themes (**5.08:1** on the progress card's
+    `#F0ECFC` in Light), and it is the **closest existing token in role** to
+    Stitch's two dark inks: the reference's own secondary inks are slates
+    (`#475569` for the suffix, `done` and `n Pending`), and `AuroraLight.
+    textSecondary` `#596579` is the same slate family. §8.7/§8.8 already specify
+    `c.textSecondary` for all three of those sibling secondary bands on the same
+    card, so after this correction **four** secondary bands on the progress card
+    read in one token and one value covers both band types.
+  - **No new colour token** is introduced (§4.7 r5 / ADR-49 §11), and **no scrim
+    peak moves**: `ScrimPeakLight = 0.26f` / `ScrimPeakDark = 0.22f` stand, as do
+    `ScrimPeakStart = 0.20f`, `ScrimPeakEnd = 0.80f` and the four-stop profile.
+  - **Recorded deviation from the reference's literal hex.** `#00687a` and
+    `#005236` have **no Momentum token**, and introducing them would breach §4.7
+    r5's no-new-colour-token rule, while the **≥ 4.5:1** floor in §4.7 r6 / §19 is
+    **non-negotiable and is not weakened**. The deviation is recorded here rather
+    than absorbed silently.
+  - **The emerald signal is preserved** on the `verified` glyph tint and the emerald
+    completion control — both **non-text** surfaces with their own ≥ 3:1
+    obligation, both already measured passing.
+  - **ADR-47 §7 is not breached.** Its prohibition is on `textSecondary` **over
+    artwork** in the Hero. Both corrected bands sit on `HERO` glass or far below the
+    artwork window on the page background, and neither is Hero chrome; the fixed
+    chrome's own copy stays `textPrimary` (see the OPEN bands below).
+
+- **Structural consequence: `HomeSectionHeader`'s `accent` becomes glyph-only.**
+  `accent` currently does two jobs — it tints the `verified` glyph **and** supplies
+  the status label's `metaColor` (`accent ?: c.textSecondary`). Under this
+  correction the label's colour is `c.textSecondary` **unconditionally**, while
+  `accent = c.success` **remains** at the `Completed` call site, because that
+  argument is what renders the `verified` glyph — and that glyph is the sole
+  consumer of ADR-48 Amendment Note 6's **M4 `bolt-pulse` (2.2 s)** loop. Removing
+  the accent would delete an approved band and orphan an approved loop. `Scheduled
+  Today` and `Finished` therefore share one label token and differ **only** by the
+  glyph. `HomeSectionHeader`'s KDoc must be corrected to state that split, and
+  nothing is deleted.
+
+- **The `c.success` usages that legitimately remain — do not "fix" these.** Four
+  usages are **non-text surfaces** with their own **≥ 3:1** obligation and all four
+  pass: the ring's `arcBrush` gradient (`success → auroraBlue → auroraViolet`), the
+  breakdown row's success dot, the `verified` glyph tint, and the emerald completion
+  control (**4.26:1**, check ink **3.82:1**). **This note changes only the two text
+  bands.**
+
+- **Three bands left OPEN — unmeasured, not assumed-passing.** The **date capsule**,
+  the **greeting** and the **greeting support line** resolve against the composited
+  artwork rather than against any solid token surface (the capsule through its
+  `CONTROL`-glass pill, ADR-49 §8; the other two as bare ink under ADR-47 §7), so
+  the lower-bound argument above does not apply and the region sample **cannot be
+  computed** in this environment.
+  - **Why unmeasured:** the shared illustration is a **lossy VP8 WebP** and this
+    environment has **no decoder** for it — no Python, no ImageMagick/ffmpeg, no
+    npm packages, and the JDK's `ImageIO` has no WebP reader.
+  - **Why ADR-47 AN6's figures for these exact bands do not transfer:** the window
+    grew **74.75 dp at 360 dp**, so `ContentScale.Crop` with `Alignment.BottomCenter`
+    samples **different illustration rows at the same y**. AN6's date/greeting
+    figures are therefore not comparable and are not carried forward.
+  - **Status: OPEN.** Closing them requires a **WebP-capable environment or the
+    device** (`task.md` §8.16) and belongs to the human and the Reviewer.
+    **No measurement may be invented, extrapolated or assumed.** They are the
+    residual readability risk of TASK-018 and are recorded as such.
+
+- **Options considered.** (a) The Developer's option (a) — return the
+  encouragement to `textPrimary` and `Finished` to `textSecondary` — was refined
+  rather than adopted whole, because one token for both bands matches the reference's
+  single slate role and the card's existing secondary hierarchy; (b) a darker Light
+  `success` — a **new colour token**, forbidden by §4.7 r5; (c) accept 3.68:1 for a
+  14 sp Medium line — breaches the §4.7 r6 floor; (d) move the scrim peak — proven
+  above to be a no-op for both bands; (e) **`c.textSecondary` for both** (chosen).
+
+- **Verification status — stated plainly.** These are **computational contrast
+  figures**, not instrumented or on-device results. `adb` is unavailable in the
+  implementation environment, **no instrumented suite was executed, and no
+  screenshot, pixel, bounds or device claim is made or implied.** The Light figures
+  are the Developer's as reported; the two failing-band figures were additionally
+  verified by the Orchestrator. A **Reviewer independently re-verifies the sweep
+  and re-checks the ≥ 4.5:1 floor for both corrected bands** after the change.
+
+- **Consequences.** Changed: `presentation/screens/today/HomeCards.kt` only — the
+  `HomeEncouragementLine` colour (today `if (isComplete) c.textPrimary else
+  c.success`) becomes an unconditional `c.textSecondary`, and
+  `HomeSectionHeader`'s label colour stops deriving from `accent` while `accent`
+  keeps its glyph role (plus that composable's KDoc). `TodayScreen.kt` keeps
+  `accent = c.success`. No domain, repository, ViewModel, schema, dependency,
+  manifest, build, artwork, typography, motion or navigation change. Re-run
+  `:app:testDebugUnitTest`, and **confirm no test pinned the `c.success` ink**;
+  `HomeAtmosphereAssetsTest`'s currently-green `the completed status is emerald`
+  assertion must be **re-pointed at the glyph, not deleted**, and the
+  Reviewer re-checks the floor for both bands.
+
+### ADR-49 Amendment Note 3 — the ISSUE-020 sweep's method was inverted for the chromatic progress card; both bands take `c.textPrimary`, three sibling card bands are newly at risk, and AN2's figures and ruling are superseded (Architect, TASK-018, recorded — `task.md` §10.7)
+
+- **Instrument.** Append-only; nothing above is rewritten, deleted or restated.
+  This note **supersedes ADR-49 Amendment Note 2's lower-bound argument, its
+  `textSecondary` table row for the progress card, and its `c.textSecondary`
+  ruling**, by reference and not by restatement. AN2 and everything above it
+  stand as written.
+
+- **AN2's method was inverted for this card — the defect.** AN2 bounded every
+  glass band by compositing over **pure white** in Light ("a lighter background
+  can only lower dark-ink contrast"). That is valid for a **solid** fill. It is
+  **backwards** for the Home progress card, whose `Modifier.liquidGlass(hue = …)`
+  (ADR-49 §4, the one approved glass extension) paints a **chromatic wash** —
+  `lerp(c.surface, auroraLavender, HueMix = 0.55)` at
+  `MomentumGlass.heroFill = 0.68` — **composited over the backdrop**, not painted
+  into it. Dark ink **gains** contrast as its background lightens, so the
+  governing case is the card's **darkest** composited stop over the **darkest**
+  backdrop, not the plain stop over white.
+  - **AN2's band list also mixed points.** It reported `textMuted 3.10:1` — the
+    *lightest* stop — beside `textSecondary 5.09:1` — the *middle* stop `#EFEDFB`.
+    **The governing minimum was never taken**, so AN2's `textSecondary` rows are
+    not valid governing values in either direction.
+
+- **Corrected figures.** Recomputed from the sRGB values in `Color.kt`, modelling
+  the wash exactly (`HueMix = 0.55`, `heroFill = 0.68`, tinted stop `#C3B5F2` =
+  `lerp(#FFFFFF, AuroraLight.auroraLavender #9278E8, 0.55)`).
+  `AuroraLight.textSecondary` `#596579` is **L 0.12812** and requires a composited
+  backdrop of **≥ 0.75154** for 4.5:1. `AuroraLight.textPrimary` `#172033` is
+  **L 0.01454** and requires **≥ 0.24043**.
+
+  | composited backdrop | card's tinted stop | `c.textSecondary` | `c.textPrimary` |
+  |---|---|---|---|
+  | `#FFFFFF` pure white | `#D6CDF6` (L 0.6461) | **3.91:1 FAIL** | **10.79:1 pass** |
+  | `#F7F8FC` Light page | `#D4CAF5` (L 0.6283) | **3.81:1 FAIL** | **10.51:1 pass** |
+  | `#E0E0F0` | `#CCC3F1` (L 0.5822) | **3.55:1 FAIL** | **9.79:1 pass** |
+  | `#B0B0D8` dark artwork region | `#BDB3EA` (L 0.4900) | **3.03:1 FAIL** | **8.37:1 pass** |
+
+  Every composited luminance above falls below `textSecondary`'s 0.75154
+  requirement, so `c.textSecondary` **fails the floor on this card at every point
+  of the sweep**. The true worst case is **at or below** the `#B0B0D8` row,
+  because the real backdrop is the unmeasurable artwork composite.
+  `c.textPrimary` clears the floor at every stop over every backdrop above, with
+  wide margin.
+
+- **Third record-accuracy correction — two further wrong numbers.** AN2's
+  §10.7-era `textPrimary` figures (**L 0.0011**, derived threshold **−0.045**) are
+  wrong. `AuroraLight.success` `#1F8A70` at **L 0.1964** is correct and stands.
+  The two threshold intermediates supplied alongside the table above
+  (**0.5266** and **0.01544**) were checked on preparing this note and are
+  **also wrong** — both omit the `+0.05` on the ink's own luminance. Correct:
+  **`0.75154`** and **`0.24043`**; the table's ratios reproduce unchanged from them.
+  **None of these wrong numbers reached any code or KDoc, and none changed the
+  ruling.** They are recorded so no future reader derives a non-reproducible
+  threshold from this note.
+
+- **Ruling — supersedes AN2's `c.textSecondary` decision.**
+  - The **encouragement / completion-statement** line → **`c.textPrimary`**.
+  - The **`Finished`** status label → **`c.textPrimary`**. Neither status label
+    sits on a solid fill; both are bare text over the composited atmosphere, the
+    same compositing situation whose inverted measurement direction invalidated
+    `textSecondary` on the card.
+  - **`Scheduled Today`** (the `Pending` meta) **stays `c.textSecondary`**. It
+    sits on the **bare page atmosphere**, not on the card's wash, so AN2's
+    measurement for it is unaffected and it remains the default.
+  - **Why `c.textSecondary` had to be abandoned on the card specifically.** It is
+    a **legitimate** token — §8.7/§8.12 already use it for the sibling secondary
+    bands — but at **L 0.12812** its luminance is too high to survive the
+    chromatic wash. `c.textPrimary` is the ink TASK-017 already used for this
+    copy, matches the reference's own darkest ink family (`#0f172a`), introduces
+    **no new colour token** (§4.7 r5), and moves **no scrim peak**
+    (`ScrimPeakLight = 0.26f` / `ScrimPeakDark = 0.22f` stand).
+
+- **NEW finding — three sibling secondary bands on the same card are also at
+  risk. Not passed, not decided here.** The same **≥ 4.5:1** floor applies to the
+  other `c.textSecondary` bands, and three of the four sit **inside** the wash
+  modelled above: the **`items done`** suffix, the ring's **`done`** unit, and
+  **`n Pending`**. Each therefore fails by the same computation, at every stop,
+  by the margins tabulated above. Only **`Scheduled Today`** is unaffected, being
+  on the bare page. **No corrective ink is chosen for these three bands in this
+  note** — that is a product-ruling decision reserved to the human, and the
+  canonical issue registry is Orchestrator-owned. Carried as an open finding, not
+  silently passed.
+
+- **Structural consequence — the actual shipped mechanism, superseding AN2's
+  "accent becomes glyph-only" account.** The correction did **not** make the label
+  colour stop deriving from `accent`. `HomeSectionHeader` gained one **additive,
+  default-`null`** parameter `labelColor: Color? = null` and computes
+  `val statusInk = labelColor ?: c.textSecondary`, so `Finished`
+  (`c.textPrimary`) and `Scheduled Today` (`c.textSecondary`) can differ.
+  `accent = c.success` **remains** at the `Completed` call site and is now
+  **glyph-only**, still gating the `verified` glyph — the **sole** consumer of
+  ADR-48 Amendment Note 6's M4 `bolt-pulse` (2.2 s). Nothing was deleted, and the
+  composable's KDoc states the split.
+
+- **Unchanged and still true in AN2 — not to be re-litigated.** The
+  re-measurement requirement and AN6's supersession-by-addition; the region-sample
+  method and the **≥ 4.5:1** floor (**not weakened**); the `[0.15, 0.35]` peak
+  envelope and all four scrim stops; the four legitimate remaining `c.success`
+  **non-text** usages — ring `arcBrush`, breakdown dot, `verified` glyph tint, and
+  the emerald completion control (**4.26:1** fill, **3.82:1** check ink) — each
+  carrying its own **≥ 3:1** obligation; the **root cause**, a semantic
+  substitution against `code.html`'s `#00687a` / `#005236`, neither of which has a
+  Momentum token; ADR-47 §7 **not** being breached; and the **three OPEN bands**
+  (date capsule, greeting, greeting support line) together with every band that
+  resolves against the **real** composited artwork — including this card's true
+  backdrop stop — still **unmeasured**, still requiring a **WebP-capable
+  environment or the device** (`task.md` §8.16), and **never to be assumed**.
+
+- **Verification status — stated plainly.** These are **computational** contrast
+  figures, not instrumented or on-device results. `adb` is unavailable:
+  **no instrumented suite ran, and no screenshot, pixel, bounds or device claim is
+  made or implied.** The Reviewer re-reviewed and returned **PASS** on `task.md`
+  §10.9, independently reproducing the wash computation and confirming
+  `textPrimary` clears the floor. **Visual fidelity to `screen.png` remains
+  unverified and belongs to the human.**
+
+- **Consequences.** Supersedes AN2's ink ruling, its lower-bound argument, and its
+  `textSecondary` row for the progress card. Adds one finding AN2 did not carry:
+  three sibling secondary bands on that card now fail the same floor. The shipped
+   code already matches this note; the three sibling bands remain `c.textSecondary`
+   pending the human's ruling. No domain, repository, ViewModel, schema,
+   dependency, manifest, build, artwork, typography, motion or navigation change
+   is required.
+
+### ADR-49 Amendment Note 4 - the ISSUE-020 remediation plan: glass-wash material fixes, four per-band ink decisions, the ring-% band correction, and the ring arc's decorative exemption (Architect, TASK-018, recorded - `task.md` §8.20)
+
+- **Scope.** Implements the §4.10 A-F requirement for the 16 failing bands of
+  §10.11. The full plan (region rulings, change list, untouched passing regions,
+  verification) lives in `task.md` §8.20; this Note records the decisions that
+  amend or supersede earlier entries. All figures are computational, produced by
+  the §10.11 harness under one winning configuration; the Reviewer re-run is
+  pending, and no instrumented or on-device claim is made.
+
+- **Material (supersedes no prior ink ruling; enables most bands).** Non-hue
+  glass wash restructured to a solid fill layer with a fading top highlight
+  (`LiquidGlass.kt`, `hue == null` branch only; the `hue = auroraLavender`
+  progress-card wash keeps its shape); `HueWashMidAlpha 0.5f -> 0.8f`; and
+  `MomentumGlass` fill raises `heroFill 0.68 -> 0.85`, `cardFill 0.55 -> 0.90`,
+  `controlFill 0.45 -> 0.90`. Empirical necessity: without the wash restructure,
+  raised fills collapse worst-case Dark samples (pending row 1.79, nav 3.00).
+
+- **Ink decisions (per-band, not a blanket conversion) - four reversals:**
+  1. `Scheduled Today` meta: §13.1 and AN3's `c.textSecondary` default is
+     superseded - measured 3.24 Light / 2.45 Dark against the dissolve backdrop,
+     where no foreground treatment other than ink can pass (backdrop frozen).
+     It takes `labelColor = c.textPrimary` at the Pending header call site,
+     matching its own title and `Finished`; verified 4.57 / 8.72.
+  2. `verified` glyph tint: AN3's "`accent = c.success` **remains** at the
+     `Completed` call site" is superseded - measured 2.34 Light. `accent` becomes
+     `c.textPrimary` (glyph-only per the KDoc); verified 4.57 / 8.72.
+  3. Breakdown dots: this Note-series' list of legitimate `c.success` /
+     `c.textMuted` non-text usages is narrowed - the success dot (2.23 Light)
+     and the textMuted dot (1.62 / 1.20) both become `c.textPrimary`
+     (verified 4.78 / 8.44). The ring's `arcBrush` gradient and the emerald
+     completion control remain the `c.success` surfaces (the arc under 4(b)
+     below, the emerald under 3 below).
+  4. Row-title ink is **unchanged** (`if (completed) c.textSecondary else
+     c.textPrimary`, pinned by `HomeAccessibilityTest.kt:264`); rows pass on
+     material alone (5.59 / 6.00).
+
+- **Emerald completion control (supersedes AN3's figures).** The gradient stops
+  move from `success -> success⊕mint@0.5` to the near-flat window
+  `[lerp(success, auroraMint, 0.30f), lerp(success, auroraMint, 0.34f)]`, which
+  is the only window where the dark check glyph (needs stop L >= 0.252) and the
+  Light fill boundary (needs stop L <= 0.267) both clear; glyph ink stays
+  `c.onPrimary`. AN3's "4.26:1 fill, 3.82:1 check ink" are superseded by
+  3.09 / 7.49 boundary and 4.84 / 12.14 glyph. The idle-ring border alpha rises
+  `0.4f -> 0.8f` (empty-ring boundary 1.68 / 1.24 -> 3.42 / 3.65).
+
+- **Ring-% band model corrected (amends §8.15's measurement definition, not its
+  floor).** The percent text cannot overlap the track (96dp ring, 7.2dp stroke,
+  40.8dp inner radius vs ~33dp text half-diagonal; `HomeCompositionTest` bounds
+  it), so the band measures `c.textPrimary` against the card, not a
+  track-composited backdrop. Floor stays 4.5; verified 4.78 / 8.44. The
+  conservative composite was also algebraically unsatisfiable (shared hue family
+  with the track).
+
+- **Ring arc exempted as decorative (amends AN3's "each carrying its own ≥3:1
+  obligation" for `arcBrush` only).** `showPercent = false`, the KDoc's "the ring
+  stays decorative", and the adjacent `%` text at 4.5:1 make the arc redundant
+  with verified text; and at the remediated card composites a ≥3:1 arc would
+  have to become an ink arc (stops at L <= 0.122 Light / 0.057 Dark), reversing
+  ADR-48 AN5's approved `success -> auroraBlue -> auroraViolet` gradient for no
+  informational gain. The gradient is kept unchanged; the HomeCards KDoc's false
+  "both already pass" claim is corrected. §4.10: "decorative boundaries must not
+  be modified blindly."
+
+- **Scrim and scope.** No scrim adjustment is used or justified: every text and
+  state band passes on foreground/token treatment alone, so the §4.10 scrim rule
+  is never engaged; all four scrim stops and the `[0.15, 0.35]` peak are
+  untouched. No new tokens (§4.10 D: not needed). Passing regions are untouched.
+  Source-assertion tests pinned to superseded expressions
+  (`HomeAtmosphereAssetsTest.kt`, `BottomNavStitchVisualTest.kt`) are updated in
+  the same change per `task.md` §8.20.2 - they are corrections of pinned
+  expressions, not weakenings of accessibility intent.
+
+### ADR-49 Amendment Note 5 — the ISSUE-020 remediation is re-scoped to Home: a default-`null` `fillAlpha` glass opt-in, two Home-only material constants, one Home-only empty-state ink, and the navigation/idle-ring shared blockers held for the human (Architect, TASK-018, 2026-10-02 — `task.md` §4.11)
+
+- **Instrument.** Append-only. No ADR text above is rewritten, deleted or
+  restated. This note **supersedes ADR-49 Amendment Note 4's "Material" section in
+  full** (the global non-hue two-layer wash, `HueWashMidAlpha 0.5 -> 0.8` as a
+  global constant, and the global `MomentumGlass` fill raises `0.68/0.55/0.45 ->
+  0.85/0.90/0.90`), never by rewrite, and **supersedes AN4's per-band treatment
+  for the empty-state body** (fill raise -> ink). AN4's four per-band ink
+  decisions, its ring-% band-model correction, its ring-arc decorative exemption,
+  its emerald window, and its scrim-not-required finding **stand exactly as
+  approved** and are re-affirmed here where re-scoped. The human's `task.md`
+  §4.11 ruling is the authority and outranks AN4 wherever they differ.
+
+- **Why the re-scope (the human's ruling, not a preference).** AN4 passed every
+  §10.11 band by raising three shared fills and restructuring the shared wash
+  globally. The human rejected that ("unacceptable blast radius across Home,
+  Habits, Tasks, Insights and Settings", "conflicts with Aurora remaining
+  perceptible") and required a **Home-scoped** first pass: shared-API changes are
+  acceptable only as default-preserving optional parameters, and shared components
+  with no Home path (the bottom navigation) must be **flagged, not silently
+  changed** (§4.11 CHANGE 1; the navigation blocker).
+
+- **Decision — the Home-scoped material mechanism.**
+  1. **One additive, default-`null` parameter on the shared modifier.**
+     `Modifier.liquidGlass(shape, level, hue = null, fillAlpha: Float? = null)`.
+     `null` (every existing caller) is byte-identical to today — `effectiveFillAlpha
+     = level.fillAlpha` and the legacy single `topLight -> fill -> fill` vertical
+     gradient. Non-null (Home) sets `effectiveFillAlpha = fillAlpha` and switches the
+     non-hue wash to a **two-layer** treatment — a solid `surface @ fillAlpha`
+     underlayer with a fading top streak — so a single opt-in reproduces, on Home
+     alone, both AN4's E1 (two-layer) and E3 (raised fill). There is still **one**
+     glass implementation and no Home fork; rollback is deleting the argument.
+  2. **`HueWashMidAlpha 0.5 -> 0.8` is Home-only by construction**, not by a new
+     scope rule: `hue` is non-null at exactly one production call site (the Home
+     progress card), so `HueWashMidAlpha` and `HueMix` are reached only there.
+     (§4.11 CHANGE 3.)
+  3. **Home call sites pass the fills the rejected E3 would have applied
+     globally:** progress card `fillAlpha = 0.85f`; `HomeActivityCard`
+     `fillAlpha = 0.90f` for both `CARD` (pending) and `CONTROL` (completed).
+     `Tokens.kt` is **unchanged** — `MomentumGlass.heroFill/cardFill/controlFill`
+     stay `0.68/0.55/0.45` for every non-Home caller.
+  4. **Two Home-only constants** (single production caller, no global token):
+     `TrackAlpha 0.55 -> 0.7` (`ProgressOrb`, Home sole production caller) and the
+     `CompletionAccent.SUCCESS` gradient window
+     `success -> success⊕mint@0.5` -> `[lerp(success, auroraMint, 0.30f),
+     lerp(success, auroraMint, 0.34f)]` (`HomeCards` sole `SUCCESS` caller), with
+     the check glyph ink unchanged at `c.onPrimary`.
+
+- **Decision — ink, per band (re-affirms AN4 as approved).** `Scheduled Today` ->
+  `labelColor = c.textPrimary` (Pending header); the `verified` glyph `accent` ->
+  `c.textPrimary`; the two breakdown dots -> `c.textPrimary`. The empty-state body
+  becomes `c.textPrimary` through one additive `EmptyState(bodyColor: Color? =
+  null)` parameter (Home passes `textPrimary`; Activities/Insights/Habits keep the
+  `textSecondary` default) — replacing AN4's rejected fill-raise (the band's
+  measured backdrop is the raw atmosphere, not the card fill, so material alone
+  cannot fix it). No blanket `textSecondary -> textPrimary` conversion.
+
+- **Ring-% and ring arc — re-affirmed unchanged.** The ring-% band is a
+  measurement-model correction (the `%` text cannot overlap the 7.2 dp track:
+  inner radius 40.8 dp vs ~33 dp half-diagonal), ink already `textPrimary`; the
+  ring arc remains classified **decorative** under §4.11 CHANGE 5's five
+  conditions (redundant with the ≥4.5 `%` text; forcing 3:1 forces an ink arc at
+  L ≤ 0.122/0.057 that reverses ADR-48 AN5's gradient).
+
+- **Shared-component blockers — held for the human, not changed here.**
+  (1) The bottom navigation's inactive label/icon (Dark 3.34) and Light capsule
+  boundary (1.11) have **no Home-only path** (one `Scaffold.bottomBar` call site
+  across four destinations, screen-independent backdrop). Smallest shared
+  mechanism: Light capsule border -> `c.textPrimary` and a nav-scoped `fillAlpha`
+  on the bar's own `liquidGlass(CircleShape, HERO)` (which is *more* faithful to
+  the reference's `rgba(255,255,255,0.8)` bar). (2) The `CompletionButton` idle
+  ring boundary (`textSecondary @ 0.4`) is a shared constant across every
+  completion toggle; its smallest change is `0.4 -> 0.8` (or a Home-only
+  `idleRingBorderAlpha` parameter). Neither is authorized until the human rules.
+
+- **Verification status — stated plainly.** These are computational contrast
+  figures from §10.11 and AN4's X2 configuration, carried forward **only where the
+  Home-scoped mechanism reproduces X2's Home treatment exactly**; no new ratio is
+  invented, and the Reviewer's re-run plus the device matrix remain with the human
+  and the Reviewer (`adb` unavailable). No scrim, artwork, dissolve, geometry,
+  threshold, dependency, motion, `Tokens.kt` or `Color.kt` change is proposed; no
+  new colour, type or motion token is introduced.
+
+- **Consequences.** Changed (on approval): `components/LiquidGlass.kt` (`fillAlpha`
+  param + two-layer non-hue wash, `HueWashMidAlpha 0.8`), `components/ProgressOrb.kt`
+  (`TrackAlpha 0.7`), `components/CompletionButton.kt` (`SUCCESS` window `[0.30,
+  0.34]`), `components/MomentumBadges.kt` (`EmptyState.bodyColor`),
+  `screens/today/HomeCards.kt` (dots -> `textPrimary`, `fillAlpha`, KDoc),
+  `screens/today/TodayScreen.kt` (`labelColor`, `accent`, `bodyColor`), re-pointed
+  source-assertion tests, and this note. **Unchanged:** `theme/Tokens.kt`,
+  `theme/Color.kt` (and every other theme file), `navigation/MomentumNavGraph.kt`
+  (behaviour), `ActivityCard.kt`, `MomentumComponents.kt`, the frozen background,
+  all non-Home screens, and the whole domain/data/repository/ViewModel layer.
+
+### ADR-49 Amendment Note 6 — the ISSUE-020 Home-scoped remediation is implemented, and the three shared blockers held by AN5 are approved and changed (Human ruling + Developer, TASK-018, 2026-10-02 — `task.md` §8.20)
+
+- **Instrument.** Append-only. No ADR text above is rewritten, deleted or
+  restated. This note records the human's approval of the three shared
+  components AN5 §"Shared-component blockers" held pending a ruling, and the
+  Developer's implementation of AN5's Home-scoped plan. AN5's Home-scoped
+  mechanism and per-band ink decisions stand; this note only resolves the
+  blocker and records the as-built state.
+
+- **Decision — the shared blockers are approved with these exact mechanisms.**
+  1. **Bottom-navigation capsule boundary.** `RowScope.LiquidGlassTab`'s active
+     capsule hairline becomes **theme-resolved**: Light uses
+     `c.textPrimary.copy(alpha = CapsuleBorderAlpha * capsuleProgress)`, Dark
+     keeps `Color.White.copy(alpha = CapsuleBorderAlpha * capsuleProgress)` —
+     mirroring the generic `Modifier.liquidGlass` hairline (the white hairline
+     measured 1.11:1 on the near-white Light capsule). No layout, behaviour,
+     routing, padding or interaction change.
+  2. **Bottom-navigation inactive label/icon.** The bar's own
+     `liquidGlass(CircleShape, GlassLevel.HERO)` call opts into a nav-scoped
+     `fillAlpha = 0.85f` (a two-layer solid fill, raising it toward the
+     reference's own `rgba(255,255,255,0.8)`). The inactive ink **stays**
+     `c.textSecondary`; the selected/inactive hierarchy is preserved, never
+     flattened to `c.textPrimary`. Navigation behaviour is unchanged.
+  3. **CompletionButton idle ring.** `CompletionButton` gains one additive,
+     default-`null` parameter `idleRingBorderAlpha: Float? = null`. `null`
+     keeps the shared `0.4` idle border alpha exactly, so every non-Home
+     completion control is byte-identical; Home opts into `0.8` for its more
+     solid row fills. The `0.4 → 0.8` change is **not** global.
+
+- **As built (AN5 §"Consequences", now realised).** `Modifier.liquidGlass`
+  gains `fillAlpha: Float? = null` and the Home-only two-layer non-hue wash;
+  `HueWashMidAlpha = 0.8f`; `ProgressOrb.TrackAlpha = 0.7f`;
+  `CompletionAccent.SUCCESS` gradient window
+  `[lerp(success, auroraMint, 0.30f), lerp(success, auroraMint, 0.34f)]` with the
+  check glyph still `c.onPrimary`; `EmptyState(bodyColor: Color? = null)`; the
+  Home progress card `fillAlpha = 0.85f`, Home rows `fillAlpha = 0.90f`, the two
+  breakdown dots `c.textPrimary`, Pending `Scheduled Today` and Completed
+  `Finished` `labelColor = c.textPrimary`, the `verified` glyph `accent =
+  c.textPrimary`, and Home's empty-state body `bodyColor = c.textPrimary`.
+
+- **Preserved, not changed.** `theme/Tokens.kt` and `theme/Color.kt` (and every
+  other theme file) are untouched — `MomentumGlass.heroFill/cardFill/controlFill`
+  stay `0.68/0.55/0.45`; `navigation/MomentumNavGraph.kt` behaviour, the four
+  destinations, routing, `selectTab` and the `showBar` gate are unchanged; the
+  frozen background (§4.9) is untouched; `ActivityCard.kt`,
+  `MomentumComponents.kt`, `MomentumIcons.kt`, `MomentumFab.kt` and the whole
+  domain/data/repository/ViewModel layer are unchanged.
+
+- **Verification status.** The bounded ISSUE-020 re-measurement is re-run against
+  the changed bands only (Home progress card, Home rows, empty body, status inks,
+  dots, ring track and percentage, emerald window, plus the nav bands), Light and
+  Dark, with the floors unchanged (4.5:1 text / 3.0:1 non-text) and the ring arc
+  decorative under §4.11 CHANGE 5. The default/`null` paths are confirmed
+  unchanged on Habits/Tasks/Insights (the shared nav bar is one call site across
+  all four destinations; every non-Home completion control keeps `0.4`). The
+  on-device matrix remains with the human (`adb` unavailable).
+

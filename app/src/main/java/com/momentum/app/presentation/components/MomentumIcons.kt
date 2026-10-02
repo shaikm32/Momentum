@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.runtime.Composable
@@ -134,4 +135,12 @@ object MomentumIcons {
     val star = Icons.Rounded.Star
     val trendingUp = Icons.AutoMirrored.Rounded.TrendingUp
     val trendingDown = Icons.AutoMirrored.Rounded.TrendingDown
+
+    /**
+     * The sealed-badge tick Home's `Completed` section status wears
+     * (ADR-48 Amendment Note 5) — the approved reference's `verified` symbol,
+     * expressed in the same Material Symbols Rounded family as every other
+     * glyph. Additive: no existing slot changed.
+     */
+    val verified = Icons.Rounded.Verified
 }

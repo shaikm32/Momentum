@@ -189,15 +189,33 @@ fun StatCard(
     }
 }
 
-/** Calm glass empty state: small icon tile, centered copy, text CTA. */
+/**
+ * Calm glass empty state: small icon tile, centered copy, and an **optional**
+ * text CTA.
+ *
+ * The CTA is optional because not every empty state *should* have one: Home
+ * renders this card with no action at all, so the single floating Quick Add
+ * button remains the only creation affordance on that screen (ADR-48
+ * Amendment Note 2). The defaults are additive and every other call site
+ * passes the CTA by name, so their rendering is unchanged. When either half of
+ * the pair is missing there is no button at all — the card communicates state.
+ *
+ * [bodyColor] is one additive parameter (ADR-49 Amendment Note 6, human ruling
+ * 2026-10-02 §8.20): `null` keeps the shared `c.textSecondary` body ink exactly,
+ * so every non-Home caller is byte-identical; Home passes `c.textPrimary`
+ * because its empty-state body sits over the raw atmosphere, where
+ * `textSecondary` measures below the 4.5:1 text floor and no material fill can
+ * help.
+ */
 @Composable
 fun EmptyState(
     title: String,
     body: String,
-    actionLabel: String,
-    onAction: () -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    bodyColor: Color? = null,
 ) {
     val c = LocalMomentumColors.current
     Column(
@@ -248,10 +266,12 @@ fun EmptyState(
         Text(
             body,
             style = MaterialTheme.typography.bodyMedium,
-            color = c.textSecondary,
+            color = bodyColor ?: c.textSecondary,
         )
-        TextButton(onClick = onAction) {
-            Text(actionLabel, color = c.primary, fontWeight = FontWeight.SemiBold)
+        if (actionLabel != null && onAction != null) {
+            TextButton(onClick = onAction) {
+                Text(actionLabel, color = c.primary, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

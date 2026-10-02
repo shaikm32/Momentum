@@ -46,11 +46,14 @@ fun momentumHeroArtworkRes(dark: Boolean): Int =
 /**
  * Draws the shared Momentum hero artwork.
  *
- * **Crop.** Cover-crop anchored to [alignment] (bottom by default), so the
- * illustration's quiet lower third — the same pixels a Hero's ring and copy
- * sit on at every height — stays pinned under the content while the crop
- * recedes upward as the container shrinks. There is no re-layout and no
- * interpolated layout state; height is layout, not flourish.
+ * **Scale.** [contentScale] defaults to [ContentScale.Crop]: cover-crop
+ * anchored to [alignment] (bottom by default), so the illustration's quiet
+ * lower third — the same pixels a Hero's ring and copy sit on at every height —
+ * stays pinned under the content while the crop recedes upward as the container
+ * shrinks. A caller whose container carries the artwork's own intrinsic ratio
+ * may pass [ContentScale.Fit] to render the complete illustration uncropped.
+ * There is no re-layout and no interpolated layout state; height is layout, not
+ * flourish.
  *
  * **Edges (ADR-39, D0 rule 4 re-stated).** An offscreen `DstIn` alpha profile
  * dissolves [bottomDissolve] into whatever sits behind the artwork (screen
@@ -86,6 +89,7 @@ fun MomentumHeroArtwork(
     bottomDissolve: Dp = DefaultBottomDissolve,
     zoom: Float = 1f,
     parallax: Dp = 0.dp,
+    contentScale: ContentScale = ContentScale.Crop,
 ) {
     val dark = LocalMomentumColors.current.isDark
     // ADR-39: `topDissolve` is deliberately not read here — the declared top
@@ -93,6 +97,7 @@ fun MomentumHeroArtwork(
     HeroArtworkImage(
         res = momentumHeroArtworkRes(dark),
         alignment = alignment,
+        contentScale = contentScale,
         bottomDissolve = bottomDissolve,
         zoom = zoom,
         parallax = parallax,
@@ -105,6 +110,7 @@ fun MomentumHeroArtwork(
 private fun HeroArtworkImage(
     @DrawableRes res: Int,
     alignment: Alignment,
+    contentScale: ContentScale,
     bottomDissolve: Dp,
     zoom: Float,
     parallax: Dp,
@@ -113,7 +119,7 @@ private fun HeroArtworkImage(
     Image(
         painter = painterResource(id = res),
         contentDescription = null,
-        contentScale = ContentScale.Crop,
+        contentScale = contentScale,
         alignment = alignment,
         modifier = modifier
             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)

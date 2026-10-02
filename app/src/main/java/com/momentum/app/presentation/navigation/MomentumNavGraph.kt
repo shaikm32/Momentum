@@ -207,7 +207,19 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
                 if (showBar) {
                     // Scaffold expects the bottom bar to handle its own insets
                     // (M3 Scaffold KDoc) — pad by the navigation-bar inset so the
-                    // floating bar never sits under system gesture areas.
+                    // floating bar never sits under system gesture areas. This
+                    // is the platform equivalent of the reference's
+                    // `env(safe-area-inset-bottom)` and is **unchanged**
+                    // (ADR-49 Amendment Note 1).
+                    //
+                    // The three margin values are the reference's own: `left-4` /
+                    // `right-4` (16 dp) and `bottom-5` (20 dp), where the bar
+                    // previously used Momentum's 20 dp screen axis and 12 dp
+                    // `compact`. The bar's own height is unchanged at 64 dp, so
+                    // the slot grows by exactly 8 dp and `Scaffold` folds it into
+                    // `innerPadding.bottom` for all four destinations — nothing
+                    // else moves. From the screen bottom upwards: navigation-bar
+                    // inset → 20 dp → the 64 dp pill, with 16 dp side margins.
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -215,9 +227,9 @@ fun MomentumNavGraph(onboardingDone: Boolean, openActivityId: Long?) {
                                 WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
                             )
                             .padding(
-                                start = MomentumSpacing.screen,
-                                end = MomentumSpacing.screen,
-                                bottom = MomentumSpacing.compact,
+                                start = MomentumSpacing.standard,
+                                end = MomentumSpacing.standard,
+                                bottom = MomentumSpacing.screen,
                             ),
                     ) {
                         LiquidGlassBottomBar {

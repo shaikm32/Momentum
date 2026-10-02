@@ -186,13 +186,21 @@
     <string name="cd_theme_selected">%1$s selected</string>
 
     <!-- Today -->
-    <string name="today_empty_action">Add an activity</string>
     <string name="today_empty_body">When you add a habit or task it shows up here. One small step is enough.</string>
     <string name="today_empty_title">Nothing scheduled today</string>
     <string name="today_loading">Loading today…</string>
-    <string name="today_section_completed">Completed today</string>
-    <string name="today_section_remaining">Remaining today</string>
-    <string name="hero_progress_count">%1$d of %2$d completed</string>
+    <string name="today_section_completed">Completed</string>
+    <string name="today_section_remaining">Pending</string>
+    <string name="today_section_scheduled_today">Scheduled Today</string>
+    <string name="today_section_finished">Finished</string>
+    <string name="today_progress_suffix">items done</string>
+    <string name="today_progress_ring_unit">done</string>
+    <string name="cd_progress_completed">%1$d Completed</string>
+    <string name="cd_progress_pending">%1$d Pending</string>
+    <string name="today_hero_fraction">%1$d of %2$d</string>
+    <string name="today_hero_complete">Today is complete</string>
+    <string name="today_hero_progress_desc">%1$d of %2$d completed today</string>
+    <string name="today_greeting_support">Ready to conquer your day?</string>
     <string name="target_entry_actual">Actual</string>
     <string name="target_entry_placeholder">e.g. %1$s</string>
     <string name="target_entry_target">Target</string>
@@ -369,18 +377,13 @@
     <string name="creation_error_unit_too_long">Keep the unit short.</string>
 
     <!-- Today Hero copy (DECISIONS §5/§6/§9) -->
-    <string name="today_celebrate_all_done">All done — momentum secured.</string>
+    <string name="today_encouragement_streak">Keep your %1$d-day streak going.</string>
+    <string name="today_encouragement_next">Next up: %1$s</string>
     <string name="today_error_load_plan">Couldn\'t load today\'s plan.</string>
     <string name="today_greeting_afternoon">Good afternoon</string>
     <string name="today_greeting_evening">Good evening</string>
     <string name="today_greeting_morning">Good morning</string>
     <string name="today_greeting_night">Good night</string>
-    <string name="today_message_all_complete">Everything complete. Rest easy.</string>
-    <string name="today_message_building">You\'re building momentum.</string>
-    <string name="today_message_first_win">First win banked. Keep going.</string>
-    <string name="today_message_one_more">One more — finish strong.</string>
-    <string name="today_message_one_small_win">One small win starts everything.</string>
-    <string name="today_message_small_steps">Small steps, unstoppable momentum.</string>
 
     <!-- Recurrence labels ("Weekly"/"Monthly"/"One-time"/"Weekdays" reuse the
          pattern_* / preset_* strings above) -->
