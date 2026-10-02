@@ -108,7 +108,13 @@ fun HomeTopChrome(
         // The artwork owns the window's top edge (ADR-33/37/39), so the chrome
         // insets the copy off the status bar while running on the artwork.
         Spacer(Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()))
-        Spacer(Modifier.height(MomentumSpacing.section))
+        // The status-bar inset above already supplies the clearance this chrome
+        // needs; any further gap on top of it only pushes the composition down
+        // into the artwork. What is left is the breathing space that keeps the
+        // chrome attached to the top edge without touching the status-bar icons
+        // or cutout — the smallest value on the 4 dp grid, carried by the named
+        // semantic alias [ChromeTopInset] rather than a literal or a new token.
+        Spacer(Modifier.height(ChromeTopInset))
         Row(
             modifier = Modifier.fillMaxWidth(),
             // Top, not CenterVertically: the chrome is fixed and grows with font
@@ -165,6 +171,24 @@ fun HomeTopChrome(
         Spacer(Modifier.height(ChromeBottomInset))
     }
 }
+
+/**
+ * The chrome's leading clearance, measured **after** the system status-bar /
+ * cutout inset that the chrome already applies above it.
+ *
+ * That inset supplies the real clearance — the chrome must clear the status
+ * icons — so this value only has to keep the composition attached to the top
+ * edge instead of welded to it. Anything larger reads as a gap between major
+ * sections and floats the chrome down into the Aurora field; nothing smaller
+ * than the grid's smallest step exists to choose.
+ *
+ * It is the design system's smallest spacing step, bound through this named
+ * alias rather than inlined: the token's own documented meaning (nudges inside
+ * compound controls) is not what this gap means, and inlining it would abuse an
+ * unrelated token. A named alias, not a new token and not a literal — the same
+ * treatment [ChromeBottomInset] gets on the trailing side.
+ */
+internal val ChromeTopInset = MomentumSpacing.micro
 
 /**
  * The chrome's trailing breathing room, and the minimum separation between the
